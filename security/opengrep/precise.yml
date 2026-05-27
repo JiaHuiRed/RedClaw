@@ -3813,24 +3813,7 @@ rules:
       detector-bucket: precise
       source-run: 2026-04-17T07-37-10Z
       source-rule-id: nextcloud-talk-allowlist-display-name-match
-  - id: ghsa-rchv-x836-w7xp.openclaw-dashboard-auth-query-credentials
-    message: Dashboard gateway credentials are being placed into URL query parameters. Use URL fragments/session-only handoff instead, and never propagate the gateway password into browser URLs. See GHSA-RCHV-X836-W7XP.
-    severity: ERROR
-    languages:
-      - swift
-    metadata:
-      ghsa: GHSA-RCHV-X836-W7XP
-      category: security
-      cwe:
-        - CWE-598
-      advisory-url: https://github.com/openclaw/openclaw/security/advisories/GHSA-RCHV-X836-W7XP
-      detector-bucket: precise
-      source-run: 2026-04-17T07-37-10Z
-      source-rule-id: openclaw-dashboard-auth-query-credentials
-    paths:
-      include:
-        - apps/macos/Sources/OpenClaw/**/*.swift
-    pattern-regex: \bqueryItems\s*\.\s*append\s*\(\s*URLQueryItem\s*\(\s*name:\s*"(?:token|password)"
+
   - id: ghsa-rhfg-j8jq-7v2h.openclaw.extension-configurable-baseurl-raw-fetch-bypasses-ssrf-guard
     languages:
       - typescript

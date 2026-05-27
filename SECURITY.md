@@ -1,34 +1,34 @@
 # Security Policy
 
-If you believe you've found a security issue in OpenClaw, report it privately first.
+If you believe you've found a security issue in RedClaw, report it privately first.
 
-This policy does two things: it gives researchers a clear disclosure path, and it spells out the trust model maintainers use when triaging reports. OpenClaw is local-first agent infrastructure for trusted operators; it is not designed as a shared multi-tenant boundary between adversarial users on one gateway.
+This policy does two things: it gives researchers a clear disclosure path, and it spells out the trust model maintainers use when triaging reports. RedClaw is local-first agent infrastructure for trusted operators; it is not designed as a shared multi-tenant boundary between adversarial users on one gateway.
 
 The fastest useful reports show a current, reproducible boundary bypass with demonstrated impact. Scanner output, prompt-injection-only chains, or reports that rely on hostile users sharing one trusted gateway are usually not security vulnerabilities under this model.
 
-Security work is shared across a number of OpenClaw maintainers, including engineers and security researchers from organizations such as NVIDIA and Tencent. See the [maintainer list](CONTRIBUTING.md#maintainers).
+Security work is shared across a number of RedClaw maintainers, including engineers and security researchers from organizations such as NVIDIA and Tencent. See the [maintainer list](CONTRIBUTING.md#maintainers).
 
 ## Report a Security Issue
 
 Report vulnerabilities directly to the repository where the issue lives:
 
-- **Core CLI and gateway** — [openclaw/openclaw](https://github.com/openclaw/openclaw)
-- **macOS desktop app** — [openclaw/openclaw](https://github.com/openclaw/openclaw) (apps/macos)
-- **iOS app** — [openclaw/openclaw](https://github.com/openclaw/openclaw) (apps/ios)
-- **Android app** — [openclaw/openclaw](https://github.com/openclaw/openclaw) (apps/android)
-- **ClawHub** — [openclaw/clawhub](https://github.com/openclaw/clawhub)
-- **Trust and threat model** — [openclaw/trust](https://github.com/openclaw/trust)
+- **Core CLI and gateway** �?[openclaw/openclaw](https://github.com/openclaw/openclaw)
+- **macOS desktop app** �?[openclaw/openclaw](https://github.com/openclaw/openclaw) (apps/macos)
+- **iOS app** �?[openclaw/openclaw](https://github.com/openclaw/openclaw) (apps/ios)
+- **Android app** �?[openclaw/openclaw](https://github.com/openclaw/openclaw) (apps/android)
+- **ClawHub** �?[openclaw/clawhub](https://github.com/openclaw/clawhub)
+- **Trust and threat model** �?[openclaw/trust](https://github.com/openclaw/trust)
 
 For issues that don't fit a specific repo, or if you're unsure, email **[security@openclaw.ai](mailto:security@openclaw.ai)** and we'll route it.
 
-For OpenClaw core issues, submit through a private [GitHub Security Advisory](https://github.com/openclaw/openclaw/security/advisories/new). Do not open a public issue or PR that discloses an unpatched vulnerability, exploit path, secret, or security-sensitive proof of concept.
+For RedClaw core issues, submit through a private [GitHub Security Advisory](https://github.com/openclaw/openclaw/security/advisories/new). Do not open a public issue or PR that discloses an unpatched vulnerability, exploit path, secret, or security-sensitive proof of concept.
 
 Maintainers may close, hide, delete, or otherwise take down public issues and PRs that disclose vulnerabilities or active security issues. We will redirect those reports through the private disclosure process so the issue can be triaged and fixed without giving attackers a public playbook.
 
 For full reporting instructions see our [Trust page](https://trust.openclaw.ai).
 For maintainer response workflow, see the [incident response plan](docs/security/incident-response.md).
 
-OpenClaw does not currently run a paid bug bounty program. Please still disclose responsibly so we can fix real issues quickly. The best way to help the project right now is to send high-signal reports and, when practical, focused PRs.
+RedClaw does not currently run a paid bug bounty program. Please still disclose responsibly so we can fix real issues quickly. The best way to help the project right now is to send high-signal reports and, when practical, focused PRs.
 
 ### What We Need
 
@@ -37,10 +37,10 @@ Make the report easy to reproduce and easy to route:
 - What you found and why you believe it is security-relevant.
 - The affected component, version, and commit SHA when possible.
 - Reproduction steps or a proof of concept against latest `main` or the latest released version.
-- The actual impact, including which OpenClaw trust boundary is crossed.
+- The actual impact, including which RedClaw trust boundary is crossed.
 - Any remediation advice or focused patch you can provide.
 
-Reports without reproduction steps, demonstrated impact, and remediation advice are deprioritized. We receive a high volume of AI-generated scanner findings, so we prioritize vetted reports from researchers who can show how the issue crosses an OpenClaw security boundary.
+Reports without reproduction steps, demonstrated impact, and remediation advice are deprioritized. We receive a high volume of AI-generated scanner findings, so we prioritize vetted reports from researchers who can show how the issue crosses a RedClaw security boundary.
 
 ### What Usually Is Not a Security Bug
 
@@ -50,7 +50,7 @@ These patterns are usually not vulnerabilities by themselves:
 - A trusted operator using an intentional local feature, such as local shell access or browser/script execution.
 - A malicious plugin after a trusted operator installs or enables it.
 - Multiple adversarial users sharing one Gateway host/config and expecting per-user isolation.
-- Scanner-only, dependency-only, or stale-path reports without a working repro and demonstrated OpenClaw impact.
+- Scanner-only, dependency-only, or stale-path reports without a working repro and demonstrated RedClaw impact.
 - Public internet exposure or risky deployment choices that the docs already recommend against.
 
 If you are unsure, report privately. We would rather route a careful report than miss a real boundary issue.
@@ -70,12 +70,12 @@ The sections below are the normative posture maintainers use for report triage. 
 For fastest triage, include all of the following:
 
 - Exact vulnerable path (`file`, function, and line range) on a current revision.
-- Tested version details (OpenClaw version and/or commit SHA).
+- Tested version details (RedClaw version and/or commit SHA).
 - Reproducible PoC against latest `main` or latest released version.
 - If the claim targets a released version, evidence from the shipped tag and published artifact/package for that exact version (not only `main`).
-- For dependency CVE reports, evidence that the shipped dependency version is actually affected, plus a PoC that reproduces impact through OpenClaw. Showing that OpenClaw can reach a native parser is not enough by itself.
-- Demonstrated impact tied to OpenClaw's documented trust boundaries.
-- For exposed-secret reports: proof the credential is OpenClaw-owned (or grants access to OpenClaw-operated infrastructure/services).
+- For dependency CVE reports, evidence that the shipped dependency version is actually affected, plus a PoC that reproduces impact through RedClaw. Showing that RedClaw can reach a native parser is not enough by itself.
+- Demonstrated impact tied to RedClaw's documented trust boundaries.
+- For exposed-secret reports: proof the credential is RedClaw-owned (or grants access to RedClaw-operated infrastructure/services).
 - Explicit statement that the report does not rely on adversarial operators sharing one gateway host/config.
 - Scope check explaining why the report is **not** covered by the Out of Scope section below.
 - For command-risk/parity reports (for example obfuscation detection differences), a concrete boundary-bypass path is required (auth/approval/allowlist/sandbox). Parity-only findings are treated as hardening, not vulnerabilities.
@@ -98,8 +98,8 @@ These are frequently reported but are typically closed with no code change:
 - Reports that treat `POST /tools/invoke` under shared-secret bearer auth (`gateway.auth.mode="token"` or `"password"`) as a narrower per-request/per-scope authorization surface. That endpoint is designed as the same trusted-operator HTTP boundary: shared-secret bearer auth is full operator access there, narrower `x-openclaw-scopes` values do not reduce that path, and owner-only tool policy follows the shared-secret operator contract.
 - Reports that only show differences in heuristic detection/parity (for example obfuscation-pattern detection on one exec path but not another, such as `node.invoke -> system.run` parity gaps) without demonstrating bypass of auth, approvals, allowlist enforcement, sandboxing, or other documented trust boundaries.
 - Reports that only show an ACP tool can indirectly execute, mutate, orchestrate sessions, or reach another tool/runtime without demonstrating bypass of ACP prompt/approval, allowlist enforcement, sandboxing, or another documented trust boundary. ACP silent approval is intentionally limited to narrow readonly classes; parity-only indirect-command findings are hardening, not vulnerabilities.
-- Reports that only show untrusted media bytes reaching a maintained native decoder dependency (for example image codec libraries such as libheif) without proving the shipped dependency version is vulnerable and demonstrating crash, memory corruption, data exposure, or a boundary bypass through OpenClaw. JavaScript header sniffing and image dimension fast-paths are preflight/UX checks, not the security boundary for native decoder correctness.
-- Reports whose only impact is transient extra memory, CPU, or allocation work from decoding, base64 expansion, media transcoding, serialization, or other format conversion after the input was already accepted under OpenClaw's configured size/trust limits, including base64 decode-before-size-estimate findings. These are performance issues, not vulnerabilities, unless the report demonstrates unauthenticated amplification, bypass of configured limits, crash/process termination, persistent resource exhaustion, data exposure, or another documented boundary bypass.
+- Reports that only show untrusted media bytes reaching a maintained native decoder dependency (for example image codec libraries such as libheif) without proving the shipped dependency version is vulnerable and demonstrating crash, memory corruption, data exposure, or a boundary bypass through RedClaw. JavaScript header sniffing and image dimension fast-paths are preflight/UX checks, not the security boundary for native decoder correctness.
+- Reports whose only impact is transient extra memory, CPU, or allocation work from decoding, base64 expansion, media transcoding, serialization, or other format conversion after the input was already accepted under RedClaw's configured size/trust limits, including base64 decode-before-size-estimate findings. These are performance issues, not vulnerabilities, unless the report demonstrates unauthenticated amplification, bypass of configured limits, crash/process termination, persistent resource exhaustion, data exposure, or another documented boundary bypass.
 - ReDoS/DoS claims that require trusted operator configuration input (for example catastrophic regex in `sessionFilter` or `logging.redactPatterns`) without a trust-boundary bypass.
 - Archive/install extraction claims that require pre-existing local filesystem priming in trusted state (for example planting symlink/hardlink aliases under destination directories such as skills/tools paths) without showing an untrusted path that can create/control that primitive.
 - Reports that depend on replacing or rewriting an already-approved executable path on a trusted host (same-path inode/content swap) without showing an untrusted path to perform that write.
@@ -111,7 +111,7 @@ These are frequently reported but are typically closed with no code change:
 - Claims that Microsoft Teams `fileConsent/invoke` `uploadInfo.uploadUrl` is attacker-controlled without demonstrating one of: auth boundary bypass, a real authenticated Teams/Bot Framework event carrying attacker-chosen URL, or compromise of the Microsoft/Bot trust path.
 - Scanner-only claims against stale/nonexistent paths, or claims without a working repro.
 - Reports that restate an already-fixed issue against later released versions without showing the vulnerable path still exists in the shipped tag or published artifact for that later version.
-- SSRF reports against the operator-managed HTTP/WebSocket proxy-routing feature whose only claim is that ordinary process-local HTTP clients (`fetch`, `node:http`, `node:https`, WebSocket clients, axios/got/node-fetch-style clients) can reach an internal, metadata, private, or otherwise sensitive destination when proxy routing is disabled, missing, or the operator-managed proxy policy allows it. For this feature, OpenClaw provides fail-closed proxy routing when enabled; the external proxy's destination policy is operator infrastructure, not an OpenClaw-controlled security boundary. See [Network proxy](https://docs.openclaw.ai/security/network-proxy).
+- SSRF reports against the operator-managed HTTP/WebSocket proxy-routing feature whose only claim is that ordinary process-local HTTP clients (`fetch`, `node:http`, `node:https`, WebSocket clients, axios/got/node-fetch-style clients) can reach an internal, metadata, private, or otherwise sensitive destination when proxy routing is disabled, missing, or the operator-managed proxy policy allows it. For this feature, RedClaw provides fail-closed proxy routing when enabled; the external proxy's destination policy is operator infrastructure, not a RedClaw-controlled security boundary. See [Network proxy](https://docs.openclaw.ai/security/network-proxy).
 
 ### Maintainer GHSA Updates via CLI
 
@@ -119,7 +119,7 @@ When patching a GHSA via `gh api`, include `X-GitHub-Api-Version: 2022-11-28` (o
 
 ### Operator Trust Model
 
-OpenClaw does **not** model one gateway as a multi-tenant, adversarial user boundary.
+RedClaw does **not** model one gateway as a multi-tenant, adversarial user boundary.
 
 - Authenticated Gateway callers are treated as trusted operators for that gateway instance.
 - Direct localhost/loopback Control UI and Gateway WebSocket sessions authenticated with the shared gateway secret (`token` / `password`) are in that same trusted-operator bucket. Local auto-paired device sessions on that path are expected to retain full localhost operator capability; they do not create a separate `operator.write` vs `operator.admin` security boundary.
@@ -133,18 +133,18 @@ OpenClaw does **not** model one gateway as a multi-tenant, adversarial user boun
   - only identity-bearing HTTP modes (for example trusted proxy auth or `gateway.auth.mode="none"` on private ingress) honor declared per-request operator scopes
 - Session identifiers (`sessionKey`, session IDs, labels) are routing controls, not per-user authorization boundaries.
 - If one operator can view data from another operator on the same gateway, that is expected in this trust model.
-- OpenClaw can technically run multiple gateway instances on one machine, but recommended operations are clean separation by trust boundary.
+- RedClaw can technically run multiple gateway instances on one machine, but recommended operations are clean separation by trust boundary.
 - Recommended mode: one user per machine/host (or VPS), one gateway for that user, and one or more agents inside that gateway.
-- If multiple users need OpenClaw, use one VPS (or host/OS user boundary) per user.
+- If multiple users need RedClaw, use one VPS (or host/OS user boundary) per user.
 - For advanced setups, multiple gateways on one machine are possible, but only with strict isolation and are not the recommended default.
 - Exec behavior is host-first by default: `agents.defaults.sandbox.mode` defaults to `off`.
 - `tools.exec.host` defaults to `auto`: sandbox when sandbox runtime is active for the session, otherwise gateway.
 - Implicit exec calls (no explicit host in the tool call) follow the same behavior.
-- This is expected in OpenClaw's one-user trusted-operator model. If you need isolation, enable sandbox mode (`non-main`/`all`) and keep strict tool policy.
+- This is expected in RedClaw's one-user trusted-operator model. If you need isolation, enable sandbox mode (`non-main`/`all`) and keep strict tool policy.
 
 ### Trusted Plugins
 
-Plugins/extensions are part of OpenClaw's trusted computing base for a gateway.
+Plugins/extensions are part of RedClaw's trusted computing base for a gateway.
 
 - Installing or enabling a plugin grants it the same trust level as local code running on that gateway host.
 - Plugin behavior such as reading env/files or running host commands is expected inside this trust boundary.
@@ -153,8 +153,8 @@ Plugins/extensions are part of OpenClaw's trusted computing base for a gateway.
 ### Out of Scope
 
 - Public Internet Exposure
-- Using OpenClaw in ways that the docs recommend not to
-- Test-only code and maintainer harnesses, including QA Lab, QE Lab, E2E fixtures, benchmark rigs, smoke-test containers, and local debugging proxies, unless the report demonstrates that the same vulnerable behavior is reachable from shipped OpenClaw production code or a published package artifact intended for users.
+- Using RedClaw in ways that the docs recommend not to
+- Test-only code and maintainer harnesses, including QA Lab, QE Lab, E2E fixtures, benchmark rigs, smoke-test containers, and local debugging proxies, unless the report demonstrates that the same vulnerable behavior is reachable from shipped RedClaw production code or a published package artifact intended for users.
 - Deployments where mutually untrusted/adversarial operators share one gateway host and config (for example, reports expecting per-operator isolation for `sessions.list`, `sessions.preview`, `chat.history`, or similar control-plane reads)
 - Prompt-injection-only attacks (without a policy/auth/sandbox boundary bypass)
 - Reports that require write access to trusted local state (`~/.openclaw`, workspace files like `MEMORY.md` / `memory/*.md`)
@@ -171,16 +171,16 @@ Plugins/extensions are part of OpenClaw's trusted computing base for a gateway.
 - Reports whose only claim is that exec approvals do not semantically model every interpreter/runtime loader form, subcommand, flag combination, package script, or transitive module/config import. Exec approvals bind exact request context and best-effort direct local file operands; they are not a complete semantic model of everything a runtime may load.
 - Reports whose only claim is parser reachability in an up-to-date maintained dependency without showing that the exact shipped dependency build is vulnerable. We keep native media dependencies current; dependency exposure alone is not a vulnerability.
 - Reports whose only claim is resource overhead from decode/encode, base64 expansion, media transcoding, serialization, or format-conversion order after input has already passed the applicable configured acceptance limits, including base64 decode-before-size-estimate findings. These are performance-only and should be ignored for GHSA triage unless the report demonstrates unauthenticated amplification, limit bypass, crash/process termination, persistent exhaustion, data exposure, or another documented boundary bypass.
-- Exposed secrets that are third-party/user-controlled credentials (not OpenClaw-owned and not granting access to OpenClaw-operated infrastructure/services) without demonstrated OpenClaw impact
+- Exposed secrets that are third-party/user-controlled credentials (not RedClaw-owned and not granting access to RedClaw-operated infrastructure/services) without demonstrated RedClaw impact
 - Reports whose only claim is host-side exec when sandbox runtime is disabled/unavailable (documented default behavior in the trusted-operator model), without a boundary bypass.
 - Reports whose only claim is that a platform-provided upload destination URL is untrusted (for example Microsoft Teams `fileConsent/invoke` `uploadInfo.uploadUrl`) without proving attacker control in an authenticated production flow.
 - SSRF reports limited to the operator-managed HTTP/WebSocket proxy-routing feature where the demonstrated mitigation is to enable/configure `proxy.enabled` with a filtering `proxy.proxyUrl`/`OPENCLAW_PROXY_URL`, or where impact depends on a permissive/misconfigured operator proxy. This only covers normal process-local HTTP(S)/WebSocket egress (`fetch`, Node HTTP(S), and similar JavaScript clients); non-HTTP egress and other features are assessed separately. See [Network proxy](https://docs.openclaw.ai/security/network-proxy).
 
 ### Deployment Assumptions
 
-OpenClaw security guidance assumes:
+RedClaw security guidance assumes:
 
-- The host where OpenClaw runs is within a trusted OS/admin boundary.
+- The host where RedClaw runs is within a trusted OS/admin boundary.
 - Anyone who can modify `~/.openclaw` state/config (including `openclaw.json`) is effectively a trusted operator.
 - A single Gateway shared by mutually untrusted people is **not a recommended setup**. Use separate gateways (or at minimum separate OS users/hosts) per trust boundary.
 - Authenticated Gateway callers are treated as trusted operators. Session identifiers (for example `sessionKey`) are routing controls, not per-user authorization boundaries.
@@ -188,7 +188,7 @@ OpenClaw security guidance assumes:
 
 ### One-User Trust Model
 
-OpenClaw's security model is "personal assistant" (one trusted operator, potentially many agents), not "shared multi-tenant bus."
+RedClaw's security model is "personal assistant" (one trusted operator, potentially many agents), not "shared multi-tenant bus."
 
 - If multiple people can message the same tool-enabled agent (for example a shared Slack workspace), they can all steer that agent within its granted permissions.
 - Non-owner sender status only affects owner-only tools/commands. If a non-owner can still access a non-owner-only tool on that same agent (for example `canvas`), that is within the granted tool boundary unless the report demonstrates an auth, policy, allowlist, approval, or sandbox bypass.
@@ -200,7 +200,7 @@ OpenClaw's security model is "personal assistant" (one trusted operator, potenti
 
 ### Context Visibility and Allowlists
 
-OpenClaw distinguishes:
+RedClaw distinguishes:
 
 - **Trigger authorization**: who can trigger the agent (`dmPolicy`, `groupPolicy`, allowlists, mention gates)
 - **Context visibility**: what supplemental context is provided to the model (reply body, quoted text, thread history, forwarded metadata)
@@ -226,12 +226,12 @@ Hardening roadmap may add explicit visibility modes (for example `all`, `allowli
 
 ### Gateway and Node Trust Concept
 
-OpenClaw separates routing from execution, but both remain inside the same operator trust boundary:
+RedClaw separates routing from execution, but both remain inside the same operator trust boundary:
 
 - **Gateway** is the control plane. If a caller passes Gateway auth, they are treated as a trusted operator for that Gateway.
 - **Node** is an execution extension of the Gateway. Pairing a node grants operator-level remote capability on that node.
 - **Exec approvals** (allowlist/ask UI) are operator guardrails to reduce accidental command execution, not a multi-tenant authorization boundary.
-- Exec approvals bind exact command/cwd/env context and, when OpenClaw can identify one concrete local script/file operand, that file snapshot too. This is best-effort integrity hardening, not a complete semantic model of every interpreter/runtime loader path.
+- Exec approvals bind exact command/cwd/env context and, when RedClaw can identify one concrete local script/file operand, that file snapshot too. This is best-effort integrity hardening, not a complete semantic model of every interpreter/runtime loader path.
 - Differences in command-risk warning heuristics between exec surfaces (`gateway`, `node`, `sandbox`) do not, by themselves, constitute a security-boundary bypass.
 - For untrusted-user isolation, split by trust boundary: separate gateways and separate OS users/hosts per boundary.
 
@@ -248,20 +248,20 @@ OpenClaw separates routing from execution, but both remain inside the same opera
 
 Plugins/extensions are loaded **in-process** with the Gateway and are treated as trusted code.
 
-- Plugins can execute with the same OS privileges as the OpenClaw process.
+- Plugins can execute with the same OS privileges as the RedClaw process.
 - Runtime helpers (for example `runtime.system.runCommandWithTimeout`) are convenience APIs, not a sandbox boundary.
 - Only install plugins you trust, and prefer `plugins.allow` to pin explicit trusted plugin ids.
 
 ### Temp Folder Boundary
 
-OpenClaw uses a dedicated temp root for local media handoff and sandbox-adjacent temp artifacts:
+RedClaw uses a dedicated temp root for local media handoff and sandbox-adjacent temp artifacts:
 
 - Preferred temp root: `/tmp/openclaw` (when available and safe on the host).
 - Fallback temp root: `os.tmpdir()/openclaw` (or `openclaw-<uid>` on multi-user hosts).
 
 Security boundary notes:
 
-- Sandbox media validation allows absolute temp paths only under the OpenClaw-managed temp root.
+- Sandbox media validation allows absolute temp paths only under the RedClaw-managed temp root.
 - Arbitrary host tmp paths are not treated as trusted media roots.
 - Plugin/extension code should use OpenClaw temp helpers (`resolvePreferredOpenClawTmpDir`, `buildRandomTempFilePath`, `withTempDownloadPath`) rather than raw `os.tmpdir()` defaults when handling media files.
 - Enforcement reference points:
@@ -291,13 +291,13 @@ For threat model + hardening guidance (including `openclaw security audit --deep
 
 #### Web Interface Safety
 
-OpenClaw's web interface (Gateway Control UI + HTTP endpoints) is intended for **local use only**.
+RedClaw's web interface (Gateway Control UI + HTTP endpoints) is intended for **local use only**.
 
 - Recommended: keep the Gateway **loopback-only** (`127.0.0.1` / `::1`).
   - Config: `gateway.bind="loopback"` (default).
   - CLI: `openclaw gateway run --bind loopback`.
 - `gateway.controlUi.dangerouslyDisableDeviceAuth` is intended for localhost-only break-glass use.
-  - OpenClaw keeps deployment flexibility by design and does not hard-forbid non-local setups.
+  - RedClaw keeps deployment flexibility by design and does not hard-forbid non-local setups.
   - Non-local and other risky configurations are surfaced by `openclaw security audit` as dangerous findings.
   - This operator-selected tradeoff is by design and not, by itself, a security vulnerability.
 - Canvas host note: network-visible canvas is **intentional** for trusted node scenarios (LAN/tailnet).
@@ -312,7 +312,7 @@ OpenClaw's web interface (Gateway Control UI + HTTP endpoints) is intended for *
 
 ### Node.js Version
 
-OpenClaw requires **Node.js 22.19.0 or later** (LTS). Node 24 is the recommended default runtime for new installs. The minimum version includes important security patches:
+RedClaw requires **Node.js 22.19.0 or later** (LTS). Node 24 is the recommended default runtime for new installs. The minimum version includes important security patches:
 
 - CVE-2025-59466: async_hooks DoS vulnerability
 - CVE-2026-21636: Permission model bypass vulnerability
@@ -325,7 +325,7 @@ node --version  # Should be v22.19.0 or later
 
 ### Docker Security
 
-When running OpenClaw in Docker:
+When running RedClaw in Docker:
 
 1. The official image runs as a non-root user (`node`) for reduced attack surface
 2. Use `--read-only` flag when possible for additional filesystem protection
@@ -341,11 +341,11 @@ docker run --read-only --cap-drop=ALL \
 
 ## Security Scanning
 
-OpenClaw uses several security and release-validation layers. No single scanner is treated as the boundary.
+RedClaw uses several security and release-validation layers. No single scanner is treated as the boundary.
 
 ### Secret Detection
 
-OpenClaw runs the pre-commit `detect-private-key` hook in CI and keeps secret-resolution behavior covered by the dedicated secrets test surface.
+RedClaw runs the pre-commit `detect-private-key` hook in CI and keeps secret-resolution behavior covered by the dedicated secrets test surface.
 
 Run the key scan locally:
 

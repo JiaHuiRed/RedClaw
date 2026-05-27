@@ -1,4 +1,4 @@
-# Contributing to OpenClaw
+# Contributing to RedClaw
 
 Welcome to the lobster tank! 🦞
 
@@ -105,7 +105,7 @@ For coordinated change sets that genuinely need more than 20 PRs, join the **#cl
 
 ## Before You PR
 
-- Test locally with your OpenClaw instance
+- Test locally with your RedClaw instance
 - External PRs must include a filled **Real behavior proof** section in the PR body. Show the real setup you tested, the exact command or steps you ran after the patch, after-fix evidence, the observed result, and anything you did not test. Screenshots, recordings, terminal screenshots, console output, copied live output, linked artifacts, and redacted runtime logs all count. Unit tests, mocks, snapshots, lint, typechecks, and CI are useful but do not satisfy this requirement by themselves. Maintainers may apply `proof: override` only when the proof gate should not apply.
 - Keep PRs takeover-ready: open them from a branch maintainers can push to. For fork PRs, leave GitHub's **Allow edits by maintainers** option enabled so maintainers can finish urgent fixes, changelog entries, or merge prep when needed. If GitHub shows **Allow edits and access to secrets by maintainers**, enable it only when that workflow/secrets access is acceptable and say so in the PR.
 - Do not edit `CHANGELOG.md` in contributor PRs. Maintainers or ClawSweeper add the changelog entry when landing user-facing changes.
@@ -183,7 +183,7 @@ We are currently prioritizing:
 
 - **Stability**: Fixing edge cases in channel connections (WhatsApp/Telegram).
 - **UX**: Improving the onboarding wizard and error messages.
-- **Skills**: For skill contributions, head to [ClawHub](https://clawhub.ai/) — the community hub for OpenClaw skills.
+- **Skills**: For skill contributions, head to [ClawHub](https://clawhub.ai/) — the community hub for RedClaw skills.
 - **Performance**: Optimizing token usage and compaction logic.
 
 Check the [GitHub Issues](https://github.com/openclaw/openclaw/issues) for
@@ -194,13 +194,13 @@ you'd like to work on it.
 ## Maintainers
 
 We're selectively expanding the maintainer team.
-If you're an experienced contributor who wants to help shape OpenClaw's direction — whether through code, docs, or community — we'd like to hear from you.
+If you're an experienced contributor who wants to help shape RedClaw's direction — whether through code, docs, or community — we'd like to hear from you.
 
 Being a maintainer is a responsibility, not an honorary title. We expect active, consistent involvement — triaging issues, reviewing PRs, and helping move the project forward.
 
 Still interested? Email contributing@openclaw.ai with:
 
-- Links to your PRs on OpenClaw (if you don't have any, start there first)
+- Links to your PRs on RedClaw (if you don't have any, start there first)
 - Links to open source projects you maintain or actively contribute to
 - Your GitHub, Discord, and X/Twitter handles
 - A brief intro: background, experience, and areas of interest

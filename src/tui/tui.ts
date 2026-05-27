@@ -896,7 +896,7 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
   const updateHeader = () => {
     const sessionLabel = formatSessionKey(currentSessionKey);
     const agentLabel = formatAgentLabel(currentAgentId);
-    const title = opts.title ?? "openclaw tui";
+    const title = opts.title ?? "redclaw tui";
     header.setText(
       theme.header(
         `${title} - ${client.connection.url} - agent ${agentLabel} - session ${sessionLabel}`,

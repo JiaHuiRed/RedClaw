@@ -176,12 +176,7 @@
       - any-glob-to-any-file:
           - "apps/ios/**"
           - "docs/platforms/ios.md"
-"app: macos":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "apps/macos/**"
-          - "docs/platforms/macos.md"
-          - "docs/platforms/mac/**"
+
 "app: web-ui":
   - changed-files:
       - any-glob-to-any-file:

@@ -1,16 +1,10 @@
-﻿# Changelog
+﻿# 更新日志
 
-Docs: https://docs.openclaw.ai
+## [0.0.1] - 2026-05-27
 
-## Unreleased
+### 变更
 
-### Changes
-
-- Memory: add a core OpenAI-compatible embedding provider for local and hosted OpenAI-style endpoints, with config, doctor, and docs support. (#85269) Thanks @dutifulbob.
-
-### Fixes
-
-- Telegram: route `sendMessage` action replies through durable outbound delivery so completed agent responses remain retryable when the gateway send path times out. (#87261) Thanks @mbelinky.
+- 从上游 OpenClaw 分支，移除全部 macOS 专属代码（apps/macos、apps/swabble、apps/macos-mlx-tts）
 
 ## 2026.5.26
 

@@ -87,23 +87,23 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
   const elevatedCompletions = createLevelCompletion(ELEVATED_LEVELS);
   const activationCompletions = createLevelCompletion(ACTIVATION_LEVELS);
   const commands: SlashCommand[] = [
-    { name: "help", description: "Show slash command help" },
-    { name: "gateway-status", description: "Show gateway status summary" },
-    { name: "gwstatus", description: "Alias for /gateway-status" },
-    ...(options.local ? [{ name: "auth", description: "Run provider auth/login flow" }] : []),
-    { name: "agent", description: "Switch agent (or open picker)" },
-    { name: "agents", description: "Open agent picker" },
-    { name: "crestodian", description: "Return to Crestodian" },
-    { name: "session", description: "Switch session (or open picker)" },
-    { name: "sessions", description: "Open session picker" },
+    { name: "help", description: "显示斜杠命令帮助" },
+    { name: "gateway-status", description: "显示网关状态摘要" },
+    { name: "gwstatus", description: "/gateway-status 的别名" },
+    ...(options.local ? [{ name: "auth", description: "运行提供商认证/登录流程" }] : []),
+    { name: "agent", description: "切换 Agent（或打开选择器）" },
+    { name: "agents", description: "打开 Agent 选择器" },
+    { name: "crestodian", description: "返回 Crestodian" },
+    { name: "session", description: "切换会话（或打开选择器）" },
+    { name: "sessions", description: "打开会话选择器" },
     {
       name: "model",
-      description: "Set model (or open picker)",
+      description: "设置模型（或打开选择器）",
     },
-    { name: "models", description: "Open model picker" },
+    { name: "models", description: "打开模型选择器" },
     {
       name: "think",
-      description: "Set thinking level",
+      description: "设置思维深度",
       getArgumentCompletions: (prefix) =>
         thinkLevels
           .filter((v) => v.startsWith(normalizeLowercaseStringOrEmpty(prefix)))
@@ -111,50 +111,50 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
     },
     {
       name: "fast",
-      description: "Set fast mode on/off",
+      description: "快速模式 开/关",
       getArgumentCompletions: fastCompletions,
     },
     {
       name: "verbose",
-      description: "Set verbose on/off",
+      description: "详细输出 开/关",
       getArgumentCompletions: verboseCompletions,
     },
     {
       name: "trace",
-      description: "Set trace on/off",
+      description: "追踪模式 开/关",
       getArgumentCompletions: traceCompletions,
     },
     {
       name: "reasoning",
-      description: "Set reasoning on/off",
+      description: "推理模式 开/关",
       getArgumentCompletions: reasoningCompletions,
     },
     {
       name: "usage",
-      description: "Toggle per-response usage line",
+      description: "切换每次回复的用量显示",
       getArgumentCompletions: usageCompletions,
     },
     {
       name: "elevated",
-      description: "Set elevated on/off/ask/full",
+      description: "提权模式 开/关/询问/完全",
       getArgumentCompletions: elevatedCompletions,
     },
     {
       name: "elev",
-      description: "Alias for /elevated",
+      description: "/elevated 的别名",
       getArgumentCompletions: elevatedCompletions,
     },
     {
       name: "activation",
-      description: "Set group activation",
+      description: "设置群组激活方式",
       getArgumentCompletions: activationCompletions,
     },
-    { name: "abort", description: "Abort active run" },
-    { name: "new", description: "Reset the session" },
-    { name: "reset", description: "Reset the session" },
-    { name: "settings", description: "Open settings" },
-    { name: "exit", description: "Exit the TUI" },
-    { name: "quit", description: "Exit the TUI" },
+    { name: "abort", description: "中止当前运行" },
+    { name: "new", description: "重置会话" },
+    { name: "reset", description: "重置会话" },
+    { name: "settings", description: "打开设置" },
+    { name: "exit", description: "退出 TUI" },
+    { name: "quit", description: "退出 TUI" },
   ];
 
   const seen = new Set(commands.map((command) => command.name));

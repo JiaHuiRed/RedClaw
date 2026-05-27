@@ -1,7 +1,7 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>OpenClaw</title>
+        <title>RedClaw</title>
         <item>
             <title>2026.5.26</title>
             <pubDate>Wed, 27 May 2026 12:24:26 +0000</pubDate>
@@ -9,7 +9,7 @@
             <sparkle:version>2026052690</sparkle:version>
             <sparkle:shortVersionString>2026.5.26</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>OpenClaw 2026.5.26</h2>
+            <description><![CDATA[<h2>RedClaw 2026.5.26</h2>
 <h3>Highlights</h3>
 <ul>
 <li>Faster Gateway and replies: startup avoids repeated plugin, channel, session, usage-cost, warning, scheduled-service, and filesystem scans; visible replies separate user-facing sends from slower follow-up work; Gateway runtime/session caches churn less under load.</li>
@@ -218,7 +218,7 @@
             <sparkle:version>2026052290</sparkle:version>
             <sparkle:shortVersionString>2026.5.22</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>OpenClaw 2026.5.22</h2>
+            <description><![CDATA[<h2>RedClaw 2026.5.22</h2>
 <h3>Changes</h3>
 <ul>
 <li>Gateway/perf: reuse process-stable channel catalog reads, avoid repeated bundled-channel boundary checks, and rotate gateway watch CPU profiles so benchmark runs do not accumulate unbounded artifacts.</li>
@@ -497,7 +497,7 @@
             <sparkle:version>2026052090</sparkle:version>
             <sparkle:shortVersionString>2026.5.20</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<h2>OpenClaw 2026.5.20</h2>
+            <description><![CDATA[<h2>RedClaw 2026.5.20</h2>
 <h3>Changes</h3>
 <ul>
 <li>Exec approvals: remove the old <code>cat SKILL.md && printf ... && <skill-wrapper></code> allowlist compatibility path so skill files must be loaded with the read tool and only the real skill executable is auto-allowed.</li>

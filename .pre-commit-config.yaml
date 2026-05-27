@@ -48,7 +48,7 @@ repos:
             --min-severity=medium,
             --min-confidence=medium,
           ]
-        exclude: "^(vendor/|apps/swabble/)"
+        exclude: "^(vendor/)"
 
   # Python checks for skills scripts
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -94,18 +94,4 @@ repos:
         pass_filenames: false
         types_or: [javascript, jsx, ts, tsx]
 
-      # swiftlint (same as CI)
-      - id: swiftlint
-        name: swiftlint
-        entry: swiftlint lint --config config/swiftlint.yml
-        language: system
-        pass_filenames: false
-        types: [swift]
 
-      # swiftformat --lint (same as CI)
-      - id: swiftformat
-        name: swiftformat
-        entry: swiftformat --lint apps/macos/Sources --config config/swiftformat --exclude '**/OpenClawProtocol,**/HostEnvSecurityPolicy.generated.swift'
-        language: system
-        pass_filenames: false
-        types: [swift]
