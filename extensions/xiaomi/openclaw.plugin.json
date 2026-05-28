@@ -89,6 +89,19 @@
       "cliFlag": "--xiaomi-api-key",
       "cliOption": "--xiaomi-api-key <key>",
       "cliDescription": "Xiaomi API key"
+    },
+    {
+      "provider": "xiaomi",
+      "method": "plan-api-key",
+      "choiceId": "xiaomi-plan-api-key",
+      "choiceLabel": "Xiaomi Code Plan key（订阅套餐 tp- key）",
+      "groupId": "xiaomi",
+      "groupLabel": "Xiaomi",
+      "groupHint": "订阅套餐专属 API key",
+      "optionKey": "xiaomiPlanApiKey",
+      "cliFlag": "--xiaomi-plan-api-key",
+      "cliOption": "--xiaomi-plan-api-key <key>",
+      "cliDescription": "Xiaomi Code Plan API key (tp-...)"
     }
   ],
   "configSchema": {

@@ -18,7 +18,8 @@ const LOCALES: Record<WizardLocale, WizardTranslationMap> = {
   "zh-TW": zh_TW,
 };
 
-export const WIZARD_DEFAULT_LOCALE: WizardLocale = "en";
+//260528 Red RedClaw 面向中文用户，默认使用简体中文
+export const WIZARD_DEFAULT_LOCALE: WizardLocale = "zh-CN";
 export const WIZARD_SUPPORTED_LOCALES: readonly WizardLocale[] = ["en", "zh-CN", "zh-TW"];
 
 function normalizeLocaleToken(raw: string | undefined): string {

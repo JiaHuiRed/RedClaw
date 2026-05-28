@@ -1,5 +1,23 @@
 # 更新日志
 
+## [0.0.3] - 2026-05-28
+
+### 新增
+
+- **Xiaomi Code Plan 原生支持**（`extensions/xiaomi/`）：新增 `plan-api-key` auth method，选此方式时自动使用 `token-plan-cn.xiaomimimo.com/v1` 端点；`tp-` 前缀订阅 key 无需再走 custom provider 绕道。onboard 向导选 provider 时会出现「Xiaomi Code Plan key」选项。
+
+### 变更
+
+- **默认语言切换为中文**（`src/wizard/i18n/index.ts`）：向导默认 locale 从 `en` 改为 `zh-CN`，无需配置 `OPENCLAW_LOCALE` 环境变量。
+- **向导内 OpenClaw → RedClaw**（`src/wizard/i18n/locales/zh-CN.ts`）：安全免责声明、初始化标题、dashboard 提示、配置存储提示等所有用户可见文案统一替换为 RedClaw。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
 ## [0.0.2] - 2026-05-28
 
 ### 新增
