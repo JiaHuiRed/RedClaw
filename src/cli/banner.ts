@@ -75,19 +75,20 @@ export function formatCliBannerLine(version: string, options: BannerOptions = {}
   const prefix = decorativeEmoji("🦞", emojiOptions);
   const indent = prefix ? `${prefix} ` : "";
   const columns = options.columns ?? process.stdout.columns ?? 120;
-  const plainBaseLine = `${title} v${version} (${commitLabel})`;
+  //260528 Red 版本号右侧加 🐲 logo，与上游 🦞 区分
+  const plainBaseLine = `${title} v${version} 🐲 (${commitLabel})`;
   const plainFullLine = tagline ? `${plainBaseLine} — ${tagline}` : plainBaseLine;
   const fitsOnOneLine = visibleWidth(plainFullLine) <= columns;
   if (rich) {
     if (fitsOnOneLine) {
       if (!tagline) {
-        return `${theme.heading(title)} ${theme.info(version)} ${theme.muted(`(${commitLabel})`)}`;
+        return `${theme.heading(title)} ${theme.info(version)} 🐲 ${theme.muted(`(${commitLabel})`)}`;
       }
-      return `${theme.heading(title)} ${theme.info(version)} ${theme.muted(
+      return `${theme.heading(title)} ${theme.info(version)} 🐲 ${theme.muted(
         `(${commitLabel})`,
       )} ${theme.muted("—")} ${theme.accentDim(tagline)}`;
     }
-    const line1 = `${theme.heading(title)} ${theme.info(version)} ${theme.muted(
+    const line1 = `${theme.heading(title)} ${theme.info(version)} 🐲 ${theme.muted(
       `(${commitLabel})`,
     )}`;
     if (!tagline) {

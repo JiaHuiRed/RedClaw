@@ -947,11 +947,19 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
   let waitingTimer: NodeJS.Timeout | null = null;
   let waitingPhrase: string | null = null;
 
+  //260528 Red 加载时在 connectionStatus 右侧渲染龙喷火动画
+  const DRAGON_FIRE_FRAMES = ["🐲", "🐲·", "🐲～", "🐲～🔥", "🐲～～🔥", "🐲～🔥", "🐲·"];
+  let dragonFireTick = 0;
+
   const updateBusyStatusMessage = () => {
     if (!statusLoader || !statusStartedAt) {
       return;
     }
     const elapsed = formatElapsed(statusStartedAt);
+    //260528 Red 每次 busy tick 推进一帧火焰
+    dragonFireTick++;
+    const fire = DRAGON_FIRE_FRAMES[dragonFireTick % DRAGON_FIRE_FRAMES.length];
+    const animatedConnectionStatus = `${connectionStatus} ${fire}`;
 
     if (activityStatus === "waiting") {
       waitingTick++;
@@ -960,14 +968,14 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
           theme,
           tick: waitingTick,
           elapsed,
-          connectionStatus,
+          connectionStatus: animatedConnectionStatus,
           phrases: waitingPhrase ? [waitingPhrase] : undefined,
         }),
       );
       return;
     }
 
-    statusLoader.setMessage(`${activityStatus} • ${elapsed} | ${connectionStatus}`);
+    statusLoader.setMessage(`${activityStatus} • ${elapsed} | ${animatedConnectionStatus}`);
   };
 
   const startStatusTimer = () => {

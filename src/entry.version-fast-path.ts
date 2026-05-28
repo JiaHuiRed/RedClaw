@@ -45,7 +45,8 @@ export function tryHandleRootVersionFastPath(
   resolveVersion()
     .then(({ VERSION, resolveCommitHash }) => {
       const commit = resolveCommitHash({ moduleUrl: deps.moduleUrl ?? import.meta.url });
-      output(commit ? `OpenClaw ${VERSION} (${commit})` : `OpenClaw ${VERSION}`);
+      //260528 Red --version 输出统一品牌为 RedClaw 🐲
+      output(commit ? `RedClaw ${VERSION} 🐲 (${commit})` : `RedClaw ${VERSION} 🐲`);
       exit(0);
     })
     .catch(onError);
