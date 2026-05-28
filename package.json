@@ -1,6 +1,6 @@
 {
   "name": "openclaw",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Multi-channel AI gateway with extensible messaging integrations",
   "keywords": [],
   "homepage": "https://github.com/openclaw/openclaw#readme",
@@ -14,7 +14,8 @@
     "url": "git+https://github.com/openclaw/openclaw.git"
   },
   "bin": {
-    "openclaw": "openclaw.mjs"
+    "openclaw": "openclaw.mjs",
+    "redclaw": "openclaw.mjs"
   },
   "directories": {
     "doc": "docs",
