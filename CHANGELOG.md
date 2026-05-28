@@ -1,5 +1,15 @@
 # 更新日志
 
+## [未发布]
+
+### 变更
+
+- **README-en.md 重写**：移除上游 OpenClaw 的 40+ 渠道列表，更新为 RedClaw 实际支持的内容（QQBot、小米/DeepSeek/Ollama 等）
+- **labeler.yml 清理**：移除约 40 个已删扩展的标签条目，仅保留现有 53 个扩展的规则
+- **dependabot.yml 清理**：移除过时的 Swift Package Manager（MoltbotKit）和 Gradle（Android）条目
+- **vitest 配置清理**：删除 14 个已删扩展的 vitest 配置文件（slack/telegram/discord/whatsapp/signal/matrix/feishu/irc/imessage/line/mattermost/msteams/zalo/voice-call）
+- **package.json 脚本清理**：移除 `mac:open`、`mac:package`、`mac:restart`、`lint:extensions:telegram-grammy-types`
+
 ## [0.0.4] - 2026-05-28
 
 ### 新增
