@@ -4,7 +4,7 @@ import {
   buildProviderReplayFamilyHooks,
 } from "openclaw/plugin-sdk/provider-model-shared";
 import { PROVIDER_LABELS } from "openclaw/plugin-sdk/provider-usage";
-import { applyXiaomiConfig, XIAOMI_DEFAULT_MODEL_REF } from "./onboard.js";
+import { applyXiaomiConfig, applyXiaomiPlanConfig, XIAOMI_DEFAULT_MODEL_REF } from "./onboard.js";
 import { buildXiaomiProvider } from "./provider-catalog.js";
 import { buildXiaomiSpeechProvider } from "./speech-provider.js";
 import { createMiMoThinkingWrapper } from "./stream.js";
@@ -23,13 +23,25 @@ export default defineSingleProviderPluginEntry({
       {
         methodId: "api-key",
         label: "Xiaomi API key",
-        hint: "API key",
+        hint: "API key（开放平台 sk- 前缀）",
         optionKey: "xiaomiApiKey",
         flagName: "--xiaomi-api-key",
         envVar: "XIAOMI_API_KEY",
         promptMessage: "Enter Xiaomi API key",
         defaultModel: XIAOMI_DEFAULT_MODEL_REF,
         applyConfig: (cfg) => applyXiaomiConfig(cfg),
+      },
+      //260528 Red 小米 Code Plan 订阅套餐支持（tp- 前缀 key，token-plan-cn 端点）
+      {
+        methodId: "plan-api-key",
+        label: "Xiaomi Code Plan key",
+        hint: "订阅套餐专属 API key（tp- 前缀）",
+        optionKey: "xiaomiPlanApiKey",
+        flagName: "--xiaomi-plan-api-key",
+        envVar: "XIAOMI_API_KEY",
+        promptMessage: "Enter Xiaomi Code Plan API key (tp-...)",
+        defaultModel: XIAOMI_DEFAULT_MODEL_REF,
+        applyConfig: (cfg) => applyXiaomiPlanConfig(cfg),
       },
     ],
     catalog: {

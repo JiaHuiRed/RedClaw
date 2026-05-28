@@ -5,7 +5,7 @@
 > 作者：Red
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v0.0.2-blue?style=for-the-badge" alt="版本">
+  <img src="https://img.shields.io/badge/版本-v0.0.3-blue?style=for-the-badge" alt="版本">
   <img src="https://img.shields.io/badge/许可证-MIT-green?style=for-the-badge" alt="MIT">
   <img src="https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge" alt="平台">
   <img src="https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge" alt="TypeScript">
@@ -98,10 +98,11 @@ RedClaw/
 
 ## 📜 版本历史
 
-| 版本   | 日期       | 内容                                                    |
-| ------ | ---------- | ------------------------------------------------------- |
-| v0.0.2 | 2026-05-28 | 🐲 品牌化、龙喷火加载动画、`redclaw` 命令别名、部署文档 |
-| v0.0.1 | 2026-05-27 | 从 OpenClaw 分支，移除 macOS 代码、精简非必需 extension |
+| 版本   | 日期       | 内容                                                        |
+| ------ | ---------- | ----------------------------------------------------------- |
+| v0.0.3 | 2026-05-28 | Xiaomi Code Plan 原生支持、向导默认中文、RedClaw 品牌化文案 |
+| v0.0.2 | 2026-05-28 | 🐲 品牌化、龙喷火加载动画、`redclaw` 命令别名、部署文档     |
+| v0.0.1 | 2026-05-27 | 从 OpenClaw 分支，移除 macOS 代码、精简非必需 extension     |
 
 ## 🙏 致谢
 
