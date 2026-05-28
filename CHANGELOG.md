@@ -1,5 +1,22 @@
 # 更新日志
 
+## [0.0.4] - 2026-05-28
+
+### 新增
+
+- **README 全面重写**（`README.md`）：贴合 RED_PROFILE 规范，表格对比上下游差异，中文主版本，关联 CHANGELOG，移除无关内容。
+
+### 修复
+
+- **Onboard 渠道列表清理**（`src/config/bundled-channel-config-metadata.generated.ts`）：`pnpm config:channels:gen` 在 Windows 因 `import.meta.url` 路径格式未触发写入逻辑，导致已删除的 22 个渠道（Discord、Feishu、LINE 等）仍出现在 onboard 选择器。直接调用生成函数写入，现仅保留 QQBot。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
 ## [0.0.3] - 2026-05-28
 
 ### 新增
