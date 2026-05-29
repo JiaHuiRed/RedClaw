@@ -83,6 +83,57 @@ redclaw onboard   # 交互式向导，中文界面
 
 > 小米 Code Plan 订阅用户（`tp-` 前缀 key）：onboard 时选「Xiaomi Code Plan key」选项，自动使用正确端点。
 
+### 🎨 本地图像生成（ComfyUI + SD 3.5）
+
+秋秋可以通过 ComfyUI 调用本地扩散模型生成图片，完全离线、零 API 成本。
+
+**前置：安装 ComfyUI**
+
+```bash
+git clone https://github.com/comfyanonymous/ComfyUI.git
+cd ComfyUI
+pip install -r requirements.txt
+# 把 SD 3.5 模型文件放进 models/checkpoints/
+python main.py   # 默认监听 http://127.0.0.1:8188
+```
+
+**获取 workflow 和节点 ID**
+
+1. 在 ComfyUI 浏览器界面搭好你的生图工作流
+2. 右上角 → **Save (API format)** → 保存为 `workflow.json`
+3. 打开 JSON，找到接收提示词的节点（通常是 `CLIPTextEncode`，记下其 `id`，例如 `"6"`）
+4. 找到输出节点（通常是 `SaveImage`，记下 `id`，例如 `"9"`）
+
+**配置 `~/.openclaw/openclaw.json`**
+
+在配置文件中加入：
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "comfy": {
+        "enabled": true,
+        "config": {
+          "baseUrl": "http://127.0.0.1:8188",
+          "image": {
+            "workflowPath": "C:/path/to/workflow.json",
+            "promptNodeId": "6",
+            "outputNodeId": "9"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+> `promptNodeId` 是必填项，`outputNodeId` 省略时自动取工作流最后一个输出节点。
+
+配置完成后重启 RedClaw，对秋秋说「帮我画一张……」即可触发生图。
+
+---
+
 ### Workspace 位置
 
 首次启动后自动创建 `~/.openclaw/`：
