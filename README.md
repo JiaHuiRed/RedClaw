@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的个人 AI 助手 — 在自己设备上运行的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.0.4-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.0.5-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![语言](https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge)](#)
@@ -157,6 +157,7 @@ python main.py   # 默认监听 http://127.0.0.1:8188
 
 | 版本                                    | 日期       | 内容                                             |
 | --------------------------------------- | ---------- | ------------------------------------------------ |
+| [v0.0.5](CHANGELOG.md#005---2026-05-29) | 2026-05-29 | zh-TW 品牌化、ComfyUI 图像生成指南、CI 配置清理  |
 | [v0.0.4](CHANGELOG.md#004---2026-05-28) | 2026-05-28 | 清理 onboard 渠道列表，仅保留 QQBot；README 重写 |
 | [v0.0.3](CHANGELOG.md#003---2026-05-28) | 2026-05-28 | 小米 Code Plan 原生支持、向导默认中文            |
 | [v0.0.2](CHANGELOG.md#002---2026-05-28) | 2026-05-28 | 🐲 品牌化、龙喷火动画、redclaw 命令别名          |

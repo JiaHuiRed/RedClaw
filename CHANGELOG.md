@@ -1,14 +1,27 @@
 # 更新日志
 
-## [未发布]
+## [0.0.5] - 2026-05-29
+
+### 新增
+
+- **ComfyUI 本地图像生成指南**（`README.md`）：补充 ComfyUI + SD 3.5 完整配置步骤，包括 workflow 导出、节点 ID 获取与 `openclaw.json` 配置示例。
+
+### 修复
+
+- **zh-TW 向导文案品牌化**（`src/wizard/i18n/locales/zh-TW.ts`）：将 intro/beta/confirm/hardening/dashboard/outro 等所有用户可见字符串替换为 RedClaw，保留 `docs.openclaw.ai` URL 不变。
+- **ACP client 日志**（`src/acp/client.ts`）：`console.log("OpenClaw ACP client")` → `RedClaw ACP client`。
+- **迁移错误提示**（`src/wizard/setup.migration-import.ts`）：onboard 迁移失败提示中的名称改为 RedClaw。
 
 ### 变更
 
-- **README-en.md 重写**：移除上游 OpenClaw 的 40+ 渠道列表，更新为 RedClaw 实际支持的内容（QQBot、小米/DeepSeek/Ollama 等）
-- **labeler.yml 清理**：移除约 40 个已删扩展的标签条目，仅保留现有 53 个扩展的规则
-- **dependabot.yml 清理**：移除过时的 Swift Package Manager（MoltbotKit）和 Gradle（Android）条目
-- **vitest 配置清理**：删除 14 个已删扩展的 vitest 配置文件（slack/telegram/discord/whatsapp/signal/matrix/feishu/irc/imessage/line/mattermost/msteams/zalo/voice-call）
-- **package.json 脚本清理**：移除 `mac:open`、`mac:package`、`mac:restart`、`lint:extensions:telegram-grammy-types`
+- **CI/构建配置清理**（`a4a62d2`，昨晚家用机提交）：README-en.md 重写、labeler.yml 移除 40 个已删扩展标签、dependabot.yml 移除 Swift/Gradle 条目、删除 14 个 vitest 配置文件、package.json 移除 mac 脚本。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
 
 ## [0.0.4] - 2026-05-28
 
