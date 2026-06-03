@@ -1,5 +1,25 @@
 # 更新日志
 
+## [0.0.8] - 2026-06-03
+
+### 新增
+
+- **工具 Schema 定义**（`src/tools/capabilities/tool-schema.ts`）：参考 RedCode 的 Schema-first 设计，提供运行时类型安全的工具能力标记系统，包含 ToolCapability 枚举（ReadOnly/WritesFiles/ExecutesCode/Network/Sandboxable/RequiresApproval）、ApprovalLevel 三级审批（Auto/Suggest/Required）、执行策略评估器、12 个内置工具配置文件。
+- **权限规则引擎**（`src/tools/capabilities/permission/`）：Merge 自 RedCode 的 Permission 系统，包含 wildcard 模式匹配（支持 `*` 和 `?`，Windows 忽略大小写）、规则集评估（最长匹配优先）、配置文件解析、工具禁用检测、规则动作到审批级别的适配。
+- **持续学习系统模板**（`src/tools/capabilities/learning-system.ts`）：定义学习来源（Red 项目/MCP 生态/技术追踪）、学习记录结构、自我迭代模板，用于秋秋的定期学习和自我改进。
+
+### 变更
+
+- **Zen 免费模型免 Key**（`extensions/opencode/src/zen-catalog.ts`）：无 API Key 时只返回免费模型（`*-free`），有 Key 返回全部模型。
+- **插件版本兼容性**（`src/version.ts`）：RedClaw 语义化版本自动转换为日期版本（`2026.6.3`），确保第三方插件版本检查通过。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
 ## [0.0.7] - 2026-06-03
 
 ### 新增

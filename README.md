@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的个人 AI 助手 — 在自己设备上运行的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.0.7-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.0.8-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![语言](https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge)](#)
@@ -160,6 +160,7 @@ python main.py   # 默认监听 http://127.0.0.1:8188
 
 | 版本                                    | 日期       | 内容                                             |
 | --------------------------------------- | ---------- | ------------------------------------------------ |
+| [v0.0.8](CHANGELOG.md#008---2026-06-03) | 2026-06-03 | 工具 Schema + 权限规则引擎 + 学习系统            |
 | [v0.0.7](CHANGELOG.md#007---2026-06-03) | 2026-06-03 | 运行时模型自动发现、onboarding 特色提供商        |
 | [v0.0.6](CHANGELOG.md#006---2026-06-03) | 2026-06-03 | 激进瘦身：删除 39 extension、40 skill、520 脚本  |
 | [v0.0.5](CHANGELOG.md#005---2026-05-29) | 2026-05-29 | zh-TW 品牌化、ComfyUI 图像生成指南、CI 配置清理  |
