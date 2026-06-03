@@ -1,5 +1,43 @@
 # 更新日志
 
+## [0.0.7] - 2026-06-03
+
+### 新增
+
+- **OpenCode Zen 运行时目录**（`extensions/opencode/src/zen-catalog.ts`）：启动时自动从 `https://opencode.ai/zen/v1/models` 拉取可用模型列表，免费模型（big-pickle、deepseek-v4-flash-free、mimo-v2.5-free、nemotron-3-super-free）与付费模型均自动发现，无需手动维护静态列表。
+- **DeepSeek 运行时目录**（`extensions/deepseek/src/deepseek-catalog.ts`）：调用 `https://api.deepseek.com/models` 动态获取模型，支持 V4 Flash/Pro（1M 上下文）、Chat、Reasoner；API 不可用时自动回退到 manifest 静态列表。
+- **Xiaomi 运行时目录**（`extensions/xiaomi/src/xiaomi-catalog.ts`）：调用 `https://api.xiaomimimo.com/v1/models` 动态获取模型，自动识别 `tp-` 前缀 key 并切换到 Code Plan 端点（`token-plan-cn.xiaomimimo.com/v1`）。
+- **Onboarding 特色提供商**：OpenCode、DeepSeek、Xiaomi 提升为 onboarding 向导的「特色」提供商，与 OpenAI/Anthropic 并列显示在选择列表顶部，用户无需再点击「More...」查找。
+
+### 变更
+
+- **提供商排序优化**（`src/commands/auth-choice-options.ts`）：特色提供商排序调整为 OpenCode → OpenAI → Anthropic → DeepSeek → Xiaomi → xAI → Google，国产提供商优先展示。
+- **Onboarding 提示文案优化**：OpenCode 提示改为「Free + paid models via Zen API」，DeepSeek 改为「DeepSeek V4 Flash/Pro + Chat/Reasoner」，Xiaomi 改为「MiMo V2 Flash/Pro/Omni (free)」。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
+## [0.0.6] - 2026-06-03
+
+### 变更
+
+- **激进瘦身**：删除 39 个非必需 extension（web search/渠道/OpenCode-Go/migration/SDK 等），保留 14 个核心（deepseek/ollama/openai/anthropic/xiaomi/qqbot/memory/browser/tts/comfy/elevenlabs/gradium/opencode）。
+- **Skill 精简**：删除 40 个非必需 skill（apple-notes/bear/discord/slack/spotify/weather 等），保留 17 个核心（clawhub/healthcheck/model-usage/obsidian/notion/session-logs 等）。
+- **Scripts 瘦身**：删除 ~520 个脚本（Docker E2E/release/npm-publish/CI/QA/Mantis/termux/docs-i18n/bench/plugin-publish），仅保留构建和基础运维脚本。
+- **包 manifest 清理**：`package.json files[]` 移除 34 个已删 extension 的 `!dist/extensions/` 排除项。
+- **测试辅助清理**：删除 `extensions/test-support/` 目录（provider-model-test-helpers、streaming-error-response 等），相关测试已适配。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
 ## [0.0.5] - 2026-05-29
 
 ### 新增
@@ -15,13 +53,6 @@
 ### 变更
 
 - **CI/构建配置清理**（`a4a62d2`，昨晚家用机提交）：README-en.md 重写、labeler.yml 移除 40 个已删扩展标签、dependabot.yml 移除 Swift/Gradle 条目、删除 14 个 vitest 配置文件、package.json 移除 mac 脚本。
-
-### 构建说明
-
-```bash
-pnpm build
-npm install -g .
-```
 
 ## [0.0.4] - 2026-05-28
 

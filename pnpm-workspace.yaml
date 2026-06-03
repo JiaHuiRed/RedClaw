@@ -127,5 +127,3 @@ packageExtensions:
     dependencies:
       strip-ansi: 7.2.0
 
-patchedDependencies:
-  '@agentclientprotocol/claude-agent-acp@0.37.0': patches/@agentclientprotocol__claude-agent-acp@0.37.0.patch

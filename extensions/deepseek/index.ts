@@ -3,7 +3,7 @@ import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-en
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
 import { applyDeepSeekConfig, DEEPSEEK_DEFAULT_MODEL_REF } from "./onboard.js";
-import { buildDeepSeekProvider } from "./provider-catalog.js";
+import { runDeepSeekCatalog } from "./src/deepseek-catalog.js";
 import { createDeepSeekV4ThinkingWrapper } from "./stream.js";
 import { resolveDeepSeekV4ThinkingProfile } from "./thinking.js";
 
@@ -37,7 +37,7 @@ export default defineSingleProviderPluginEntry({
       },
     ],
     catalog: {
-      buildProvider: buildDeepSeekProvider,
+      run: runDeepSeekCatalog,
     },
     augmentModelCatalog: ({ config }) =>
       readConfiguredProviderCatalogEntries({

@@ -29,11 +29,12 @@
       "choiceLabel": "OpenCode Zen catalog",
       "groupId": "opencode",
       "groupLabel": "OpenCode",
-      "groupHint": "Shared API key for Zen + Go catalogs",
+      "groupHint": "Free + paid models via Zen API",
       "optionKey": "opencodeZenApiKey",
       "cliFlag": "--opencode-zen-api-key",
       "cliOption": "--opencode-zen-api-key <key>",
-      "cliDescription": "OpenCode API key (Zen catalog)"
+      "cliDescription": "OpenCode API key (Zen catalog)",
+      "onboardingFeatured": true
     }
   ],
   "contracts": {

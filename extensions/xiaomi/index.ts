@@ -5,7 +5,7 @@ import {
 } from "openclaw/plugin-sdk/provider-model-shared";
 import { PROVIDER_LABELS } from "openclaw/plugin-sdk/provider-usage";
 import { applyXiaomiConfig, applyXiaomiPlanConfig, XIAOMI_DEFAULT_MODEL_REF } from "./onboard.js";
-import { buildXiaomiProvider } from "./provider-catalog.js";
+import { runXiaomiCatalog } from "./src/xiaomi-catalog.js";
 import { buildXiaomiSpeechProvider } from "./speech-provider.js";
 import { createMiMoThinkingWrapper } from "./stream.js";
 import { resolveMiMoThinkingProfile } from "./thinking.js";
@@ -45,7 +45,7 @@ export default defineSingleProviderPluginEntry({
       },
     ],
     catalog: {
-      buildProvider: buildXiaomiProvider,
+      run: runXiaomiCatalog,
     },
     ...buildProviderReplayFamilyHooks({
       family: "openai-compatible",

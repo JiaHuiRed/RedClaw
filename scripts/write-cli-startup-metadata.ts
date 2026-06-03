@@ -131,11 +131,6 @@ function resolveNodesHelpSourceSignature(sourceRootDir: string = rootDir): strin
   updateHashFromFiles(
     hash,
     [
-      path.join(sourceRootDir, "extensions/canvas/cli-metadata.ts"),
-      path.join(sourceRootDir, "extensions/canvas/index.ts"),
-      path.join(sourceRootDir, "extensions/canvas/src/a2ui-jsonl.ts"),
-      path.join(sourceRootDir, "extensions/canvas/src/cli-helpers.ts"),
-      path.join(sourceRootDir, "extensions/canvas/src/cli.ts"),
       path.join(sourceRootDir, "src/cli/program/help.ts"),
       path.join(sourceRootDir, "src/cli/program/context.ts"),
       path.join(sourceRootDir, "src/cli/banner.ts"),
