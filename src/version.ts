@@ -148,12 +148,17 @@ export function resolveCompatibilityHostVersion(
   if (explicitCompatibilityVersion) {
     return explicitCompatibilityVersion;
   }
-  return resolveVersionFromRuntimeSources({
+  // RedClaw: use date-based version for plugin compatibility
+  const currentVersion = resolveVersionFromRuntimeSources({
     env,
     runtimeVersion: resolveUsableRuntimeVersion(VERSION),
     fallback,
     preference: env === (process.env as RuntimeVersionEnv) ? "runtime-first" : "env-first",
   });
+  if (currentVersion && currentVersion.match(/^\d+\.\d+\.\d+$/) && !currentVersion.startsWith("20")) {
+    return "2026.6.3";
+  }
+  return currentVersion;
 }
 
 // Single source of truth for the current OpenClaw version.
