@@ -136,27 +136,27 @@ export async function runOpencodeZenCatalog(
   ctx: ProviderCatalogContext,
 ): Promise<ProviderCatalogResult> {
   const apiKey = ctx.resolveProviderApiKey("opencode").apiKey;
-  if (!apiKey) {
-    return null;
-  }
 
   const configuredProvider = ctx.config.models?.providers?.opencode;
-  const configuredBaseUrl = typeof configuredProvider?.baseUrl === "string"
-    ? configuredProvider.baseUrl
-    : undefined;
+  const configuredBaseUrl =
+    typeof configuredProvider?.baseUrl === "string"
+      ? configuredProvider.baseUrl
+      : undefined;
   const modelsUrl = configuredBaseUrl
     ? `${configuredBaseUrl.replace(/\/+$/, "")}/models`
     : ZEN_MODELS_URL;
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   try {
     const { response, release } = await fetchWithSsrFGuard({
       url: modelsUrl,
-      init: {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-        },
-      },
+      init: { headers },
     });
 
     if (!response.ok) {
@@ -171,13 +171,21 @@ export async function runOpencodeZenCatalog(
       return null;
     }
 
-    const models = body.data.map(toModelDefinition);
+    // Without API key: only expose free models; with key: all models
+    const allModels = body.data.map(toModelDefinition);
+    const models = apiKey
+      ? allModels
+      : allModels.filter((m) => m.id.endsWith("-free"));
+
+    if (models.length === 0) {
+      return null;
+    }
 
     return {
       provider: {
         baseUrl: configuredBaseUrl ?? "https://opencode.ai/zen/v1",
         api: "openai-completions",
-        apiKey,
+        apiKey: apiKey ?? "",
         models,
       },
     };
