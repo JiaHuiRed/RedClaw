@@ -15,10 +15,13 @@ function compareOptionLabels(a: AuthChoiceOption, b: AuthChoiceOption): number {
 }
 
 const FEATURED_AUTH_GROUP_ORDER = new Map<string, number>([
-  ["openai", 0],
-  ["anthropic", 1],
-  ["xai", 2],
-  ["google", 3],
+  ["opencode", 0],
+  ["openai", 1],
+  ["anthropic", 2],
+  ["deepseek", 3],
+  ["xiaomi", 4],
+  ["xai", 5],
+  ["google", 6],
 ]);
 
 function compareAssistantOptions(a: AuthChoiceOption, b: AuthChoiceOption): number {

@@ -8,6 +8,7 @@ import {
 import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { applyOpencodeZenConfig, OPENCODE_ZEN_DEFAULT_MODEL } from "./api.js";
 import { opencodeMediaUnderstandingProvider } from "./media-understanding-provider.js";
+import { runOpencodeZenCatalog } from "./src/zen-catalog.js";
 
 const PROVIDER_ID = "opencode";
 const MINIMAX_MODERN_MODEL_MATCHERS = ["minimax-m2.7"] as const;
@@ -65,6 +66,10 @@ export default definePluginEntry({
           },
         }),
       ],
+      catalog: {
+        order: "simple",
+        run: runOpencodeZenCatalog,
+      },
       ...PASSTHROUGH_GEMINI_REPLAY_HOOKS,
       isModernModelRef: ({ modelId }) => isModernOpencodeModel(modelId),
       resolveThinkingProfile: ({ modelId }) => resolveClaudeThinkingProfile(modelId),

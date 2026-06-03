@@ -1,4 +1,22 @@
 export { evaluateToolAvailability } from "./availability.js";
+export {
+  ToolCapability,
+  ApprovalRequirement,
+  CapabilityProfiles,
+  type ToolCapabilityDescriptor,
+  hasCapability,
+  isReadOnly,
+  needsApproval,
+  getTimeoutMs,
+  mergeCapabilityDescriptors,
+} from "./capabilities/capabilities.js";
+export {
+  type ExecutionPolicyDecision,
+  evaluateExecutionPolicy,
+  evaluateToolCapabilities,
+  extractCapabilityFromAnnotations,
+  injectCapabilityIntoAnnotations,
+} from "./capabilities/capability-evaluator.js";
 export { defineToolDescriptor, defineToolDescriptors } from "./descriptors.js";
 export { ToolPlanContractError } from "./diagnostics.js";
 export { formatToolExecutorRef } from "./execution.js";
