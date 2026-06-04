@@ -8,6 +8,7 @@ export const SESSIONS_SPAWN_TOOL_DISPLAY_SUMMARY = "Spawn subagent or ACP sessio
 export const SESSIONS_SPAWN_SUBAGENT_TOOL_DISPLAY_SUMMARY = "Spawn subagent session.";
 export const SESSION_STATUS_TOOL_DISPLAY_SUMMARY = "Show session status/model/usage.";
 export const UPDATE_PLAN_TOOL_DISPLAY_SUMMARY = "Track short work plan.";
+export const SKILL_CREATE_TOOL_DISPLAY_SUMMARY = "Create a reusable skill from a solved problem.";
 
 export function describeSessionsListTool(): string {
   return [
