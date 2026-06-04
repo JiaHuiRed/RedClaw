@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的个人 AI 助手 — 在自己设备上运行的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.0.8-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.0.9-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![语言](https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge)](#)
@@ -25,6 +25,7 @@ RedClaw 是 OpenClaw 的个人 fork，面向单用户本地部署优化。它是
 | 默认语言       | 英文       | 简体中文                    |
 | AI 提供商      | 通用       | 原生支持小米 Code Plan      |
 | 模型发现       | 静态列表   | 运行时自动发现              |
+| 技能创建       | 仅手动安装 | Agent 可自动创建技能        |
 | 命令           | `openclaw` | `redclaw` / `openclaw` 双名 |
 
 ---

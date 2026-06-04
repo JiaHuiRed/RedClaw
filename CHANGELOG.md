@@ -1,5 +1,27 @@
 # 更新日志
 
+## [0.0.9] - 2026-06-04
+
+### 新增
+
+- **技能自动创建工具**（`src/agents/tools/skill-create-tool.ts`）：新增 `skill_create` 工具，允许 Agent 在解决非平凡问题后自动生成 SKILL.md，将解决方案转化为可复用的程序化知识（procedural memory）。支持 name/description/content/category/tags/platforms/prerequisites 参数，自动生成 YAML frontmatter，写入 workspace `.agents/skills/` 目录，立即可用。
+- **从 Hermes Agent 导入技能**：移植两个高质量技能至 workspace：
+  - `github-code-review` — 用 gh/curl 对 GitHub PR 进行代码审查，支持本地 diff 审查和远程 PR inline comment
+  - `codebase-inspection` — 用 pygount 统计仓库代码量、语言占比、文件数、代码/注释比例
+
+### 修复
+
+- **工具导出名修正**（`src/tools/index.ts`）：修复 14 个导出名与实际文件导出不匹配的错误。`wildcard.js` 实际导出 `match/matchesAny/matchesAll`（非 `wildcardMatch` 系列），`ruleset.js` 导出 `Rule/Ruleset/RuleAction` 和 `evaluate/merge/fromConfig/disabled`（非假设的 `PermissionRule/evaluatePermission` 等）。统一从 `permission/index.js` 导出，减少路径耦合。
+- **清理库存代码**：删除无人引用的 `integration-example.ts`（158行）和 `learning-system.ts`（68行），消除死代码。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
+
 ## [0.0.8] - 2026-06-03
 
 ### 新增
