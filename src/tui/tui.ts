@@ -1084,9 +1084,15 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
     }
   };
 
+  let activityStatusReplayer: (() => void) | null = null;
+
   const setActivityStatus = (text: string) => {
+    const prev = activityStatus;
     activityStatus = text;
     renderStatus();
+    if (prev !== "idle" && text === "idle") {
+      activityStatusReplayer?.();
+    }
   };
 
   const withTuiSuspended = async <T>(work: () => Promise<T>): Promise<T> => {
@@ -1168,6 +1174,7 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
     const reasoning = sessionInfo.reasoningLevel ?? "off";
     const reasoningLabel =
       reasoning === "on" ? "reasoning" : reasoning === "stream" ? "reasoning:stream" : null;
+    const queueLen = getMessageQueueLength();
     const footerParts = [
       `agent ${agentLabel}`,
       `session ${sessionLabel}`,
@@ -1177,6 +1184,7 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
       verbose !== "off" ? `verbose ${verbose}` : null,
       reasoningLabel,
       tokens,
+      queueLen > 0 ? `queue ${queueLen}` : null,
     ].filter(Boolean);
     footer.setText(theme.dim(footerParts.join(" | ")));
   };
@@ -1299,7 +1307,7 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
   };
   exitAwareClient.setRequestExitHandler?.(() => requestExit());
 
-  const { handleCommand, sendMessage, openModelSelector, openAgentSelector, openSessionSelector } =
+  const { handleCommand, sendMessage, openModelSelector, openAgentSelector, openSessionSelector, getMessageQueueLength, replayNextFromQueue } =
     createCommandHandlers({
       client,
       chatLog,
@@ -1323,7 +1331,18 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
       forgetLocalBtwRunId,
       runAuthFlow,
       requestExit,
+      onQueueChanged: () => updateFooter(),
     });
+
+  activityStatusReplayer = () => {
+    if (getMessageQueueLength() === 0) {
+      return;
+    }
+    const next = replayNextFromQueue();
+    if (next) {
+      void sendMessage(next);
+    }
+  };
 
   const { runLocalShellLine } = createLocalShellRunner({
     chatLog,
@@ -1340,9 +1359,8 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
       pendingOptimisticUserMessage: state.pendingOptimisticUserMessage,
       message,
     });
-  const notifyBlockedChatSubmit = () => {
-    chatLog.addSystem("agent is busy — press Esc to abort before sending a new message");
-    tui.requestRender();
+  const notifyBlockedChatSubmit = (text: string) => {
+    void sendMessage(text);
   };
   const submitHandler = createEditorSubmitHandler({
     editor,

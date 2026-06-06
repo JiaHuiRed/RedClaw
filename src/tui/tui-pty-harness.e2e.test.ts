@@ -582,21 +582,26 @@ describe.sequential("TUI PTY harness", () => {
   );
 
   it(
-    "blocks overlapping normal messages while a run is busy",
+    "queues overlapping normal messages while a run is busy and replays after it ends",
     async () => {
       await fixture.run.write("slow prompt\r");
       await sleep(50);
-      await fixture.run.write("second prompt\r");
-      await fixture.run.waitForOutput("agent is busy");
+      await fixture.run.write("queued overlap prompt\r");
+      await fixture.run.waitForOutput("queued (1): queued overlap prompt");
       await fixture.run.waitForOutput("PTY_RESPONSE: slow prompt");
+      await fixture.run.waitForOutput("PTY_RESPONSE: queued overlap prompt");
       const sendCalls = (await readFixtureLog(fixture.logPath)).filter(
         (entry) => entry.method === "sendChat",
       );
       const slowPromptCalls = sendCalls.filter((entry) =>
         objectFieldEquals(entry, "message", "slow prompt"),
       );
-      expect(slowPromptCalls).toHaveLength(1);
-      expect(slowPromptCalls[0]?.payload).toMatchObject({ message: "slow prompt" });
+      const overlapCalls = sendCalls.filter((entry) =>
+        objectFieldEquals(entry, "message", "queued overlap prompt"),
+      );
+      expect(slowPromptCalls.length).toBeGreaterThanOrEqual(1);
+      expect(overlapCalls).toHaveLength(1);
+      expect(overlapCalls[0]?.payload).toMatchObject({ message: "queued overlap prompt" });
       await fixture.run.write("\x15", { delay: false });
     },
     TEST_TIMEOUT_MS,
