@@ -58,6 +58,7 @@ type CommandHandlerContext = {
     provider?: string;
   }) => Promise<{ exitCode: number | null; signal: NodeJS.Signals | null }>;
   requestExit: (result?: Partial<TuiResult>) => void;
+  onQueueChanged?: () => void;
 };
 
 function isBtwCommand(text: string): boolean {
@@ -67,6 +68,16 @@ function isBtwCommand(text: string): boolean {
 function isSlashStopCommand(text: string): boolean {
   const trimmed = text.trim();
   return trimmed.startsWith("/") && isChatStopCommandText(trimmed);
+}
+
+const MAX_QUEUED_MESSAGES = 100;
+
+function truncateForQueueEcho(text: string, max = 80): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= max) {
+    return flat;
+  }
+  return `${flat.slice(0, max - 1)}…`;
 }
 
 export function createCommandHandlers(context: CommandHandlerContext) {
@@ -87,12 +98,21 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     setActivityStatus,
     formatSessionKey,
     applySessionInfoFromPatch,
-    noteLocalBtwRunId,
-    forgetLocalRunId,
-    forgetLocalBtwRunId,
-    runAuthFlow,
-    requestExit,
-  } = context;
+  noteLocalBtwRunId,
+  forgetLocalRunId,
+  forgetLocalBtwRunId,
+  runAuthFlow,
+  requestExit,
+} = context;
+
+  const messageQueue: string[] = [];
+  const onQueueChanged = context.onQueueChanged;
+
+  const replayNextFromQueue = (): string | null => {
+    const next = messageQueue.shift() ?? null;
+    onQueueChanged?.();
+    return next;
+  };
 
   const setAgent = async (id: string) => {
     state.currentAgentId = normalizeAgentId(id);
@@ -664,7 +684,18 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         state.pendingOptimisticUserMessage ||
         (opts.local !== true && state.activeChatRunId))
     ) {
-      chatLog.addSystem("agent is busy — press Esc to abort before sending a new message");
+      if (messageQueue.length >= MAX_QUEUED_MESSAGES) {
+        chatLog.addSystem(
+          `queue is full (${MAX_QUEUED_MESSAGES}); press Esc to abort or wait for the agent to drain it`,
+        );
+        tui.requestRender();
+        return;
+      }
+      messageQueue.push(text);
+      chatLog.addSystem(
+        `queued (${messageQueue.length}): ${truncateForQueueEcho(text)}`,
+      );
+      onQueueChanged?.();
       tui.requestRender();
       return;
     }
@@ -728,5 +759,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     openSessionSelector,
     openSettings,
     setAgent,
+    getMessageQueueLength: () => messageQueue.length,
+    replayNextFromQueue,
   };
 }

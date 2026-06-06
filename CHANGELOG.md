@@ -1,5 +1,25 @@
 # 更新日志
 
+## [0.0.10] - 2026-06-06
+
+### 新增
+
+- **TUI 消息队列**（`src/tui/tui-command-handlers.ts`、`src/tui/tui.ts`）：agent 忙时再发消息不再被拒，自动进队列。状态栏 footer 显示 `queue N`，agent run 结束（`setActivityStatus("idle")`）后自动 dequeue 队首并发送。队列上限 100 条，到上限提示「queue is full; press Esc to abort or wait for the agent to drain it」。Esc 仍走原 abort 逻辑，aborted run 不会自动 replay 队列。
+- **gateway config 容错**：`~/.openclaw/openclaw.json` 修掉两个 schema 错误——`agents.defaults.identity` 是无效位置（应放 `agents.list[*].identity`，且 key 是 `avatar` 不是 `avatarUrl`），`models` allowlist 里的 `xiaomi/mimo-v2.5` 是幽灵引用（provider 列表里没这个模型）。修完 `openclaw config validate` 通过、gateway 重新启动成功。
+
+### 修复
+
+- **TUI 单元测试适配**（`src/tui/tui-command-handlers.test.ts`）：原 5 处断言「agent is busy — press Esc to abort」改为「queued (1): /context detail」+ `getMessageQueueLength() === 1`。
+- **TUI e2e 测试改写**（`src/tui/tui-pty-harness.e2e.test.ts`）：原「blocks overlapping normal messages while a run is busy」改为「queues overlapping normal messages while a run is busy and replays after it ends」，验证 enqueue + replay + 队首一致。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
+
 ## [0.0.9] - 2026-06-04
 
 ### 新增
