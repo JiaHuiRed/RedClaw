@@ -1,22 +1,5 @@
 # 更新日志
 
-## [0.0.11] - 2026-06-10
-
-### 新增
-
-- **全局插件配置**（`~/.redcode/redcode.jsonc`）：新增 `plugin` 字段，将 ecc-shell-stub.js 和 @tarquinen/opencode-dcp 配置为全局插件，切换工作区时不再丢失。解决了之前只在 RedCode 项目目录下才能使用完整插件集的问题。
-
-### 变更
-
-- **ecc-shell-stub.js** 复制到 `~/.redcode/plugin/` 目录，作为全局 ECC 三件套（memory-automation / guardrail-profiles / defensive-agent）
-- **@tarquinen/opencode-dcp** 通过 npm 全局安装（v3.1.12），提供动态上下文裁剪功能
-
-### 构建说明
-
-```bash
-npm install -g @tarquinen/opencode-dcp
-```
-
 ## [0.0.10] - 2026-06-06
 
 ### 新增
