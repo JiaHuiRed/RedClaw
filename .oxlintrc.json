@@ -195,8 +195,7 @@
     "**/coverage/**",
     "**/dist/**",
     "**/dist-runtime/**",
-    "**/node_modules/**"
-  ],
+    "**/node_modules/**", "plugins/**"],
   "overrides": [
     {
       "files": ["src/security/**"],
