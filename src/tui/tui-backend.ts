@@ -49,6 +49,9 @@ export type TuiSessionList = {
       | "inputTokens"
       | "outputTokens"
       | "totalTokens"
+      | "cacheRead"
+      | "cacheWrite"
+      | "estimatedCostUsd"
       | "modelProvider"
       | "displayName"
     > & {

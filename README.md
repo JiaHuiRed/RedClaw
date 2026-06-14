@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的个人 AI 助手 — 在自己设备上运行的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.0.11-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.0.12-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![语言](https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge)](#)
@@ -136,6 +136,24 @@ python main.py   # 默认监听 http://127.0.0.1:8188
 
 配置完成后重启 RedClaw，对秋秋说「帮我画一张……」即可触发生图。
 
+### 👁️ 本地图像理解（Vision MCP）
+
+秋秋可以通过 `qwen3-vl` 视觉模型分析图片内容 — 描述场景、提取文字、比较多张图片差异。完全离线，零 API 成本。
+
+**前置：Ollama + 视觉模型**
+
+```bash
+# 安装 Ollama（如未安装）
+winget install Ollama.Ollama
+
+# 拉取视觉模型
+ollama pull qwen3-vl:8b
+```
+
+**配置已内置**：Vision MCP 已在 `~/.openclaw/openclaw.json` 默认启用，无需额外配置。确认有 `mcp.servers.vision` 条目即可。
+
+重启 RedClaw 后，给秋秋发图片即可自动调用视觉分析。
+
 ---
 
 ### Workspace 位置
@@ -161,8 +179,12 @@ python main.py   # 默认监听 http://127.0.0.1:8188
 
 | 版本                                    | 日期       | 内容                                             |
 | --------------------------------------- | ---------- | ------------------------------------------------ |
-| [v0.0.8](CHANGELOG.md#008---2026-06-03) | 2026-06-03 | 工具 Schema + 权限规则引擎 + 学习系统            |
-| [v0.0.7](CHANGELOG.md#007---2026-06-03) | 2026-06-03 | 运行时模型自动发现、onboarding 特色提供商        |
+| [v0.0.12](CHANGELOG.md#0012---2026-06-14) | 2026-06-14 | TUI cache/cost 显示、本地图像理解（Vision MCP） |
+| [v0.0.11](CHANGELOG.md#0011---2026-06-14) | 2026-06-14 | Gateway 崩溃修复（Headroom 插件冲突） |
+| [v0.0.10](CHANGELOG.md#0010---2026-06-06) | 2026-06-06 | TUI 消息队列、gateway config 容错 |
+| [v0.0.9](CHANGELOG.md#009---2026-06-04)  | 2026-06-04 | 技能创建工具、Hermes Agent 导入                                   |
+| [v0.0.8](CHANGELOG.md#008---2026-06-03)  | 2026-06-03 | 工具 Schema + 权限规则引擎 + 学习系统            |
+| [v0.0.7](CHANGELOG.md#007---2026-06-03)  | 2026-06-03 | 运行时模型自动发现、onboarding 特色提供商        |
 | [v0.0.6](CHANGELOG.md#006---2026-06-03) | 2026-06-03 | 激进瘦身：删除 39 extension、40 skill、520 脚本  |
 | [v0.0.5](CHANGELOG.md#005---2026-05-29) | 2026-05-29 | zh-TW 品牌化、ComfyUI 图像生成指南、CI 配置清理  |
 | [v0.0.4](CHANGELOG.md#004---2026-05-28) | 2026-05-28 | 清理 onboard 渠道列表，仅保留 QQBot；README 重写 |

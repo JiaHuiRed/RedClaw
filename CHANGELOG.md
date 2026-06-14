@@ -1,5 +1,19 @@
 # 更新日志
 
+## [0.0.12] - 2026-06-14
+
+### 新增
+
+- **TUI 状态栏 cache/cost 显示**：TUI 会话列表和状态栏现在显示缓存读取/写入次数（cache read/write）和预估费用（estimated cost USD）。Idle 状态显示格式：`connectionStatus | cache 12.3k | $0.01 | activityStatus`。
+- **本地图像理解（Vision MCP）**：通过 Ollama 本地运行 qwen3-vl 视觉模型，使秋秋具备图像分析能力 — 可以描述图片内容、提取文字、比较图像差异。配置项已内置 `~/.openclaw/openclaw.json` 的 `mcp.servers.vision` 中，启用即可使用。需要本地运行 Ollama 并加载 `qwen3-vl:8b` 模型。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
 ## [0.0.11] - 2026-06-14
 
 ### 修复

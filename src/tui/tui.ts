@@ -36,6 +36,7 @@ import type { TuiBackend } from "./tui-backend.js";
 import { createCommandHandlers } from "./tui-command-handlers.js";
 import { createEventHandlers } from "./tui-event-handlers.js";
 import { formatTokens } from "./tui-formatters.js";
+import { formatTokenCount, formatUsd } from "../utils/usage-format.js";
 import {
   buildTuiLastSessionScopeKey,
   readTuiLastSessionKey,
@@ -1058,8 +1059,27 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
       statusLoader?.stop();
       statusLoader = null;
       ensureStatusText();
-      const text = activityStatus ? `${connectionStatus} | ${activityStatus}` : connectionStatus;
-      statusText?.setText(theme.dim(text));
+      const parts = [connectionStatus];
+      const cache = sessionInfo.cacheRead ?? sessionInfo.cacheWrite ?? null;
+      if (cache != null) {
+        const cacheLabel =
+          sessionInfo.cacheRead != null
+            ? `cache ${formatTokenCount(sessionInfo.cacheRead)}`
+            : null;
+        if (cacheLabel) {
+          parts.push(cacheLabel);
+        }
+      }
+      if (sessionInfo.estimatedCostUsd != null && sessionInfo.estimatedCostUsd >= 0) {
+        const costLabel = formatUsd(sessionInfo.estimatedCostUsd);
+        if (costLabel) {
+          parts.push(costLabel);
+        }
+      }
+      if (activityStatus) {
+        parts.push(activityStatus);
+      }
+      statusText?.setText(theme.dim(parts.join(" | ")));
     }
     lastActivityStatus = activityStatus;
   };
