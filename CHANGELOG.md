@@ -1,5 +1,18 @@
 # 更新日志
 
+## [0.0.11] - 2026-06-14
+
+### 修复
+
+- **Gateway 崩溃（Headroom 插件冲突）**：~/.openclaw/openclaw.json 中 Headroom OpenClaw 插件注册导致 Gateway 启动时尝试连接 127.0.0.1:8787（Headroom proxy），health check 失败后抛出未捕获异常导致进程退出。已从配置中删除 headroom 插件条目、加载路径和槽位绑定。
+
+### 构建说明
+
+`ash
+pnpm build
+npm install -g .
+`
+
 ## [0.0.10] - 2026-06-06
 
 ### 新增
