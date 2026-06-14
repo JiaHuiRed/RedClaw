@@ -54,8 +54,7 @@ the maintainer-only release runbook.
    dedupe overlapping PR/direct-commit entries, commit the rewrite, push it,
    and rebase/pull once more before branching.
 3. Review release compatibility records in
-   `src/plugins/compat/registry.ts` and
-   `src/commands/doctor/shared/deprecation-compat.ts`. Remove expired
+   `src/plugins/compat/registry.ts`. Remove expired
    compatibility only when the upgrade path stays covered, or record why it is
    intentionally carried.
 4. Create `release/YYYY.M.D` from current `main`; do not do normal release work

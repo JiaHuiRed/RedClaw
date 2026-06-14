@@ -1,0 +1,4 @@
+[mcp_servers.typegraph]
+command = "D:\AI\KLX\Qiu\RedClaw\plugins\typegraph-mcp\node_modules\.bin\tsx"
+args = ["D:\AI\KLX\Qiu\RedClaw\plugins\typegraph-mcp\server.ts"]
+env = { TYPEGRAPH_PROJECT_ROOT = "D:\AI\KLX\Qiu\RedClaw", TYPEGRAPH_TSCONFIG = "D:\AI\KLX\Qiu\RedClaw\tsconfig.json" }
