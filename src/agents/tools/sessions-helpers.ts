@@ -56,6 +56,8 @@ export type SessionListRow = {
   model?: string;
   contextTokens?: number | null;
   totalTokens?: number | null;
+  cacheRead?: number;
+  cacheWrite?: number;
   estimatedCostUsd?: number;
   status?: SessionRunStatus;
   startedAt?: number;

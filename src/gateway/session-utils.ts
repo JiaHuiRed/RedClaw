@@ -1939,6 +1939,8 @@ export function buildGatewaySessionRow(params: {
     outputTokens: entry?.outputTokens,
     totalTokens,
     totalTokensFresh,
+    cacheRead: entry?.cacheRead,
+    cacheWrite: entry?.cacheWrite,
     estimatedCostUsd,
     status: subagentRun ? subagentStatus : entry?.status,
     subagentRunState,

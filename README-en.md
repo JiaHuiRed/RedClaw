@@ -2,7 +2,7 @@
 
 > A personal AI assistant based on [OpenClaw](https://github.com/openclaw/openclaw) — Qiuqiu running on your own device
 
-[![Version](https://img.shields.io/badge/version-v0.0.11-crimson?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.0.12-crimson?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![Language](https://img.shields.io/badge/language-TypeScript-3178C6?style=for-the-badge)](#)
@@ -96,6 +96,24 @@ Created automatically on first run at `~/.openclaw/`:
 
 > To migrate old data: overwrite `~/.openclaw/` to inherit memory and personality.
 
+### 👁️ Local Vision Understanding (Vision MCP)
+
+Qiuqiu can analyze images using `qwen3-vl` vision model — describe scenes, extract text, compare multiple images. Fully offline, zero API cost.
+
+**Prerequisite: Ollama + vision model**
+
+```bash
+# Install Ollama (if not installed)
+winget install Ollama.Ollama
+
+# Pull vision model
+ollama pull qwen3-vl:8b
+```
+
+**Built-in config**: Vision MCP is pre-configured in `~/.openclaw/openclaw.json` under `mcp.servers.vision`. No extra setup needed.
+
+Restart RedClaw after setup — send Qiuqiu an image and vision analysis kicks in automatically.
+
 ---
 
 ## Changelog
@@ -104,8 +122,9 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 | Version                                 | Date       | Changes                                                        |
 | --------------------------------------- | ---------- | -------------------------------------------------------------- |
+| [v0.0.12](CHANGELOG.md#0012---2026-06-14) | 2026-06-14 | TUI cache/cost display, local vision understanding (Vision MCP) |
 | [v0.0.11](CHANGELOG.en.md#0011---2026-06-14) | 2026-06-14 | Fix gateway crash caused by Headroom plugin timeout on port 8787 |
-| [v0.0.10](CHANGELOG.en.md#0010---2026-06-06) | 2026-06-06 | TUI queue system, gateway config validation schema, Xiaomi v2.5 allowlist |
+| [v0.0.10](CHANGELOG.en.md#0010---2026-06-06) | 2026-06-10 | TUI queue system, gateway config validation schema, Xiaomi v2.5 allowlist |
 | [v0.0.9](CHANGELOG.en.md#009---2026-06-04) | 2026-06-04 | Skill creation tool, Hermes Agent workspace integration, RedCode branding |
 | [v0.0.8](CHANGELOG.en.md#008---2026-06-03) | 2026-06-03 | Tool Schema first design, Permission system overhaul, Learning system maturity |
 | [v0.0.7](CHANGELOG.en.md#007---2026-06-03) | 2026-06-03 | OpenCode Zen/DeepSeek/Xiaomi catalog endpoints; streamlined onboarding flow |
