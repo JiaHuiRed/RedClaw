@@ -744,3 +744,23 @@ export function resetUsageFormatCachesForTest(): void {
   modelKeyCache = new Map();
   sortedPricingTiersByInput = new WeakMap();
 }
+
+ 
+export const USD_TO_CNY_RATE = 7.2;
+
+export function formatCny(valueUsd?: number): string | undefined {
+  if (valueUsd === undefined || !Number.isFinite(valueUsd)) {
+    return undefined;
+  }
+  if (valueUsd < 0) {
+    return undefined;
+  }
+  const valueCny = valueUsd * USD_TO_CNY_RATE;
+  if (valueCny >= 1) {
+    return `¥${valueCny.toFixed(2)}`;
+  }
+  if (valueCny >= 0.01) {
+    return `¥${valueCny.toFixed(2)}`;
+  }
+  return `¥${valueCny.toFixed(4)}`;
+}
