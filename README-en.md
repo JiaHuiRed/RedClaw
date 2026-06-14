@@ -2,7 +2,7 @@
 
 > A personal AI assistant based on [OpenClaw](https://github.com/openclaw/openclaw) — Qiuqiu running on your own device
 
-[![Version](https://img.shields.io/badge/version-v0.0.4-crimson?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.0.11-crimson?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![Language](https://img.shields.io/badge/language-TypeScript-3178C6?style=for-the-badge)](#)
@@ -104,6 +104,13 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 | Version                                 | Date       | Changes                                                        |
 | --------------------------------------- | ---------- | -------------------------------------------------------------- |
+| [v0.0.11](CHANGELOG.en.md#0011---2026-06-14) | 2026-06-14 | Fix gateway crash caused by Headroom plugin timeout on port 8787 |
+| [v0.0.10](CHANGELOG.en.md#0010---2026-06-06) | 2026-06-06 | TUI queue system, gateway config validation schema, Xiaomi v2.5 allowlist |
+| [v0.0.9](CHANGELOG.en.md#009---2026-06-04) | 2026-06-04 | Skill creation tool, Hermes Agent workspace integration, RedCode branding |
+| [v0.0.8](CHANGELOG.en.md#008---2026-06-03) | 2026-06-03 | Tool Schema first design, Permission system overhaul, Learning system maturity |
+| [v0.0.7](CHANGELOG.en.md#007---2026-06-03) | 2026-06-03 | OpenCode Zen/DeepSeek/Xiaomi catalog endpoints; streamlined onboarding flow |
+| [v0.0.6](CHANGELOG.en.md#006---2026-06-03) | 2026-06-03 | Massive cleanup: removed 39 extensions, 40 skills/17 scripts, streamlined manifest |
+| [v0.0.5](CHANGELOG.en.md#005---2026-05-29) | 2026-05-29 | ComfyUI workflow support, zh-TW locale, ACS branding, onboard fixes |
 | [v0.0.4](CHANGELOG.md#004---2026-05-28) | 2026-05-28 | Clean onboard channel list, keep only QQBot; rewrite README    |
 | [v0.0.3](CHANGELOG.md#003---2026-05-28) | 2026-05-28 | Xiaomi Code Plan native support, wizard default Chinese        |
 | [v0.0.2](CHANGELOG.md#002---2026-05-28) | 2026-05-28 | Branding, dragon fire loading animation, redclaw command alias |
