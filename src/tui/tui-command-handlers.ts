@@ -98,12 +98,12 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     setActivityStatus,
     formatSessionKey,
     applySessionInfoFromPatch,
-  noteLocalBtwRunId,
-  forgetLocalRunId,
-  forgetLocalBtwRunId,
-  runAuthFlow,
-  requestExit,
-} = context;
+    noteLocalBtwRunId,
+    forgetLocalRunId,
+    forgetLocalBtwRunId,
+    runAuthFlow,
+    requestExit,
+  } = context;
 
   const messageQueue: string[] = [];
   const onQueueChanged = context.onQueueChanged;
@@ -680,9 +680,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     }
     if (
       !isBtw &&
-      (state.pendingChatRunId ||
-        state.pendingOptimisticUserMessage ||
-        (opts.local !== true && state.activeChatRunId))
+      (state.pendingChatRunId || state.pendingOptimisticUserMessage || state.activeChatRunId)
     ) {
       if (messageQueue.length >= MAX_QUEUED_MESSAGES) {
         chatLog.addSystem(
@@ -692,9 +690,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         return;
       }
       messageQueue.push(text);
-      chatLog.addSystem(
-        `queued (${messageQueue.length}): ${truncateForQueueEcho(text)}`,
-      );
+      chatLog.addSystem(`queued (${messageQueue.length}): ${truncateForQueueEcho(text)}`);
       onQueueChanged?.();
       tui.requestRender();
       return;
@@ -702,14 +698,6 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     const runId = randomUUID();
     try {
       if (!isBtw) {
-        if (
-          opts.local === true &&
-          state.activeChatRunId &&
-          !state.pendingChatRunId &&
-          !state.pendingOptimisticUserMessage
-        ) {
-          chatLog.reserveAssistantSlot(state.activeChatRunId);
-        }
         chatLog.addUser(text);
         state.pendingOptimisticUserMessage = true;
         setActivityStatus("sending");
