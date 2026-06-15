@@ -1,5 +1,34 @@
 # 更新日志
 
+## [0.0.13] - 2026-06-15
+
+### 定位调整
+
+秋秋重新定位为「赛博亲人」— 轻量备忘/陪伴型助手，编码任务完全交给 RedCode。
+
+### 修复
+
+- **TUI 消息队列 local 模式失效**（`src/tui/tui-command-handlers.ts`）：`opts.local !== true` 条件导致 local 模式下消息不进队列，直接被丢弃。移除该条件，同时清理关联的 `reserveAssistantSlot` 死代码分支。
+- **`formatCny` 死代码**（`src/utils/usage-format.ts`）：移除 `>= 1` 冗余分支（逻辑与 `>= 0.01` 完全相同）。
+
+### 新增
+
+- **System prompt 品牌化**（`src/agents/system-prompt.ts`）：所有模型/用户可见的 "OpenClaw" 替换为 "RedClaw"；身份行改为「You are 秋秋 (QiuQiu), a personal AI assistant powered by RedClaw.」
+- **运行时工具精简**（`~/.openclaw/openclaw.json`）：禁用 codeMode/elevated/agentToAgent/toolSearch/loopDetection/links/video/applyPatch，仅保留 web search/fetch，大幅降低每次对话 token 消耗。
+- **梦境系统启用**：`memory.dreaming` 默认开启，支持长期记忆巩固。
+
+### 维护
+
+- **Pre-commit 脚本恢复**：`scripts/pre-commit/run-node-tool.sh`、`filter-staged-files.mjs`、`pnpm-audit-prod.mjs` 在 v0.0.6 瘦身时被误删，已从初始提交恢复。
+- **删除孤立备份**：`AGENTS.md.bak`（无引用）。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+```
+
 ## [0.0.12] - 2026-06-14
 
 ### 新增
@@ -46,7 +75,6 @@ pnpm build
 npm install -g .
 ```
 
-
 ## [0.0.9] - 2026-06-04
 
 ### 新增
@@ -67,7 +95,6 @@ npm install -g .
 pnpm build
 npm install -g .
 ```
-
 
 ## [0.0.8] - 2026-06-03
 
