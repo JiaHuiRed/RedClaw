@@ -1,5 +1,20 @@
 # 更新日志
 
+## [0.0.14] - 2026-06-15
+
+### 新增
+
+- **QiuQiu Chat Web 页面**（`dist/control-ui/qiuqiu/`）：Gateway 内置的独立聊天页面，通过 WebSocket protocol v4 直连秋秋的完整 Agent 管线（记忆、人格、工具）。macOS 风格暗色毛玻璃界面，支持流式输出、Markdown 渲染、自定义背景图、自动重连。访问地址：`http://127.0.0.1:18789/qiuqiu/`。
+- **Gateway 配置简化**：`~/.openclaw/openclaw.json` 新增 `gateway.mode: "local"` + `gateway.controlUi.dangerouslyDisableDeviceAuth: true`，本地访问无需设备配对。
+
+### 构建说明
+
+```bash
+pnpm build
+npm install -g .
+redclaw gateway   # 启动后浏览器打开 http://127.0.0.1:18789/qiuqiu/
+```
+
 ## [0.0.13] - 2026-06-15
 
 ### 定位调整

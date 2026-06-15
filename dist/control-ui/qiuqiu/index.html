@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QiuQiu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Title bar (macOS style) -->
+    <div class="titlebar">
+      <div class="traffic-lights">
+        <span class="tl-btn tl-close"></span>
+        <span class="tl-btn tl-minimize"></span>
+        <span class="tl-btn tl-maximize"></span>
+      </div>
+      <div class="titlebar-title">QiuQiu</div>
+      <div class="titlebar-status">
+        <span id="conn-status" class="status-dot offline"></span>
+        <span id="conn-label"></span>
+      </div>
+    </div>
+
+    <!-- Chat area -->
+    <div id="chat-container">
+      <div id="messages"></div>
+    </div>
+
+    <!-- Input area -->
+    <div id="input-area">
+      <div class="input-wrapper">
+        <textarea id="input" placeholder="Say something..." rows="1"></textarea>
+        <button id="send-btn" title="Send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Background image layer -->
+  <div id="bg-layer"></div>
+
+  <!-- Settings panel -->
+  <div id="settings-overlay" class="hidden">
+    <div class="settings-panel">
+      <h3>Settings</h3>
+      <label>Gateway URL
+        <input type="text" id="cfg-gateway-url" value="ws://127.0.0.1:18789">
+      </label>
+      <label>Session Key
+        <input type="text" id="cfg-session-key" value="qiuqiu">
+      </label>
+      <label>Background Image
+        <input type="file" id="cfg-bg-image" accept="image/*">
+      </label>
+      <div class="settings-actions">
+        <button id="cfg-clear-bg">Clear Background</button>
+        <button id="cfg-save">Save & Reconnect</button>
+        <button id="cfg-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

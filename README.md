@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的个人 AI 助手 — 在自己设备上运行的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.0.13-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.0.14-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![语言](https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge)](#)
@@ -154,6 +154,42 @@ ollama pull qwen3-vl:8b
 
 重启 RedClaw 后，给秋秋发图片即可自动调用视觉分析。
 
+### 💬 QiuQiu Chat（Web 聊天页面）
+
+Gateway 内置了一个独立的 Web 聊天页面，通过 WebSocket 直连秋秋的完整 Agent 管线（记忆、人格、工具），macOS 风格暗色毛玻璃界面。
+
+**1. 配置 gateway**
+
+在 `~/.openclaw/openclaw.json` 中确保有以下字段：
+
+```json
+{
+  "gateway": {
+    "mode": "local",
+    "auth": { "mode": "none" },
+    "controlUi": { "dangerouslyDisableDeviceAuth": true }
+  }
+}
+```
+
+> `auth.mode: "none"` + `dangerouslyDisableDeviceAuth` 仅适用于本地 localhost 访问，不要在公网暴露。
+
+**2. 启动并访问**
+
+```bash
+redclaw gateway
+# 浏览器打开 http://127.0.0.1:18789/qiuqiu/
+```
+
+**3. 功能**
+
+- 流式输出 — 逐字显示秋秋的回复
+- Markdown 渲染 — 标题、列表、代码块、链接
+- 背景图 — 点击右上角状态点进入设置，可上传自定义壁纸
+- 自动重连 — 断线后 3 秒自动重连
+
+> **前提：** 需要先配好 AI 提供商的 API Key（`redclaw onboard` 或手动编辑 auth-profiles）。没有 Key 时页面能连接但秋秋无法回复。
+
 ---
 
 ### Workspace 位置
@@ -179,6 +215,7 @@ ollama pull qwen3-vl:8b
 
 | 版本                                      | 日期       | 内容                                             |
 | ----------------------------------------- | ---------- | ------------------------------------------------ |
+| [v0.0.14](CHANGELOG.md#0014---2026-06-15) | 2026-06-15 | QiuQiu Chat Web 页面（gateway WebSocket 直连）   |
 | [v0.0.13](CHANGELOG.md#0013---2026-06-15) | 2026-06-15 | 赛博亲人定位、队列修复、品牌化、工具精简         |
 | [v0.0.12](CHANGELOG.md#0012---2026-06-14) | 2026-06-14 | TUI cache/cost 显示、本地图像理解（Vision MCP）  |
 | [v0.0.11](CHANGELOG.md#0011---2026-06-14) | 2026-06-14 | Gateway 崩溃修复（Headroom 插件冲突）            |
