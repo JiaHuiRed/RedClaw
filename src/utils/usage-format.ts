@@ -745,7 +745,6 @@ export function resetUsageFormatCachesForTest(): void {
   sortedPricingTiersByInput = new WeakMap();
 }
 
- 
 export const USD_TO_CNY_RATE = 7.2;
 
 export function formatCny(valueUsd?: number): string | undefined {
@@ -756,9 +755,6 @@ export function formatCny(valueUsd?: number): string | undefined {
     return undefined;
   }
   const valueCny = valueUsd * USD_TO_CNY_RATE;
-  if (valueCny >= 1) {
-    return `¥${valueCny.toFixed(2)}`;
-  }
   if (valueCny >= 0.01) {
     return `¥${valueCny.toFixed(2)}`;
   }
