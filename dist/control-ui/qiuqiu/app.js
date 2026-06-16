@@ -8,11 +8,26 @@ let ws = null;
 let connected = false;
 let connectNonce = null;
 let connId = null;
-let pendingRequests = new Map(); // id -> { resolve, reject }
+let pendingRequests = new Map();
 let currentRunId = null;
-let streamingEl = null;
+let streamingBubble = null;
 let streamingText = "";
-let requestCounter = 0;
+let typingRow = null;
+let nonSystemCount = 0;
+
+// Cumulative session stats (updated from sessions.changed events)
+let sessionStats = {
+  model: null,
+  modelProvider: null,
+  inputTokens: null,
+  outputTokens: null,
+  totalTokens: null,
+  contextTokens: null,
+  cacheRead: null,
+  cacheWrite: null,
+  estimatedCostUsd: null,
+  msgCount: 0,
+};
 
 // --- Config ---
 function loadConfig() {
@@ -24,7 +39,21 @@ function loadConfig() {
     gatewayUrl: "ws://127.0.0.1:18789",
     sessionKey: "qiuqiu",
     bgImage: null,
+    avatar: null,
+    theme: "deepblue",
   };
+}
+
+// --- Theme ---
+const THEMES = ["deepblue", "night", "day", "warm", "aurora"];
+
+function applyTheme(name) {
+  if (!THEMES.includes(name)) name = "deepblue";
+  config.theme = name;
+  document.body.setAttribute("data-theme", name);
+  document.querySelectorAll(".swatch").forEach((s) => {
+    s.classList.toggle("active", s.dataset.theme === name);
+  });
 }
 
 function saveConfig(cfg) {
@@ -41,10 +70,24 @@ const connStatus = document.getElementById("conn-status");
 const connLabel = document.getElementById("conn-label");
 const bgLayer = document.getElementById("bg-layer");
 const settingsOverlay = document.getElementById("settings-overlay");
+const emptyState = document.getElementById("empty-state");
+const contextPanel = document.getElementById("context-panel");
+const ctxToggleBtn = document.getElementById("ctx-toggle");
 
 // --- Utils ---
 function uuid() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function formatTime(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function fmtNum(n) {
+  if (n == null) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(n);
 }
 
 function setStatus(state, label) {
@@ -64,7 +107,6 @@ function escapeHtml(s) {
 }
 
 function renderMarkdown(text) {
-  // Simple markdown renderer (no external deps)
   let html = "";
   const lines = text.split("\n");
   let inCode = false;
@@ -75,7 +117,6 @@ function renderMarkdown(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Fenced code blocks
     if (line.startsWith("```")) {
       if (inCode) {
         html += `<pre><code>${escapeHtml(codeBlock)}</code></pre>`;
@@ -92,19 +133,16 @@ function renderMarkdown(text) {
       continue;
     }
 
-    // Close list if no longer list item
     if (inList && !/^(\s*[-*+]|\s*\d+\.)\s/.test(line) && line.trim() !== "") {
       html += listType === "ul" ? "</ul>" : "</ol>";
       inList = false;
     }
 
-    // Empty line
     if (line.trim() === "") {
       if (inList) { html += listType === "ul" ? "</ul>" : "</ol>"; inList = false; }
       continue;
     }
 
-    // Headers
     const hMatch = line.match(/^(#{1,4})\s+(.+)/);
     if (hMatch) {
       const level = hMatch[1].length;
@@ -112,13 +150,11 @@ function renderMarkdown(text) {
       continue;
     }
 
-    // Blockquote
     if (line.startsWith("> ")) {
       html += `<blockquote>${inlineFormat(line.slice(2))}</blockquote>`;
       continue;
     }
 
-    // Unordered list
     const ulMatch = line.match(/^\s*[-*+]\s+(.+)/);
     if (ulMatch) {
       if (!inList || listType !== "ul") {
@@ -131,7 +167,6 @@ function renderMarkdown(text) {
       continue;
     }
 
-    // Ordered list
     const olMatch = line.match(/^\s*\d+\.\s+(.+)/);
     if (olMatch) {
       if (!inList || listType !== "ol") {
@@ -144,13 +179,11 @@ function renderMarkdown(text) {
       continue;
     }
 
-    // Horizontal rule
     if (/^[-*_]{3,}\s*$/.test(line)) {
       html += "<hr>";
       continue;
     }
 
-    // Paragraph
     html += `<p>${inlineFormat(line)}</p>`;
   }
 
@@ -171,28 +204,210 @@ function inlineFormat(text) {
   return s;
 }
 
-function addMessage(role, content, opts = {}) {
+// --- Empty state ---
+function updateEmptyState() {
+  emptyState.style.display = nonSystemCount > 0 ? "none" : "";
+}
+
+// --- Avatar ---
+function buildAvatarEl() {
   const el = document.createElement("div");
-  el.className = `message ${role}`;
-  if (opts.streaming) el.classList.add("streaming");
-  if (opts.error) el.classList.add("error");
-
-  if (role === "assistant" || role === "error") {
-    el.innerHTML = renderMarkdown(content);
-  } else if (role === "system") {
-    el.textContent = content;
+  el.className = "msg-avatar";
+  if (config.avatar) {
+    const img = document.createElement("img");
+    img.src = config.avatar;
+    el.appendChild(img);
   } else {
-    el.textContent = content;
+    el.textContent = "\u{1F342}";
   }
-
-  messagesEl.appendChild(el);
-  scrollToBottom();
   return el;
 }
 
+function applyAvatarEverywhere() {
+  // Update titlebar avatar
+  const tba = document.getElementById("titlebar-avatar");
+  if (tba) {
+    if (config.avatar) {
+      tba.innerHTML = `<img src="${config.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      tba.textContent = "\u{1F342}";
+    }
+  }
+  // Update all existing message avatars
+  document.querySelectorAll(".msg-avatar").forEach((el) => {
+    if (config.avatar) {
+      el.innerHTML = `<img src="${config.avatar}">`;
+    } else {
+      el.innerHTML = "\u{1F342}";
+    }
+  });
+  // Update empty state avatar
+  const ea = document.querySelector(".empty-avatar");
+  if (ea) {
+    if (config.avatar) {
+      ea.innerHTML = `<img src="${config.avatar}" style="width:80px;height:80px;object-fit:cover;border-radius:50%;">`;
+    } else {
+      ea.textContent = "\u{1F342}";
+    }
+  }
+}
+
+// --- Context Panel ---
+let ctxVisible = localStorage.getItem("qiuqiu-ctx-visible") !== "false";
+
+function updateContextPanel() {
+  if (!ctxVisible) {
+    contextPanel.classList.add("hidden");
+    ctxToggleBtn.textContent = "上下文";
+    return;
+  }
+  contextPanel.classList.remove("hidden");
+  ctxToggleBtn.textContent = "收起";
+
+  const s = sessionStats;
+  const modelLabel = s.model
+    ? (s.modelProvider ? `${s.modelProvider}/${s.model}` : s.model)
+    : "—";
+
+  const totalTok = s.totalTokens;
+  const ctxTok = s.contextTokens;
+  const pct = (totalTok != null && ctxTok != null && ctxTok > 0)
+    ? Math.min(999, Math.round((totalTok / ctxTok) * 100))
+    : null;
+  const tokLine = totalTok != null
+    ? `Total ${fmtNum(totalTok)} tokens${ctxTok != null ? ` / ${fmtNum(ctxTok)} ctx` : ""}${pct != null ? ` · ${pct}%` : ""}`
+    : "Total — tokens";
+
+  const inOut = (s.inputTokens != null || s.outputTokens != null)
+    ? `In ${fmtNum(s.inputTokens)} · Out ${fmtNum(s.outputTokens)}`
+    : null;
+
+  const cacheRead = s.cacheRead;
+  const cacheWrite = s.cacheWrite;
+  let cacheLine = null;
+  if (cacheRead != null && cacheWrite != null) {
+    const total = cacheRead + cacheWrite;
+    const hitRate = total > 0 ? Math.round((cacheRead / total) * 100) : 0;
+    cacheLine = `Cache ${fmtNum(cacheRead)} · Hit ${hitRate}%`;
+  } else if (cacheRead != null) {
+    cacheLine = `Cache ${fmtNum(cacheRead)}`;
+  }
+
+  let costLine = null;
+  if (s.estimatedCostUsd != null && s.estimatedCostUsd >= 0) {
+    const cny = s.estimatedCostUsd * 7.25;
+    if (cny >= 0.01) {
+      costLine = `¥${cny.toFixed(2)}`;
+    } else if (cny > 0) {
+      costLine = `¥${cny.toFixed(4)}`;
+    }
+    if (costLine && s.msgCount > 0) {
+      costLine += ` · ${s.msgCount} msgs`;
+    }
+  } else if (s.msgCount > 0) {
+    costLine = `${s.msgCount} msgs`;
+  }
+
+  const rows = [
+    { label: "模型", value: modelLabel },
+    { label: "上下文", value: tokLine },
+    ...(inOut ? [{ label: "用量", value: inOut }] : []),
+    ...(cacheLine ? [{ label: "缓存", value: cacheLine }] : []),
+    ...(costLine ? [{ label: "费用", value: costLine }] : []),
+  ];
+
+  document.getElementById("ctx-rows").innerHTML = rows
+    .map(r => `<div class="ctx-row"><span class="ctx-key">${r.label}</span><span class="ctx-val">${r.value}</span></div>`)
+    .join("");
+}
+
+ctxToggleBtn.addEventListener("click", () => {
+  ctxVisible = !ctxVisible;
+  localStorage.setItem("qiuqiu-ctx-visible", String(ctxVisible));
+  updateContextPanel();
+});
+
+// --- Messages ---
+function addMessage(role, content, opts = {}) {
+  const row = document.createElement("div");
+  row.className = `message-row ${role}`;
+
+  if (role === "system") {
+    const sysEl = document.createElement("div");
+    sysEl.className = "system-msg";
+    sysEl.textContent = content;
+    row.appendChild(sysEl);
+    messagesEl.appendChild(row);
+    scrollToBottom();
+    return { row, bubble: null };
+  }
+
+  if (role === "assistant") {
+    row.appendChild(buildAvatarEl());
+  }
+
+  const col = document.createElement("div");
+  col.className = "msg-col";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  if (opts.error) bubble.classList.add("error");
+
+  if (role === "assistant") {
+    bubble.innerHTML = content ? renderMarkdown(content) : "";
+  } else {
+    bubble.textContent = content;
+  }
+
+  col.appendChild(bubble);
+
+  const timeEl = document.createElement("div");
+  timeEl.className = "msg-time";
+  timeEl.textContent = formatTime(new Date());
+  col.appendChild(timeEl);
+
+  row.appendChild(col);
+  messagesEl.appendChild(row);
+
+  nonSystemCount++;
+  sessionStats.msgCount++;
+  updateEmptyState();
+  scrollToBottom();
+
+  return { row, bubble, col };
+}
+
+function showTypingIndicator() {
+  if (typingRow) return;
+
+  const row = document.createElement("div");
+  row.className = "message-row assistant";
+  row.appendChild(buildAvatarEl());
+
+  const col = document.createElement("div");
+  col.className = "msg-col";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble typing-bubble";
+  bubble.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div>`;
+  col.appendChild(bubble);
+  row.appendChild(col);
+  messagesEl.appendChild(row);
+
+  typingRow = row;
+  scrollToBottom();
+}
+
+function hideTypingIndicator() {
+  if (typingRow) {
+    typingRow.remove();
+    typingRow = null;
+  }
+}
+
 function updateStreamingMessage(text) {
-  if (!streamingEl) return;
-  streamingEl.innerHTML = renderMarkdown(text);
+  if (!streamingBubble) return;
+  streamingBubble.innerHTML = renderMarkdown(text);
   scrollToBottom();
 }
 
@@ -207,6 +422,14 @@ function applyBackground() {
   }
 }
 
+// --- Theme picker click handlers ---
+document.querySelectorAll(".swatch").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    applyTheme(btn.dataset.theme);
+    saveConfig(config);
+  });
+});
+
 // --- WebSocket Protocol ---
 function connectGateway() {
   if (ws) {
@@ -214,19 +437,19 @@ function connectGateway() {
     ws = null;
   }
 
-  setStatus("connecting", "connecting...");
+  setStatus("connecting", "连接中...");
   connected = false;
   connectNonce = null;
 
   try {
     ws = new WebSocket(config.gatewayUrl);
   } catch (e) {
-    setStatus("offline", "invalid URL");
+    setStatus("offline", "地址无效");
     return;
   }
 
   ws.onopen = () => {
-    setStatus("connecting", "handshake...");
+    setStatus("connecting", "握手中...");
   };
 
   ws.onmessage = (event) => {
@@ -240,27 +463,26 @@ function connectGateway() {
   };
 
   ws.onerror = () => {
-    setStatus("offline", "error");
+    setStatus("offline", "连接错误");
   };
 
-  ws.onclose = (event) => {
+  ws.onclose = () => {
     connected = false;
-    setStatus("offline", "disconnected");
+    setStatus("offline", "已断开");
 
-    // Finalize any streaming message
-    if (streamingEl) {
-      streamingEl.classList.remove("streaming");
-      streamingEl = null;
+    hideTypingIndicator();
+    if (streamingBubble) {
+      streamingBubble = null;
       streamingText = "";
+      currentRunId = null;
+      sendBtn.disabled = false;
     }
 
-    // Reject pending requests
-    for (const [id, req] of pendingRequests) {
+    for (const [, req] of pendingRequests) {
       req.reject(new Error("disconnected"));
     }
     pendingRequests.clear();
 
-    // Auto-reconnect after delay
     setTimeout(() => {
       if (!connected) connectGateway();
     }, 3000);
@@ -269,12 +491,8 @@ function connectGateway() {
 
 function handleFrame(frame) {
   switch (frame.type) {
-    case "event":
-      handleEvent(frame);
-      break;
-    case "res":
-      handleResponse(frame);
-      break;
+    case "event": handleEvent(frame); break;
+    case "res": handleResponse(frame); break;
   }
 }
 
@@ -282,7 +500,6 @@ function handleEvent(frame) {
   const { event, payload } = frame;
 
   if (event === "connect.challenge") {
-    // Server sent challenge, respond with connect request
     connectNonce = payload?.nonce;
     sendConnectRequest();
     return;
@@ -293,10 +510,11 @@ function handleEvent(frame) {
     return;
   }
 
-  if (event === "tick") {
-    // Heartbeat, ignore
+  if (event === "sessions.changed") {
+    handleSessionsChanged(payload);
     return;
   }
+  // tick and other heartbeats: ignore
 }
 
 function handleResponse(frame) {
@@ -307,17 +525,17 @@ function handleResponse(frame) {
     if (ok) {
       pending.resolve(payload);
     } else {
-      pending.reject(error || { message: "Request failed" });
+      pending.reject(error || { message: "请求失败" });
     }
     return;
   }
 
-  // Connect response (handled inline)
   if (ok && payload?.type === "hello-ok") {
     connected = true;
     connId = payload.server?.connId;
-    setStatus("online", "connected");
-    addMessage("system", "Connected to gateway");
+    setStatus("online", "已连接");
+    // Subscribe to session events to receive stats updates
+    subscribeSessionEvents();
   }
 }
 
@@ -343,19 +561,17 @@ function sendConnectRequest() {
     },
   };
 
-  // Register response handler for hello-ok
   pendingRequests.set(id, {
     resolve: (payload) => {
       if (payload?.type === "hello-ok") {
         connected = true;
         connId = payload.server?.connId;
-        setStatus("online", "connected");
-        addMessage("system", "Connected");
+        setStatus("online", "已连接");
+        subscribeSessionEvents();
       }
     },
     reject: (err) => {
-      setStatus("offline", err?.message || "connect failed");
-      addMessage("system", `Connection failed: ${err?.message || "unknown error"}`);
+      setStatus("offline", err?.message || "连接失败");
     },
   });
 
@@ -365,18 +581,75 @@ function sendConnectRequest() {
 function sendRequest(method, params) {
   return new Promise((resolve, reject) => {
     if (!connected || !ws || ws.readyState !== WebSocket.OPEN) {
-      reject(new Error("not connected"));
+      reject(new Error("未连接"));
       return;
     }
     const id = uuid();
     pendingRequests.set(id, { resolve, reject });
-    ws.send(JSON.stringify({
-      type: "req",
-      id,
-      method,
-      params,
-    }));
+    ws.send(JSON.stringify({ type: "req", id, method, params }));
   });
+}
+
+// --- Session events subscription ---
+async function subscribeSessionEvents() {
+  try {
+    await sendRequest("sessions.subscribe", {});
+  } catch {
+    // Non-critical; stats won't update in real time
+  }
+}
+
+function handleSessionsChanged(payload) {
+  if (!payload) return;
+  // Filter to only our session
+  const key = payload.sessionKey ?? payload.key;
+  if (key && key !== config.sessionKey) return;
+
+  // Merge stats from payload
+  const entry = payload.entry ?? payload;
+  if (!entry || typeof entry !== "object") return;
+
+  const pick = (field) => (entry[field] != null ? entry[field] : sessionStats[field]);
+  sessionStats.model = pick("model");
+  sessionStats.modelProvider = pick("modelProvider");
+  sessionStats.inputTokens = pick("inputTokens");
+  sessionStats.outputTokens = pick("outputTokens");
+  sessionStats.totalTokens = pick("totalTokens");
+  sessionStats.contextTokens = pick("contextTokens");
+  sessionStats.cacheRead = pick("cacheRead");
+  sessionStats.cacheWrite = pick("cacheWrite");
+  sessionStats.estimatedCostUsd = pick("estimatedCostUsd");
+
+  updateContextPanel();
+}
+
+// Fallback: fetch session stats via sessions.list after each reply
+async function fetchSessionStats() {
+  try {
+    const result = await sendRequest("sessions.list", {
+      limit: 1,
+      search: config.sessionKey,
+      includeGlobal: false,
+      includeUnknown: false,
+    });
+    const sessions = result?.sessions ?? result?.entries ?? [];
+    const entry = sessions.find(s => s.key === config.sessionKey) ?? sessions[0];
+    if (!entry) return;
+
+    sessionStats.model = entry.model ?? sessionStats.model;
+    sessionStats.modelProvider = entry.modelProvider ?? sessionStats.modelProvider;
+    sessionStats.inputTokens = entry.inputTokens ?? sessionStats.inputTokens;
+    sessionStats.outputTokens = entry.outputTokens ?? sessionStats.outputTokens;
+    sessionStats.totalTokens = entry.totalTokens ?? sessionStats.totalTokens;
+    sessionStats.contextTokens = entry.contextTokens ?? sessionStats.contextTokens;
+    sessionStats.cacheRead = entry.cacheRead ?? sessionStats.cacheRead;
+    sessionStats.cacheWrite = entry.cacheWrite ?? sessionStats.cacheWrite;
+    sessionStats.estimatedCostUsd = entry.estimatedCostUsd ?? sessionStats.estimatedCostUsd;
+
+    updateContextPanel();
+  } catch {
+    // Non-critical
+  }
 }
 
 // --- Chat ---
@@ -384,9 +657,16 @@ function handleChatEvent(payload) {
   if (!payload) return;
   const { state, deltaText, runId } = payload;
 
+  // Only process events belonging to this page's active request.
+  // This prevents TUI streaming responses from leaking into the web page.
+  if (!currentRunId) return;
+  if (runId && runId !== currentRunId) return;
+
   if (state === "delta" && deltaText) {
-    if (!streamingEl) {
-      streamingEl = addMessage("assistant", "", { streaming: true });
+    if (!streamingBubble) {
+      hideTypingIndicator();
+      const { bubble } = addMessage("assistant", "");
+      streamingBubble = bubble;
       streamingText = "";
     }
     streamingText += deltaText;
@@ -395,41 +675,42 @@ function handleChatEvent(payload) {
   }
 
   if (state === "final") {
-    // Extract text from final message if no streaming occurred
     let finalText = streamingText;
     if (!finalText && payload.message) {
       const content = payload.message.content;
       if (typeof content === "string") {
         finalText = content;
       } else if (Array.isArray(content)) {
-        finalText = content
-          .filter(c => c.type === "text")
-          .map(c => c.text)
-          .join("\n");
+        finalText = content.filter(c => c.type === "text").map(c => c.text).join("\n");
       }
     }
-    if (streamingEl) {
-      streamingEl.classList.remove("streaming");
-      if (finalText) {
-        streamingEl.innerHTML = renderMarkdown(finalText);
+    hideTypingIndicator();
+    if (streamingBubble) {
+      if (finalText) streamingBubble.innerHTML = renderMarkdown(finalText);
+      const col = streamingBubble.closest(".msg-col");
+      if (col && !col.querySelector(".msg-time")) {
+        const timeEl = document.createElement("div");
+        timeEl.className = "msg-time";
+        timeEl.textContent = formatTime(new Date());
+        col.appendChild(timeEl);
       }
     } else if (finalText) {
       addMessage("assistant", finalText);
     }
-    streamingEl = null;
+    streamingBubble = null;
     streamingText = "";
     currentRunId = null;
     sendBtn.disabled = false;
+    // Fetch stats after reply (fallback if sessions.subscribe didn't deliver)
+    void fetchSessionStats();
     return;
   }
 
   if (state === "aborted") {
-    if (streamingEl) {
-      streamingEl.classList.remove("streaming");
-      if (!streamingText) {
-        streamingEl.innerHTML = "<em>(aborted)</em>";
-      }
-      streamingEl = null;
+    hideTypingIndicator();
+    if (streamingBubble) {
+      if (!streamingText) streamingBubble.innerHTML = "<em style='opacity:0.5'>(已中断)</em>";
+      streamingBubble = null;
       streamingText = "";
     }
     currentRunId = null;
@@ -438,12 +719,12 @@ function handleChatEvent(payload) {
   }
 
   if (state === "error") {
-    if (streamingEl) {
-      streamingEl.classList.remove("streaming");
-      streamingEl = null;
+    hideTypingIndicator();
+    if (streamingBubble) {
+      streamingBubble = null;
       streamingText = "";
     }
-    addMessage("assistant", payload.errorMessage || "An error occurred", { error: true });
+    addMessage("assistant", payload.errorMessage || "发生了错误", { error: true });
     currentRunId = null;
     sendBtn.disabled = false;
     return;
@@ -453,7 +734,7 @@ function handleChatEvent(payload) {
 async function sendChatMessage(text) {
   if (!text.trim()) return;
   if (!connected) {
-    addMessage("system", "Not connected to gateway");
+    addMessage("system", "未连接到 gateway");
     return;
   }
 
@@ -462,6 +743,8 @@ async function sendChatMessage(text) {
   autoResize();
   sendBtn.disabled = true;
 
+  showTypingIndicator();
+
   try {
     const result = await sendRequest("chat.send", {
       sessionKey: config.sessionKey,
@@ -469,8 +752,14 @@ async function sendChatMessage(text) {
       idempotencyKey: uuid(),
     });
     currentRunId = result?.runId;
+    if (!currentRunId) {
+      hideTypingIndicator();
+      sendBtn.disabled = false;
+    }
   } catch (err) {
-    addMessage("assistant", `Failed to send: ${err?.message || err?.code || "unknown error"}`, { error: true });
+    hideTypingIndicator();
+    addMessage("assistant", `发送失败：${err?.message || err?.code || "未知错误"}`, { error: true });
+    currentRunId = null;
     sendBtn.disabled = false;
   }
 }
@@ -529,6 +818,28 @@ document.getElementById("cfg-bg-image").addEventListener("change", (e) => {
   reader.readAsDataURL(file);
 });
 
+document.getElementById("cfg-avatar-img").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    config.avatar = reader.result;
+    saveConfig(config);
+    applyAvatarEverywhere();
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("cfg-clear-avatar").addEventListener("click", () => {
+  config.avatar = null;
+  saveConfig(config);
+  applyAvatarEverywhere();
+});
+
 // --- Init ---
+applyTheme(config.theme || "deepblue");
 applyBackground();
+applyAvatarEverywhere();
+updateEmptyState();
+updateContextPanel();
 connectGateway();
