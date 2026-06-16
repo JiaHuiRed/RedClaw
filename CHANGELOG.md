@@ -1,5 +1,27 @@
 # 更新日志
 
+## [0.1.0] - 2026-06-16
+
+### QiuQiu Chat Web 大幅升级
+
+#### 新增
+
+- **5 套主题系统**：深蓝 / 夜间 / 日间 / 米黄护眼 / 极光，设置面板色块一键切换，持久化到 localStorage。每套主题有完整的 CSS 变量集（背景渐变、玻璃色调、强调色、气泡配色等），风格差异显著。
+- **真正的毛玻璃效果**：重构背景层架构 — `#theme-bg`（z-index:0 主题渐变）+ `#bg-layer`（z-index:1 用户上传图）+ `#app`（z-index:2 玻璃面板）。所有面板（titlebar / context-panel / input-area / 消息气泡）均使用 `backdrop-filter: blur(24px) saturate(1.6)`，将下层彩色渐变透出为毛玻璃效果。
+- **自定义头像上传**：设置面板支持上传任意图片作为秋秋头像（存 localStorage base64），实时更新所有头像位置（消息气泡 / titlebar / 空白欢迎页），「清除头像」恢复默认 🍂。
+- **上下文状态面板**：Titlebar 新增「上下文」切换按钮，展示：模型名、总 Token 数 + 上下文用量百分比、In/Out token 明细、缓存 token + 命中率 %、RMB 费用 + 消息数。连接成功后自动调用 `sessions.subscribe` 获取实时推送，每次回复结束后也补一次 `sessions.list` 兜底。
+
+#### 修复
+
+- **TUI 响应串入网页**：`handleChatEvent` 现在严格按 `runId` 过滤 — `currentRunId` 为 null 时忽略所有来自 gateway 的 `chat` 广播（原来 TUI 的流式响应会意外出现在网页里，只有秋秋回复、没有用户消息，显得非常诡异）。
+
+### 构建说明
+
+```bash
+# 无需重新构建，直接刷新浏览器即可
+redclaw gateway   # 启动后访问 http://127.0.0.1:18789/qiuqiu/
+```
+
 ## [0.0.14] - 2026-06-15
 
 ### 新增
