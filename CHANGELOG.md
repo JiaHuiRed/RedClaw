@@ -2,13 +2,11 @@
 
 ## [0.1.1] - 2026-06-21
 
-### TUI 状态栏改进
+### TUI 状态栏修复
 
 #### 修改
 
-- **缓存显示改为百分比**：状态栏从 `cache hit 82k miss 0` 改为 `cache hit 92.00%`，支持两位小数精度
-- 仅 cacheRead 可用时显示 `cache hit 100.00%`，仅 cacheWrite 可用时显示 `cache hit 0.00%`
-- 费用显示保留 ¥ 格式（formatCny 汇率已配置）
+- **缓存命中率公式修复**：之前 cacheWrite=0 时永远显示 100.00%，现在与 session_status 口径一致（cacheRead/(cacheRead+cacheWrite+inputTokens)×100）
 
 ## [0.1.0] - 2026-06-16
 

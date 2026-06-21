@@ -1428,9 +1428,11 @@ export async function runTui(opts: RunTuiOptions): Promise<TuiResult> {
 
       const cacheWrite = sessionInfo.cacheWrite;
 
-      if (cacheRead != null && cacheWrite != null) {
-        const totalCache = cacheRead + cacheWrite;
-        const hitPct = totalCache > 0 ? ((cacheRead / totalCache) * 100).toFixed(2) : "0.00";
+      const inputTokens = sessionInfo.inputTokens;
+
+      if (cacheRead != null && cacheWrite != null && inputTokens != null) {
+        const totalInput = cacheRead + cacheWrite + inputTokens;
+        const hitPct = totalInput > 0 ? ((cacheRead / totalInput) * 100).toFixed(2) : "0.00";
         parts.push(`cache hit ${hitPct}%`);
       } else if (cacheRead != null) {
         parts.push(`cache hit 100.00%`);
