@@ -1,15 +1,7 @@
 ---
 name: local-system-info
 description: "Return system metrics (CPU, RAM, disk, processes) using psutil on Windows/Linux/macOS."
-metadata:
-  {
-    "openclaw":
-      {
-        "emoji": "🖥️",
-        "requires": { "pip": ["psutil"] },
-        "version": "1.1.0",
-      },
-  }
+metadata: { "openclaw": { "emoji": "🖥️", "requires": { "pip": ["psutil"] }, "version": "1.1.0" } }
 ---
 
 # Local System Info
@@ -21,6 +13,7 @@ Monitor local system resources including CPU, memory, disk usage, and running pr
 Retrieve system metrics.
 
 **Parameters:**
+
 - `action` (string, required): One of `summary`, `cpu`, `memory`, `disk`, `processes`.
 - `limit` (integer, optional): Number of processes to list (default: 20). Only used with `action=processes`.
 
@@ -44,6 +37,7 @@ python scripts/sysinfo.py processes --limit 10
 ```
 
 ### Output: summary
+
 ```json
 {
   "cpu": { "cpu_percent": 15.2, "cpu_count": 8, "load_avg": [0.5, 0.3, 0.2] },
@@ -53,13 +47,13 @@ python scripts/sysinfo.py processes --limit 10
 ```
 
 ### Output: processes
+
 ```json
-[
-  { "pid": 1234, "name": "python", "username": "user", "cpu_percent": 5.2, "memory_percent": 2.1 }
-]
+[{ "pid": 1234, "name": "python", "username": "user", "cpu_percent": 5.2, "memory_percent": 2.1 }]
 ```
 
 ## Notes
+
 - `load_avg` not available on Windows (returns null)
 - Requires `psutil` (pip install psutil)
 - Cross-platform: Windows, Linux, macOS
