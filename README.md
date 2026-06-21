@@ -147,7 +147,7 @@ python main.py   # 默认监听 http://127.0.0.1:8188
 winget install Ollama.Ollama
 
 # 拉取视觉模型
-ollama pull qwen3-vl:8b
+ollama pull minicpm-v4.5:q5_K_M
 ```
 
 **配置已内置**：Vision MCP 已在 `~/.openclaw/openclaw.json` 默认启用，无需额外配置。确认有 `mcp.servers.vision` 条目即可。
@@ -215,6 +215,7 @@ redclaw gateway
 
 | 版本                                      | 日期       | 内容                                                     |
 | ----------------------------------------- | ---------- | -------------------------------------------------------- |
+| [v0.1.1](CHANGELOG.md#011---2026-06-21)   | 2026-06-21 | 缓存命中率公式修复 — 与 session_status 口径一致 |
 | [v0.1.0](CHANGELOG.md#010---2026-06-16)   | 2026-06-16 | QiuQiu Chat Web 大幅升级 — 5 主题/毛玻璃/头像/上下文面板 |
 | [v0.0.13](CHANGELOG.md#0013---2026-06-15) | 2026-06-15 | 赛博亲人定位、队列修复、品牌化、工具精简                 |
 | [v0.0.12](CHANGELOG.md#0012---2026-06-14) | 2026-06-14 | TUI cache/cost 显示、本地图像理解（Vision MCP）          |
