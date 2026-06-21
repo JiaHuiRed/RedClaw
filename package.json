@@ -1,6 +1,6 @@
 {
   "name": "openclaw",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multi-channel AI gateway with extensible messaging integrations",
   "keywords": [],
   "homepage": "https://github.com/openclaw/openclaw#readme",
@@ -1352,7 +1352,6 @@
     "check:deprecated-api-usage": "node scripts/check-deprecated-api-usage.mjs",
     "check:deprecated-jsdoc": "node scripts/check-deprecated-jsdoc.mjs",
     "check:docs": "pnpm format:docs:check && pnpm lint:docs && pnpm docs:check-mdx && pnpm docs:check-i18n-glossary && pnpm docs:check-links",
-
     "check:import-cycles": "node --import tsx scripts/check-import-cycles.ts",
     "check:loc": "node --import tsx scripts/check-ts-max-loc.ts --max 500",
     "check:madge-import-cycles": "node --import tsx scripts/check-madge-import-cycles.ts",
@@ -1450,7 +1449,6 @@
     "lint": "node scripts/run-oxlint-shards.mjs",
     "lint:agent:ingress-owner": "node scripts/check-ingress-agent-owner-context.mjs",
     "lint:all": "node scripts/run-oxlint.mjs",
-
     "lint:auth:no-pairing-store-group": "node scripts/check-no-pairing-store-group-auth.mjs",
     "lint:auth:pairing-account-scope": "node scripts/check-pairing-account-scope.mjs",
     "lint:core": "node scripts/run-oxlint-shards.mjs --only=core --split-core",
@@ -1474,7 +1472,6 @@
     "lint:plugins:no-register-http-handler": "node scripts/check-no-register-http-handler.mjs",
     "lint:plugins:plugin-sdk-subpaths-exported": "node scripts/check-plugin-sdk-subpath-exports.mjs",
     "lint:scripts": "pnpm lint:docker-e2e && pnpm lint:tmp:no-raw-http2-imports && node scripts/run-oxlint.mjs --tsconfig config/tsconfig/oxlint.scripts.json scripts",
-
     "lint:tmp:channel-agnostic-boundaries": "node scripts/check-channel-agnostic-boundaries.mjs",
     "lint:tmp:dynamic-import-warts": "node scripts/check-dynamic-import-warts.mjs",
     "lint:tmp:no-random-messaging": "node scripts/check-no-random-messaging-tmp.mjs",
@@ -1679,7 +1676,6 @@
     "test:live:media:music": "node --import tsx scripts/test-live-media.ts music",
     "test:live:media:video": "node --import tsx scripts/test-live-media.ts video",
     "test:live:models-profiles": "node scripts/test-live.mjs -- src/agents/models.profiles.live.test.ts",
-
     "test:max": "node scripts/test-projects-max.mjs",
     "test:parallels:linux": "bash scripts/e2e/parallels-linux-smoke.sh",
     "test:parallels:npm-update": "bash scripts/e2e/parallels-npm-update-smoke.sh",
