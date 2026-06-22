@@ -156,7 +156,7 @@ async function installBundledPluginSource(params: {
     : prepareConfigForDisabledBundledInstall(params.snapshot.config, params.bundledSource.pluginId);
   const configWarning = shouldEnable
     ? ""
-    : `Installed bundled plugin "${params.bundledSource.pluginId}" without enabling it because it requires configuration first. Configure it, then run \`openclaw plugins enable ${params.bundledSource.pluginId}\`.`;
+    : `Installed bundled plugin "${params.bundledSource.pluginId}" without enabling it because it requires configuration first. Configure it, then run \`redclaw plugins enable ${params.bundledSource.pluginId}\`.`;
   await persistPluginInstall({
     snapshot: {
       config: configBase,
@@ -511,13 +511,13 @@ async function loadConfigFromSnapshotForInstall(
 ): Promise<ConfigSnapshotForInstallPersist> {
   if (resolvePluginInstallInvalidConfigPolicy(request) !== "allow-plugin-recovery") {
     throw buildInvalidPluginInstallConfigError(
-      "Config invalid; run `openclaw doctor --fix` before installing plugins.",
+      "Config invalid; run `redclaw doctor --fix` before installing plugins.",
     );
   }
   const parsed = (snapshot.parsed ?? {}) as Record<string, unknown>;
   if (!snapshot.exists || Object.keys(parsed).length === 0) {
     throw buildInvalidPluginInstallConfigError(
-      "Config file could not be parsed; run `openclaw doctor` to repair it.",
+      "Config file could not be parsed; run `redclaw doctor` to repair it.",
     );
   }
   if (
@@ -527,7 +527,7 @@ async function loadConfigFromSnapshotForInstall(
   ) {
     const pluginLabel = request.bundledPluginId ?? "the requested plugin";
     throw buildInvalidPluginInstallConfigError(
-      `Config invalid outside the plugin recovery path for ${pluginLabel}; run \`openclaw doctor --fix\` before reinstalling it.`,
+      `Config invalid outside the plugin recovery path for ${pluginLabel}; run \`redclaw doctor --fix\` before reinstalling it.`,
     );
   }
   let nextConfig = snapshot.config;

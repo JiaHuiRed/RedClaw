@@ -54,7 +54,7 @@ export type PluginAuthoringInitOptions = {
 export function registerPluginsCli(program: Command) {
   const plugins = program
     .command("plugins")
-    .description("Manage OpenClaw plugins and extensions")
+    .description("Manage RedClaw plugins and extensions")
     .addHelpText(
       "after",
       () =>
