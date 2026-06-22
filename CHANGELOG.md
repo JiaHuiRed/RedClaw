@@ -1,5 +1,20 @@
 # 更新日志
 
+## [0.1.2] - 2026-06-22
+
+### 品牌文案修复
+
+#### 修复
+
+- **banner.test.ts**：5 处断言从 `OpenClaw` 更新为 `RedClaw v... 🐲`，匹配实际 banner 输出
+- **plugins-cli.ts**：`--help` 描述 `Manage OpenClaw plugins` → `Manage RedClaw plugins`
+- **plugins-install-command.ts**：4 处错误提示中 `openclaw doctor` / `openclaw plugins enable` → `redclaw`
+- **zh-CN.ts**：6 处用户可见向导文案 `OpenClaw` → `RedClaw`（signal-cli / WhatsApp / Synology Chat / Nextcloud Talk）
+
+#### 新增
+
+- **电脑管家强化方案**（`.redcode/秋秋电脑管家强化方案.md`）：Windows 系统诊断技能模板（事件查看器 / 磁盘 / 服务 / 性能 / 网络）、SOUL.md 电脑管家人设补充、诊断命令白名单建议、每日巡检 cron 方案
+
 ## [0.1.1] - 2026-06-21
 
 ### TUI 状态栏修复
