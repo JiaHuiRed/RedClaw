@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的个人 AI 助手 — 在自己设备上运行的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.1.1-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.1.2-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
 [![语言](https://img.shields.io/badge/语言-TypeScript-3178C6?style=for-the-badge)](#)
@@ -215,7 +215,8 @@ redclaw gateway
 
 | 版本                                      | 日期       | 内容                                                     |
 | ----------------------------------------- | ---------- | -------------------------------------------------------- |
-| [v0.1.1](CHANGELOG.md#011---2026-06-21)   | 2026-06-21 | 缓存命中率公式修复 — 与 session_status 口径一致 |
+| [v0.1.2](CHANGELOG.md#012---2026-06-22)   | 2026-06-22 | 品牌文案修复 + 电脑管家强化方案                          |
+| [v0.1.1](CHANGELOG.md#011---2026-06-21)   | 2026-06-21 | 缓存命中率公式修复 — 与 session_status 口径一致          |
 | [v0.1.0](CHANGELOG.md#010---2026-06-16)   | 2026-06-16 | QiuQiu Chat Web 大幅升级 — 5 主题/毛玻璃/头像/上下文面板 |
 | [v0.0.13](CHANGELOG.md#0013---2026-06-15) | 2026-06-15 | 赛博亲人定位、队列修复、品牌化、工具精简                 |
 | [v0.0.12](CHANGELOG.md#0012---2026-06-14) | 2026-06-14 | TUI cache/cost 显示、本地图像理解（Vision MCP）          |
