@@ -1,5 +1,11 @@
 # 更新日志
 
+## [0.1.3] - 2026-07-09
+
+### 新增
+
+- **TUI 输入框文字选择**（`src/tui/components/custom-editor.ts`）：Shift+方向键扩展选择、Ctrl+A 全选、选中后 Backspace/Delete 一键删除选中文本、Ctrl+C 复制选中文本、反白高亮显示选择区域。
+
 ## [0.1.2] - 2026-06-22
 
 ### 品牌文案修复
