@@ -117,6 +117,10 @@ allowBuilds:
   openclaw: true
   "@openclaw/proxyline": true
   rastermill: true
+  '@homebridge/node-pty-prebuilt-multiarch': true
+  electron: true
+  electron-winstaller: true
+  sqlite3: true
 
 packageExtensions:
   baileys:
@@ -126,4 +130,3 @@ packageExtensions:
   "@earendil-works/pi-coding-agent":
     dependencies:
       strip-ansi: 7.2.0
-
