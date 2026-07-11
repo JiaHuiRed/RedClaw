@@ -1,0 +1,247 @@
+import Joi from "joi"
+import appManager from "../../../apps/appManager.js"
+
+export default {
+  name: "获取浏览器内容",
+  id: "browserGetContent",
+
+  async fn(argObj) {
+    const { value, error } = this.joi().validate(argObj)
+    if (error) {
+      return "错误：" + error.details[0].message
+    }
+
+    const { appId, type, startLine, endLine, clean = true, searchQuery, isRegex } = value
+
+    let targetAppId = appId
+    if (!targetAppId) {
+      const browsers = appManager.getSummary().filter(a => a.type === "browser")
+      if (browsers.length > 0) {
+        targetAppId = browsers[0].id
+      } else {
+        return "错误：当前没有运行中的浏览器实例。请先调用 browserLaunch 启动浏览器。"
+      }
+    }
+
+    const action = "getHTMLWithFrames" // 强制获取包含 iframe 的 HTML 以便后端解析
+    const res = await appManager.dispatch(targetAppId, action)
+
+    if (res && res.ok) {
+      const pages = Array.isArray(res.data) ? res.data : [{ url: "", isMain: true, html: res.data || "" }]
+      let mergedContent = ""
+
+      for (const page of pages) {
+        let pageHtml = page.html || ""
+        if (clean) {
+          pageHtml = pageHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+          pageHtml = pageHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+        }
+
+        if (type !== "html") {
+          let pageMd = ""
+          try {
+            const htmlToMarkdown = (await import("../../../tools/htmlToMarkdown.js")).default
+            pageMd = htmlToMarkdown(pageHtml)
+          } catch (e) {
+            pageMd = pageHtml.replace(/<[^>]+>/g, "\n").replace(/\n+/g, "\n")
+          }
+
+          const trimmedMd = pageMd.trim()
+          if (trimmedMd.length > 0) {
+            if (page.isMain) {
+              mergedContent += trimmedMd + "\n"
+            } else {
+              mergedContent += `\n\n---\n> [!INFO] 子框架 (iframe) 内容 (URL: ${page.url || "未知"}):\n\n${trimmedMd}\n`
+            }
+          } else if (pageHtml.includes("获取框架 HTML 失败")) {
+            mergedContent += `\n\n---\n> [!WARNING] 子框架 (iframe) 获取失败 (URL: ${page.url || "未知"}):\n> 提示：${pageHtml}\n`
+          }
+        } else {
+          if (page.isMain) {
+            mergedContent += `<!-- 主页面 HTML (URL: ${page.url || "未知"}) -->\n${pageHtml}\n`
+          } else {
+            mergedContent += `\n<!-- 子框架 iframe HTML (URL: ${page.url || "未知"}) -->\n${pageHtml}\n`
+          }
+        }
+      }
+
+      let content = mergedContent
+
+      // 2. 行切分与范围选择
+      const totalChars = content.length
+      const totalBytes = Buffer.byteLength(content, "utf8")
+      const kbSize = (totalBytes / 1024).toFixed(2) + " KB"
+
+      const rawLines = content.split(/\r?\n/)
+      const lines = []
+      const MAX_LINE_LEN = 1000 // 对单行长度进行硬限制，超过该长度则自动逻辑折行
+      for (const line of rawLines) {
+        if (line.length <= MAX_LINE_LEN) {
+          lines.push(line)
+        } else {
+          for (let i = 0; i < line.length; i += MAX_LINE_LEN) {
+            lines.push(line.slice(i, i + MAX_LINE_LEN))
+          }
+        }
+      }
+      const totalLines = lines.length
+
+      let startIdx, endIdx
+      if (startLine === -1) {
+        // 倒着读模式：endLine 为读取的行数
+        const count = endLine || 100
+        startIdx = Math.max(0, totalLines - count)
+        endIdx = totalLines
+      } else {
+        // 正常范围模式
+        startIdx = Math.max(0, (startLine || 1) - 1)
+        endIdx = Math.min(totalLines, endLine || totalLines)
+      }
+
+      let outputLines = []
+
+      if (searchQuery) {
+        let matchIndices = []
+        let searchRegExp
+
+        if (isRegex) {
+          try {
+            let pattern = searchQuery
+            let flags = "i"
+            const match = searchQuery.match(/^\/(.*)\/([gimsuy]*)$/)
+            if (match) {
+              pattern = match[1]
+              flags = match[2]
+              if (!flags.includes("i")) flags += "i" // 缺省加入大小写不敏感
+            }
+            searchRegExp = new RegExp(pattern, flags)
+          } catch (err) {
+            return `错误：提供的正则表达式 "${searchQuery}" 不合法：${err.message}`
+          }
+        } else {
+          // 普通搜索，转义特殊字符
+          const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          searchRegExp = new RegExp(escapedQuery, "i")
+        }
+
+        for (let i = 0; i < totalLines; i++) {
+          if (searchRegExp.test(lines[i])) {
+            matchIndices.push(i)
+          }
+        }
+
+        if (matchIndices.length === 0) {
+          return `未在当前页面中找到关于 "${searchQuery}" 的内容。`
+        }
+
+        outputLines.push(`> [!INFO] 搜索 "${searchQuery}" 找到 ${matchIndices.length} 个匹配项。页面总计约 ${kbSize} 大小。`)
+        const maxMatches = 10
+        const contextLines = 3
+        if (matchIndices.length > maxMatches) {
+          outputLines.push(`> [!WARNING] 匹配项过多，仅显示前 ${maxMatches} 个。若想查看完整信息，请查阅目标行号范围后，通过 startLine 及 endLine 再次调用本工具阅读。`)
+        }
+
+        const limit = Math.min(matchIndices.length, maxMatches)
+        let currentLength = outputLines.join("\n").length
+
+        for (let i = 0; i < limit; i++) {
+          const matchIdx = matchIndices[i]
+          const displayStart = Math.max(0, matchIdx - contextLines)
+          const displayEnd = Math.min(totalLines - 1, matchIdx + contextLines)
+
+          let matchBlock = []
+          matchBlock.push(`\n### 匹配项 ${i + 1} (位于第 ${matchIdx + 1} 行)`)
+          for (let j = displayStart; j <= displayEnd; j++) {
+            const prefix = j === matchIdx ? ">>" : "  "
+            matchBlock.push(`${j + 1}: ${prefix} ${lines[j]}`)
+          }
+
+          let blockText = matchBlock.join("\n")
+
+          if (currentLength + blockText.length > 5000) {
+            outputLines.push(`\n> [!NOTE] 结果因字数限制已被自动截断。请缩小搜索区间或使用更精确的关键字。`)
+            break
+          }
+
+          outputLines.push(blockText)
+          currentLength += blockText.length
+        }
+        return outputLines.join("\n")
+      }
+
+      let headerOffset = 0
+      if (startIdx === 0) {
+        outputLines.push(`> [!INFO] 页面总共 ${totalLines} 行，${totalChars} 字符，大小约为 ${kbSize}。若页面过大阅读困难，请传入 searchQuery 参数进行关键字检索。`)
+        headerOffset = 1
+      }
+
+      let currentLength = outputLines.join("\n").length
+      if (headerOffset > 0) currentLength += 1 // 补偿换行符
+      let nextStartLine = -1
+      let actualAddedLines = 0
+
+      // 遍历选定范围的行
+      for (let i = startIdx; i < endIdx; i++) {
+        const line = lines[i]
+        const lineLen = line.length + 1 // +1 for newline
+
+        // 如果我们即将添加本批次的第一行（即没有任何正文内容时），并且这行超长导致一上来就超出 5000 限制，则强制截断并翻页
+        if (actualAddedLines === 0 && (currentLength + lineLen) > 5000) {
+          const availableSpace = Math.max(100, 5000 - currentLength)
+          let truncated = line.slice(0, availableSpace)
+          if (line.length > availableSpace) {
+            truncated += "\n> [!WARNING] 本行过长，内容已被截断以适应输出要求，且该行的剩余部分被跳过。"
+          }
+          outputLines.push(truncated)
+          actualAddedLines++
+          nextStartLine = i + 2
+          break
+        }
+
+        // 如果累加超过 5000 长，则停止当前页
+        if (currentLength + lineLen > 5000) {
+          nextStartLine = i + 1 // 下一次从第 i+1 行开始 (1-based index)
+          break
+        }
+
+        outputLines.push(line)
+        actualAddedLines++
+        currentLength += lineLen
+      }
+
+      let resultText = outputLines.join("\n")
+
+      // 3. 添加分页提示
+      // 如果实际添加了 0 行（比如完全为空的返回或越界），用 startIdx+1 兜底
+      const displayEndLine = Math.max(startIdx + 1, startIdx + actualAddedLines)
+      let footer = `\n\n--- (读取行 ${startIdx + 1}-${displayEndLine} / 内容共 ${totalLines} 行 / 总计 ${totalChars} 字符 / 大小 ${kbSize})`
+
+      if (nextStartLine !== -1 && nextStartLine <= totalLines) {
+        const remaining = totalLines - (nextStartLine - 1)
+        footer += `\n> [!NOTE] 后续内容已截断，剩余 ${remaining} 行。继续阅读请使用: startLine=${nextStartLine}`
+      } else {
+        footer += `\n> [!IMPORTANT] 已阅读至末尾 (Total: ${totalLines} lines)`
+      }
+
+      return resultText + footer
+    }
+
+    return `错误：${res?.msg || "获取内容失败 (空响应)"}`
+  },
+
+  joi() {
+    return Joi.object({
+      appId: Joi.string(),
+      type: Joi.string().valid("text", "html").default("text").description("text为结构化markdown，html为源码"),
+      clean: Joi.boolean().default(true).description("是否清除script/style"),
+      startLine: Joi.number().min(-1).default(1).description("起始行 (-1为倒序，搜索时可省)"),
+      endLine: Joi.number().min(1).default(999999).description("结束行 (或倒序行数，搜索时可省)"),
+      searchQuery: Joi.string().allow("").description("可选。提供关键字时将转为搜索模式，默认在整个网页范围进行搜索，并返回匹配行及上下文。"),
+      isRegex: Joi.boolean().default(false).description("可选。指示 searchQuery 是否为正则表达式 (支持普通字符串或 /pattern/flags 格式)。")
+    })
+  },
+
+  getDoc() {
+    return `获取当前浏览器页面的内容。`.trim()
+  }
+}
