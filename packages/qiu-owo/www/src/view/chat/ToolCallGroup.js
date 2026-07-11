@@ -1,0 +1,78 @@
+import ChatItem from "./ChatItem.js"
+import getColor from "../common/getColor.js"
+
+export default () => {
+  let expanded = false
+
+  return {
+    view({ attrs }) {
+      const chats = attrs.chats
+      const hasError = chats.some(chat => chat.ask?.toolCallSuccess === false)
+      const doneChat = chats.find(chat => chat.ask?.toolCallDuration)
+      const duration = doneChat?.ask?.toolCallDuration
+      const isLoading = !doneChat // 没有"完毕"消息说明还在执行中
+
+      // 提取所有工具名
+      const getToolNames = () => {
+        const prepareChat = chats.find(chat => chat.ask?.toolCallStage === "prepare")
+        const sysCalls = prepareChat?.ask?.sysCalls || []
+        const sysReturns = doneChat?.ask?.sysReturns || []
+
+        // 优先从结果里拿，如果没有结果（还在加载），从预备调用里拿
+        const names = sysReturns.length > 0
+          ? sysReturns.map(r => r.name || r.id)
+          : sysCalls.map(c => c.name || c.id)
+
+        return names.length > 0 ? ` (${names.join(', ')})` : ''
+      }
+      const toolNames = getToolNames()
+
+      return m('', {
+        style: {
+          display: "inline-block",
+          margin: '1rem',
+          padding: '0.5rem 1rem',
+          borderRadius: '0.5rem 2rem 2rem 0.5rem',
+          boxShadow: "rgba(0, 0, 0, 0.3) 0.1rem 0.1rem 1rem",
+          background: hasError ? getColor("工具组失败背景") : getColor("工具组成功背景"),
+          borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
+        }
+      }, [
+        // 标题栏
+        m('', {
+          style: { cursor: 'pointer', display: 'flex', alignItems: 'center', color: getColor("工具组文字颜色") },
+          onclick: () => { expanded = !expanded }
+        }, [
+          m('span', expanded ? '▼ ' : '▶ '),
+          // 加载动画
+          isLoading ? m('span', {
+            style: {
+              display: 'inline-block',
+              width: '1rem',
+              height: '1rem',
+              border: '0.15rem solid #aaa',
+              borderTopColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              marginRight: '0.5rem',
+            }
+          }) : null,
+          (hasError ? '⚠ 工具调用失败' : (isLoading ? '工具调用中...' : '工具调用')) + toolNames,
+          m('span', { style: { marginLeft: '0.5rem', opacity: 0.7 } },
+            `(${chats.length})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
+          )
+        ]),
+        // 展开详情 - 使用 isGroupChild 而不是 isChildren，避免显示【转到】按钮
+        expanded ? m('', { style: { marginTop: '0.5rem' } },
+          chats.map(chat => m(ChatItem, { key: chat.uuid, chat, isGroupChild: true }))
+        ) : null,
+        // CSS 动画
+        m('style', `
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `)
+      ])
+    }
+  }
+}
