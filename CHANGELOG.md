@@ -1,5 +1,13 @@
 # 更新日志
 
+## [0.1.4] - 2026-07-11
+
+### 修复
+
+- **pnpm-workspace.yaml allowBuilds 占位符**：4 个 `allowBuilds` 条目值被错误设为字符串 `"set this to true or false"`，导致 pnpm 11 拦截编译脚本执行报 `ERR_PNPM_IGNORED_BUILDS`。改为布尔值 `true` 后恢复构建。
+
+---
+
 ## [0.1.3] - 2026-07-09
 
 ### 新增
