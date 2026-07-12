@@ -1,5 +1,24 @@
 # 更新日志
 
+## [0.3.0] - 2026-07-12
+
+### 新增
+
+- **Tauri Desktop GUI**（`packages/desktop-gui/`）：从零搭建 Tauri 2 + Vite 7 + React 19 + TypeScript 5.8 + Tailwind CSS 4 桌面客户端。三栏布局（Sidebar / ChatPanel / CodePanel）、暗色 macOS 风格、Gateway WebSocket 连接。
+- **Gateway 连接修复**：Tauri WebView 自动带 `Origin: http://tauri.localhost` 被 Gateway origin check 拒绝，配置 `gateway.controlUi.allowedOrigins` 放行。
+- **状态栏信息展示**：连接后显示当前模型名、token 用量（`28k / 1.0m (3%)`）、用量>80%红色警告。
+- **斜杠命令面板**：输入 `/` 弹出命令列表，实时过滤，点击发送。
+
+---
+
+## [0.2.0] - 2026-07-11
+
+### 新增
+
+- **Qiu-owo Live2D 角色集成**（`packages/qiu-owo/`）：从 Karinote RedPar 移植 p i x i.js + cubism4 渲染管线，替换静态角色表情为 Hiyori Live2D 模型。修复 `@pixi/core` 版本冲突（7.4.3→7.3.2 alias）及 ticker 未绑定导致动画不播放的问题。
+
+---
+
 ## [0.1.4] - 2026-07-11
 
 ### 修复
