@@ -25,6 +25,7 @@ interface ChatPanelProps {
   sessionInfo: SessionInfo;
   commands: CommandEntry[];
   onToggleCode: () => void;
+  loadingHistory?: boolean;
 }
 
 export default function ChatPanel({
@@ -37,6 +38,7 @@ export default function ChatPanel({
   sessionInfo,
   commands,
   onToggleCode,
+  loadingHistory,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [connecting, setConnecting] = useState(false);
@@ -120,6 +122,10 @@ export default function ChatPanel({
     } else {
       setShowCmdPalette(false);
     }
+    // auto-resize
+    const ta = e.target;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -185,8 +191,25 @@ export default function ChatPanel({
             style={{ color: "var(--text-secondary)" }}
           >
             <div className="text-center space-y-2">
-              <p className="text-lg font-medium">RedClaw</p>
-              <p className="text-xs">连接 Gateway 后开始聊天</p>
+              {loadingHistory ? (
+                <>
+                  <div
+                    className="inline-block w-5 h-5 border-2 rounded-full animate-spin"
+                    style={{
+                      borderColor: "var(--text-secondary)",
+                      borderTopColor: "var(--accent)",
+                    }}
+                  />
+                  <p className="text-xs mt-2">加载历史消息…</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-medium">RedClaw</p>
+                  <p className="text-xs">
+                    {connected ? "选择一个会话开始聊天" : "连接 Gateway 后开始聊天"}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -27,6 +27,16 @@ export interface CommandEntry {
   acceptsArgs: boolean;
 }
 
+export interface ChatSession {
+  sessionKey: string;
+  sessionId?: string;
+  model?: string;
+  configuredModel?: string;
+  title?: string;
+  updatedAt?: number;
+  messageCount?: number;
+}
+
 export interface ModelEntry {
   id: string;
   name: string;
@@ -38,6 +48,7 @@ type Listener = (msg: Message) => void;
 type DeltaListener = (text: string, reasoning: string) => void;
 type StatusListener = (connected: boolean) => void;
 type SessionInfoListener = (info: SessionInfo) => void;
+type SessionListListener = (sessions: ChatSession[]) => void;
 type CommandsListener = (cmds: CommandEntry[]) => void;
 
 class GatewayClient {
@@ -58,6 +69,7 @@ class GatewayClient {
     remainingTokens: null,
     percentUsed: null,
   };
+  private _sessions: ChatSession[] = [];
   private _commands: CommandEntry[] = [];
   private _models: ModelEntry[] = [];
 
@@ -65,10 +77,14 @@ class GatewayClient {
   private deltaListeners: DeltaListener[] = [];
   private statusListeners: StatusListener[] = [];
   private sessionInfoListeners: SessionInfoListener[] = [];
+  private sessionListListeners: SessionListListener[] = [];
   private commandsListeners: CommandsListener[] = [];
 
   get sessionInfo() {
     return this._sessionInfo;
+  }
+  get sessions() {
+    return this._sessions;
   }
   get commands() {
     return this._commands;
@@ -134,6 +150,13 @@ class GatewayClient {
     };
   }
 
+  onSessionList(fn: SessionListListener) {
+    this.sessionListListeners.push(fn);
+    return () => {
+      this.sessionListListeners = this.sessionListListeners.filter((l) => l !== fn);
+    };
+  }
+
   onCommands(fn: CommandsListener) {
     this.commandsListeners.push(fn);
     return () => {
@@ -154,7 +177,7 @@ class GatewayClient {
 
   async fetchSessionInfo() {
     try {
-      const res = await this._request("status", {});
+      const res = await this._request("status", { includeChannelSummary: false });
       if (res.ok && res.payload?.sessions?.recent?.length > 0) {
         const s = res.payload.sessions.recent[0];
         this._sessionInfo = {
@@ -166,6 +189,18 @@ class GatewayClient {
           percentUsed: s.percentUsed ?? null,
         };
         this._notifySessionInfo();
+
+        // parse session list
+        this._sessions = res.payload.sessions.recent.map((s: any) => ({
+          sessionKey: s.sessionKey ?? SESSION_KEY,
+          sessionId: s.sessionId,
+          model: s.model,
+          configuredModel: s.configuredModel,
+          title: s.title,
+          updatedAt: s.updatedAt,
+          messageCount: s.messageCount,
+        }));
+        this._notifySessionList();
       }
     } catch (err) {
       console.error("[Gateway] fetchSessionInfo failed:", err);
@@ -182,6 +217,27 @@ class GatewayClient {
     } catch (err) {
       console.error("[Gateway] fetchCommands failed:", err);
     }
+  }
+
+  async fetchHistory(sessionKey: string, limit = 200): Promise<Message[]> {
+    try {
+      const res = await this._request("chat.history", { sessionKey, limit });
+      if (res.ok && res.payload?.messages) {
+        return res.payload.messages.map((m: any) => ({
+          id: m.id ?? crypto.randomUUID(),
+          role: m.role ?? "assistant",
+          content:
+            typeof m.content === "string"
+              ? m.content
+              : (m.content?.map((c: any) => c.text).join("") ?? ""),
+          timestamp: m.timestamp ?? Date.now(),
+          reasoning: m.reasoning ?? "",
+        }));
+      }
+    } catch (err) {
+      console.error("[Gateway] fetchHistory failed:", err);
+    }
+    return [];
   }
 
   private _connect() {
@@ -330,6 +386,10 @@ class GatewayClient {
 
   private _notifySessionInfo() {
     this.sessionInfoListeners.forEach((fn) => fn(this._sessionInfo));
+  }
+
+  private _notifySessionList() {
+    this.sessionListListeners.forEach((fn) => fn(this._sessions));
   }
 
   private _notifyCommands() {
