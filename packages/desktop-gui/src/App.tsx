@@ -1,8 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import ChatPanel from "./components/ChatPanel";
 import CodePanel from "./components/CodePanel";
 import Sidebar from "./components/Sidebar";
-import { gateway, type Message, type SessionInfo, type CommandEntry } from "./gateway/client";
+import {
+  gateway,
+  type Message,
+  type SessionInfo,
+  type ChatSession,
+  type CommandEntry,
+} from "./gateway/client";
+
+const DEFAULT_SESSION_KEY = "agent:main:main";
 
 export default function App() {
   const [connected, setConnected] = useState(false);
@@ -11,19 +19,66 @@ export default function App() {
   const [showCodePanel, setShowCodePanel] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>(gateway.sessionInfo);
   const [commands, setCommands] = useState<CommandEntry[]>(gateway.commands);
+  const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
+  const [currentSessionKey, setCurrentSessionKey] = useState(DEFAULT_SESSION_KEY);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const loadHistory = useCallback(async (sessionKey: string) => {
+    setLoadingHistory(true);
+    setMessages([]);
+    setStreamingText("");
+    try {
+      const history = await gateway.fetchHistory(sessionKey);
+      setMessages(history);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubInfo = gateway.onSessionInfo((info) => setSessionInfo(info));
     const unsubCmds = gateway.onCommands((cmds) => setCommands(cmds));
+    const unsubSessions = gateway.onSessionList((list) => setSessions(list));
+
+    // Load history on mount if connected
+    if (gateway.isConnected) {
+      loadHistory(DEFAULT_SESSION_KEY);
+    }
+
     return () => {
       unsubInfo();
       unsubCmds();
+      unsubSessions();
     };
+  }, [loadHistory]);
+
+  // Auto-load history when current session changes
+  useEffect(() => {
+    if (connected && currentSessionKey) {
+      loadHistory(currentSessionKey);
+    }
+  }, [connected, currentSessionKey, loadHistory]);
+
+  const handleSelectSession = useCallback((sessionKey: string) => {
+    setCurrentSessionKey(sessionKey);
+  }, []);
+
+  const handleNewSession = useCallback(() => {
+    // For now just switch to default key and clear
+    setCurrentSessionKey(DEFAULT_SESSION_KEY);
+    setMessages([]);
+    setStreamingText("");
   }, []);
 
   return (
     <div className="flex h-screen w-screen">
-      <Sidebar connected={connected} />
+      <Sidebar
+        connected={connected}
+        sessions={sessions}
+        currentSessionKey={currentSessionKey}
+        onSelectSession={handleSelectSession}
+        onNewSession={handleNewSession}
+      />
       <ChatPanel
         connected={connected}
         setConnected={setConnected}
@@ -34,6 +89,7 @@ export default function App() {
         sessionInfo={sessionInfo}
         commands={commands}
         onToggleCode={() => setShowCodePanel((v) => !v)}
+        loadingHistory={loadingHistory}
       />
       {showCodePanel && <CodePanel onClose={() => setShowCodePanel(false)} />}
     </div>
