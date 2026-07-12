@@ -181,8 +181,8 @@ class GatewayClient {
       if (res.ok && res.payload?.sessions?.recent?.length > 0) {
         const s = res.payload.sessions.recent[0];
         this._sessionInfo = {
-          model: s.model ?? null,
-          configuredModel: s.configuredModel ?? null,
+          model: s.model ?? res.payload.model ?? null,
+          configuredModel: s.configuredModel ?? res.payload.configuredModel ?? null,
           contextTokens: s.contextTokens ?? null,
           totalTokens: s.totalTokens ?? null,
           remainingTokens: s.remainingTokens ?? null,
@@ -201,6 +201,10 @@ class GatewayClient {
           messageCount: s.messageCount,
         }));
         this._notifySessionList();
+      } else if (res.ok && res.payload?.model) {
+        // fallback: top-level model when no session exists yet
+        this._sessionInfo = { ...this._sessionInfo, model: res.payload.model };
+        this._notifySessionInfo();
       }
     } catch (err) {
       console.error("[Gateway] fetchSessionInfo failed:", err);
@@ -238,6 +242,32 @@ class GatewayClient {
       console.error("[Gateway] fetchHistory failed:", err);
     }
     return [];
+  }
+
+  async switchModel(modelName: string) {
+    try {
+      await this._request("sessions.configure", {
+        sessionKey: SESSION_KEY,
+        model: modelName,
+      });
+      this._sessionInfo = { ...this._sessionInfo, model: modelName, configuredModel: modelName };
+      this._notifySessionInfo();
+    } catch (err) {
+      console.error("[Gateway] switchModel failed:", err);
+      throw err;
+    }
+  }
+
+  async setReasoning(level: "off" | "low" | "medium" | "high") {
+    try {
+      await this._request("sessions.configure", {
+        sessionKey: SESSION_KEY,
+        reasoning: level === "off" ? undefined : level,
+      });
+    } catch (err) {
+      console.error("[Gateway] setReasoning failed:", err);
+      throw err;
+    }
   }
 
   private _connect() {

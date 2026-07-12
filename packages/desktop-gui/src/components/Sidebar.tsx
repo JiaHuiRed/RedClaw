@@ -110,7 +110,7 @@ export default function Sidebar({
 
       <div className="p-3 border-t" style={{ borderColor: "var(--border)" }}>
         <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          v0.1.0
+          v{__REDCLAW_VERSION__}
         </div>
       </div>
     </aside>

@@ -1,5 +1,18 @@
 # 更新日志
 
+## [0.3.2] - 2026-07-12
+
+### 新增
+
+- **Markdown 渲染**（ChatPanel）：消息内容支持 Markdown 渲染，代码块带语言标签和复制按钮、GFM 表格、列表、引用、链接（新标签页打开）、行内代码高亮。使用 `react-markdown` + `remark‑gfm`。
+- **模型名显示**（Header）：连接后顶部 header 在 RedClaw 旁显示当前使用的大模型名（`deepseek-v4-flash → v4-flash`）。
+- **动态版本号**（Sidebar 左下角）：版本号现在通过 `__REDCLAW_VERSION__` 编译时注入，自动跟随根 `package.json` 版本（`0.3.2`），不再硬编码。
+- **模型选择器**（Header）：模型名改为可点击按钮→弹出下拉菜单，支持切换模型和调整推理强度（off / low / medium / high），通过 `sessions.configure` RPC 实时生效。
+- **Gateway 客户端增强**（client.ts）：新增 `switchModel` / `setReasoning` 方法；`fetchSessionInfo` 增加无活跃会话时的 model fallback；状态栏 null model 显示"等待模型"而非空杠。
+- **流式消息修复**（ChatPanel）：`setStreamingText` 从覆盖改为追加（`prev + text`），打字机效果正常。
+
+---
+
 ## [0.3.1] - 2026-07-12
 
 ### 新增
