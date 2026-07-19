@@ -1,5 +1,18 @@
 # 更新日志
 
+## [0.3.3] - 2026-07-19
+
+### 新增
+
+- **应用图标**（desktop-gui）：使用 RedClaw 龙虾钳 SVG 生成完整 Tauri 图标集（ICO/ICNS/PNG），替换空占位文件。
+- **模型上下文窗口修正**（配置）：step-3.7-flash 的 contextTokens 从空白（默认 200k）修正为 256k。
+
+### 修复
+
+- **模型切换配置错误**（配置）：移除此前错误添加的 `deepseek/step-3.7-flash` 条目，step 模型正确引用 `stepfun-plan/step-3.7-flash`。
+
+---
+
 ## [0.3.2] - 2026-07-12
 
 ### 新增

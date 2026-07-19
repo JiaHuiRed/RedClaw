@@ -1,4 +1,4 @@
-const SESSION_KEY = "agent:main:main";
+const DEFAULT_SESSION_KEY = "agent:main:main";
 const RECONNECT_DELAY = 2000;
 const DEFAULT_URL = "ws://127.0.0.1:18789";
 
@@ -41,7 +41,9 @@ export interface ModelEntry {
   id: string;
   name: string;
   provider: string;
-  contextTokens?: number;
+  alias?: string;
+  contextWindow?: number;
+  reasoning?: boolean;
 }
 
 type Listener = (msg: Message) => void;
@@ -50,6 +52,7 @@ type StatusListener = (connected: boolean) => void;
 type SessionInfoListener = (info: SessionInfo) => void;
 type SessionListListener = (sessions: ChatSession[]) => void;
 type CommandsListener = (cmds: CommandEntry[]) => void;
+type ModelListListener = (models: ModelEntry[]) => void;
 
 class GatewayClient {
   private ws: WebSocket | null = null;
@@ -60,6 +63,7 @@ class GatewayClient {
     {};
   private url = DEFAULT_URL;
   private token = "";
+  private _activeSessionKey = DEFAULT_SESSION_KEY;
 
   private _sessionInfo: SessionInfo = {
     model: null,
@@ -79,6 +83,7 @@ class GatewayClient {
   private sessionInfoListeners: SessionInfoListener[] = [];
   private sessionListListeners: SessionListListener[] = [];
   private commandsListeners: CommandsListener[] = [];
+  private modelListListeners: ModelListListener[] = [];
 
   get sessionInfo() {
     return this._sessionInfo;
@@ -116,6 +121,14 @@ class GatewayClient {
     }
     this.connected = false;
     this._notifyStatus();
+  }
+
+  get activeSessionKey() {
+    return this._activeSessionKey;
+  }
+
+  setActiveSessionKey(key: string) {
+    this._activeSessionKey = key;
   }
 
   get isConnected() {
@@ -164,11 +177,19 @@ class GatewayClient {
     };
   }
 
-  async sendMessage(text: string) {
+  onModelList(fn: ModelListListener) {
+    this.modelListListeners.push(fn);
+    return () => {
+      this.modelListListeners = this.modelListListeners.filter((l) => l !== fn);
+    };
+  }
+
+  async sendMessage(text: string, sessionKey?: string) {
     if (!this.connected) throw new Error("Gateway not connected");
+    const key = sessionKey ?? this._activeSessionKey;
     const idempotencyKey = crypto.randomUUID();
     await this._request("chat.send", {
-      sessionKey: SESSION_KEY,
+      sessionKey: key,
       message: text,
       deliver: false,
       idempotencyKey,
@@ -192,7 +213,7 @@ class GatewayClient {
 
         // parse session list
         this._sessions = res.payload.sessions.recent.map((s: any) => ({
-          sessionKey: s.sessionKey ?? SESSION_KEY,
+          sessionKey: s.sessionKey ?? DEFAULT_SESSION_KEY,
           sessionId: s.sessionId,
           model: s.model,
           configuredModel: s.configuredModel,
@@ -223,9 +244,22 @@ class GatewayClient {
     }
   }
 
-  async fetchHistory(sessionKey: string, limit = 200): Promise<Message[]> {
+  async fetchModels() {
     try {
-      const res = await this._request("chat.history", { sessionKey, limit });
+      const res = await this._request("models.list", { view: "configured" });
+      if (res.ok && res.payload?.models) {
+        this._models = res.payload.models;
+        this._notifyModels();
+      }
+    } catch (err) {
+      console.error("[Gateway] fetchModels failed:", err);
+    }
+  }
+
+  async fetchHistory(sessionKey?: string, limit = 200): Promise<Message[]> {
+    const key = sessionKey ?? this._activeSessionKey;
+    try {
+      const res = await this._request("chat.history", { sessionKey: key, limit });
       if (res.ok && res.payload?.messages) {
         return res.payload.messages.map((m: any) => ({
           id: m.id ?? crypto.randomUUID(),
@@ -246,8 +280,8 @@ class GatewayClient {
 
   async switchModel(modelName: string) {
     try {
-      await this._request("sessions.configure", {
-        sessionKey: SESSION_KEY,
+      await this._request("sessions.patch", {
+        key: this._activeSessionKey,
         model: modelName,
       });
       this._sessionInfo = { ...this._sessionInfo, model: modelName, configuredModel: modelName };
@@ -260,12 +294,53 @@ class GatewayClient {
 
   async setReasoning(level: "off" | "low" | "medium" | "high") {
     try {
-      await this._request("sessions.configure", {
-        sessionKey: SESSION_KEY,
-        reasoning: level === "off" ? undefined : level,
+      await this._request("sessions.patch", {
+        key: this._activeSessionKey,
+        reasoningLevel: level === "off" ? null : level,
       });
     } catch (err) {
       console.error("[Gateway] setReasoning failed:", err);
+      throw err;
+    }
+  }
+
+  async createSession(params?: {
+    label?: string;
+    model?: string;
+    message?: string;
+  }): Promise<string> {
+    const res = await this._request("sessions.create", params ?? {});
+    const key = res.payload?.key ?? this._activeSessionKey;
+    this._activeSessionKey = key;
+    // refresh session list after creation
+    this.fetchSessionInfo();
+    return key;
+  }
+
+  async deleteSession(sessionKey: string) {
+    try {
+      await this._request("sessions.delete", {
+        key: sessionKey,
+        deleteTranscript: true,
+      });
+      // refresh session list
+      this.fetchSessionInfo();
+    } catch (err) {
+      console.error("[Gateway] deleteSession failed:", err);
+      throw err;
+    }
+  }
+
+  async renameSession(sessionKey: string, label: string) {
+    try {
+      await this._request("sessions.patch", {
+        key: sessionKey,
+        label,
+      });
+      // refresh so sidebar picks up the new label
+      this.fetchSessionInfo();
+    } catch (err) {
+      console.error("[Gateway] renameSession failed:", err);
       throw err;
     }
   }
@@ -319,7 +394,7 @@ class GatewayClient {
           mode: "ui",
         },
         role: "operator",
-        scopes: ["operator.read", "operator.write"],
+        scopes: ["operator.read", "operator.write", "operator.admin"],
         auth: this.token ? { token: this.token } : undefined,
         locale: "zh-CN",
       });
@@ -330,6 +405,7 @@ class GatewayClient {
         // fetch session info and commands after connect
         this.fetchSessionInfo();
         this.fetchCommands();
+        this.fetchModels();
       } else {
         this._connecting = false;
       }
@@ -370,7 +446,7 @@ class GatewayClient {
   private _handleChatEvent(payload: any) {
     if (!payload) return;
     const { state, sessionKey, message, deltaText, errorMessage } = payload;
-    if (sessionKey && sessionKey !== SESSION_KEY) return;
+    if (sessionKey && sessionKey !== this._activeSessionKey) return;
 
     switch (state) {
       case "delta":
@@ -424,6 +500,10 @@ class GatewayClient {
 
   private _notifyCommands() {
     this.commandsListeners.forEach((fn) => fn(this._commands));
+  }
+
+  private _notifyModels() {
+    this.modelListListeners.forEach((fn) => fn(this._models));
   }
 
   private _request(method: string, params: any) {

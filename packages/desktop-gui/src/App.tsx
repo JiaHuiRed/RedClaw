@@ -61,13 +61,43 @@ export default function App() {
 
   const handleSelectSession = useCallback((sessionKey: string) => {
     setCurrentSessionKey(sessionKey);
+    gateway.setActiveSessionKey(sessionKey);
   }, []);
 
-  const handleNewSession = useCallback(() => {
-    // For now just switch to default key and clear
-    setCurrentSessionKey(DEFAULT_SESSION_KEY);
+  const handleNewSession = useCallback(async () => {
     setMessages([]);
     setStreamingText("");
+    try {
+      const key = await gateway.createSession();
+      setCurrentSessionKey(key);
+    } catch {
+      setCurrentSessionKey(DEFAULT_SESSION_KEY);
+    }
+  }, []);
+
+  const handleDeleteSession = useCallback(
+    async (sessionKey: string) => {
+      try {
+        await gateway.deleteSession(sessionKey);
+        if (sessionKey === currentSessionKey) {
+          const remaining = sessions.filter((s) => s.sessionKey !== sessionKey);
+          const next = remaining.length > 0 ? remaining[0].sessionKey : DEFAULT_SESSION_KEY;
+          setCurrentSessionKey(next);
+          gateway.setActiveSessionKey(next);
+        }
+      } catch {
+        // error already logged in client
+      }
+    },
+    [currentSessionKey, sessions],
+  );
+
+  const handleRenameSession = useCallback(async (sessionKey: string, label: string) => {
+    try {
+      await gateway.renameSession(sessionKey, label);
+    } catch {
+      // error already logged in client
+    }
   }, []);
 
   return (
@@ -78,6 +108,8 @@ export default function App() {
         currentSessionKey={currentSessionKey}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
+        onDeleteSession={handleDeleteSession}
+        onRenameSession={handleRenameSession}
       />
       <ChatPanel
         connected={connected}
