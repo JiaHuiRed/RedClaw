@@ -110,6 +110,11 @@ export const BUILD_ALL_STEPS = [
     kind: "node",
     args: ["--experimental-strip-types", "scripts/write-cli-compat.ts"],
   },
+  {
+    label: "desktop-gui:build",
+    kind: "pnpm",
+    pnpmArgs: ["--filter", "redclaw-desktop", "build"],
+  },
 ];
 
 export const BUILD_ALL_PROFILES = {
