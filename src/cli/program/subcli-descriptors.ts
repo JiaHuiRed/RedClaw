@@ -85,6 +85,11 @@ const subCliCommandCatalog = defineCommandDescriptorCatalog([
     hasSubcommands: false,
   },
   {
+    name: "gui",
+    description: "Open the RedClaw desktop GUI (Tauri)",
+    hasSubcommands: false,
+  },
+  {
     name: "cron",
     description: "Schedule and inspect Gateway background jobs",
     hasSubcommands: true,

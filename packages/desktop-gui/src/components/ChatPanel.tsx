@@ -2,7 +2,13 @@ import { Send, Plug, PlugZap, PanelRight, Slash, Copy, Check } from "lucide-reac
 import { useState, useEffect, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { gateway, type Message, type SessionInfo, type CommandEntry } from "../gateway/client";
+import {
+  gateway,
+  type Message,
+  type SessionInfo,
+  type CommandEntry,
+  type ModelEntry,
+} from "../gateway/client";
 
 function fmt(n: number | null): string {
   if (n == null) return "—";
@@ -197,6 +203,8 @@ export default function ChatPanel({
   const [showCmdPalette, setShowCmdPalette] = useState(false);
   const [cmdFilter, setCmdFilter] = useState("");
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
+  const [availableModels, setAvailableModels] = useState<ModelEntry[]>(gateway.models);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -206,6 +214,7 @@ export default function ChatPanel({
     function handleClick(e: MouseEvent) {
       if (modelSelectorRef.current && !modelSelectorRef.current.contains(e.target as Node)) {
         setShowModelSelector(false);
+        setModelSearch("");
       }
     }
     if (showModelSelector) document.addEventListener("mousedown", handleClick);
@@ -219,6 +228,17 @@ export default function ChatPanel({
       .filter((c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
       .slice(0, 15);
   }, [commands, cmdFilter]);
+
+  const filteredModels = useMemo(() => {
+    if (!modelSearch) return availableModels;
+    const q = modelSearch.toLowerCase();
+    return availableModels.filter(
+      (m) =>
+        m.id.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q) ||
+        m.provider.toLowerCase().includes(q),
+    );
+  }, [availableModels, modelSearch]);
 
   useEffect(() => {
     const unsubMsg = gateway.onMessage((msg) => {
@@ -235,10 +255,15 @@ export default function ChatPanel({
       setConnecting(false);
     });
 
+    const unsubModels = gateway.onModelList((models) => {
+      setAvailableModels(models);
+    });
+
     return () => {
       unsubMsg();
       unsubDelta();
       unsubStatus();
+      unsubModels();
       gateway.stop();
     };
   }, []);
@@ -333,43 +358,90 @@ export default function ChatPanel({
           {/* Model selector dropdown */}
           {showModelSelector && connected && (
             <div
-              className="absolute top-full left-0 mt-1 w-64 rounded-xl border shadow-lg z-50 overflow-hidden"
+              className="absolute top-full left-0 mt-1 w-72 rounded-xl border shadow-lg z-50 overflow-hidden"
               style={{
                 background: "var(--bg-secondary)",
                 borderColor: "var(--border)",
               }}
             >
-              {/* Current model */}
-              <div className="px-3 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-                <div
-                  className="text-[10px] uppercase tracking-wider mb-1"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  当前模型
+              {/* Search / filter */}
+              <div className="px-3 py-2 border-b" style={{ borderColor: "var(--border)" }}>
+                <div className="flex gap-1">
+                  <input
+                    className="flex-1 text-xs px-2 py-1.5 rounded-md outline-none"
+                    style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+                    placeholder="搜索模型…"
+                    value={modelSearch}
+                    onChange={(e) => setModelSearch(e.target.value)}
+                    autoFocus
+                  />
                 </div>
-                <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                  {model || "—"}
-                </div>
-                {sessionInfo.configuredModel && sessionInfo.configuredModel !== model && (
-                  <div className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                    配置: {sessionInfo.configuredModel}
-                  </div>
-                )}
               </div>
 
-              {/* Switch model input */}
+              {/* Model list */}
+              <div
+                className="max-h-48 overflow-y-auto border-b"
+                style={{ borderColor: "var(--border)" }}
+              >
+                {filteredModels.length === 0 && (
+                  <div
+                    className="px-3 py-4 text-xs text-center"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {modelSearch ? "未找到匹配模型" : "暂无可用模型"}
+                  </div>
+                )}
+                {filteredModels.map((m) => {
+                  const active = m.id === model;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={async () => {
+                        try {
+                          await gateway.switchModel(m.id);
+                          setShowModelSelector(false);
+                          setModelSearch("");
+                        } catch {}
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center gap-2"
+                      style={{
+                        color: "var(--text-primary)",
+                        background: active ? "var(--bg-tertiary)" : "transparent",
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{m.name || m.id}</div>
+                        <div
+                          className="text-[10px] mt-0.5 truncate"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {m.id}
+                          {m.contextWindow && <span> · {fmt(m.contextWindow)} ctx</span>}
+                        </div>
+                      </div>
+                      {active && (
+                        <span className="text-[10px] shrink-0" style={{ color: "var(--accent)" }}>
+                          当前
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Manual input */}
               <div className="px-3 py-2 border-b" style={{ borderColor: "var(--border)" }}>
                 <div
                   className="text-[10px] uppercase tracking-wider mb-1.5"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  切换模型
+                  或手动输入
                 </div>
                 <div className="flex gap-1">
                   <input
                     className="flex-1 text-xs px-2 py-1.5 rounded-md outline-none"
                     style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
-                    placeholder="输入模型名 (provider/model)"
+                    placeholder="provider/model"
                     onKeyDown={async (e) => {
                       if (e.key === "Enter") {
                         const val = (e.target as HTMLInputElement).value.trim();
@@ -377,6 +449,7 @@ export default function ChatPanel({
                           try {
                             await gateway.switchModel(val);
                             setShowModelSelector(false);
+                            setModelSearch("");
                           } catch {}
                         }
                       }

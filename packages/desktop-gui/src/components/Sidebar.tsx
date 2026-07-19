@@ -1,4 +1,5 @@
-import { Plus, MessageCircle } from "lucide-react";
+import { Plus, MessageCircle, Check, X, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
 import type { ChatSession } from "../gateway/client";
 
 interface SidebarProps {
@@ -7,6 +8,8 @@ interface SidebarProps {
   currentSessionKey: string;
   onSelectSession: (sessionKey: string) => void;
   onNewSession: () => void;
+  onDeleteSession: (sessionKey: string) => void;
+  onRenameSession: (sessionKey: string, label: string) => void;
 }
 
 function sessionTitle(s: ChatSession): string {
@@ -30,7 +33,40 @@ export default function Sidebar({
   currentSessionKey,
   onSelectSession,
   onNewSession,
+  onDeleteSession,
+  onRenameSession,
 }: SidebarProps) {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const startEdit = (s: ChatSession) => {
+    setEditingKey(s.sessionKey);
+    setEditValue(s.title || "");
+  };
+
+  const commitEdit = () => {
+    if (editingKey && editValue.trim()) {
+      onRenameSession(editingKey, editValue.trim());
+    }
+    setEditingKey(null);
+    setEditValue("");
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+    setEditValue("");
+  };
+
+  const handleDelete = (sessionKey: string) => {
+    if (confirmDelete === sessionKey) {
+      onDeleteSession(sessionKey);
+      setConfirmDelete(null);
+    } else {
+      setConfirmDelete(sessionKey);
+    }
+  };
+
   return (
     <aside
       className="flex flex-col border-r shrink-0"
@@ -73,14 +109,18 @@ export default function Sidebar({
         )}
         {sessions.map((s) => {
           const active = s.sessionKey === currentSessionKey;
+          const isEditing = editingKey === s.sessionKey;
           return (
-            <button
+            <div
               key={s.sessionKey}
-              onClick={() => onSelectSession(s.sessionKey)}
-              className="w-full text-left flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors hover:opacity-90"
+              className="group relative w-full text-left flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-xs transition-colors hover:opacity-90"
               style={{
                 background: active ? "var(--bg-tertiary)" : "transparent",
                 color: "var(--text-primary)",
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                if (!isEditing) onSelectSession(s.sessionKey);
               }}
             >
               <MessageCircle
@@ -89,21 +129,101 @@ export default function Sidebar({
                 style={{ color: "var(--text-secondary)" }}
               />
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{sessionTitle(s)}</div>
+                {isEditing ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      className="flex-1 text-xs px-1 py-0.5 rounded border outline-none"
+                      style={{
+                        background: "var(--bg-primary)",
+                        color: "var(--text-primary)",
+                        borderColor: "var(--border)",
+                      }}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitEdit();
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      onBlur={commitEdit}
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        commitEdit();
+                      }}
+                      className="p-0.5 rounded hover:opacity-70"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cancelEdit();
+                      }}
+                      className="p-0.5 rounded hover:opacity-70"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="font-medium truncate">{sessionTitle(s)}</div>
+                    <div
+                      className="flex items-center gap-2 mt-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <span className="truncate">{s.configuredModel || s.model || "—"}</span>
+                      {s.updatedAt && (
+                        <>
+                          <span className="opacity-40">·</span>
+                          <span className="shrink-0">{sessionTime(s.updatedAt)}</span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Hover actions */}
+              {!isEditing && (
                 <div
-                  className="flex items-center gap-2 mt-1"
-                  style={{ color: "var(--text-secondary)" }}
+                  className="hidden group-hover:flex items-center gap-0.5 absolute right-2 top-2"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="truncate">{s.configuredModel || s.model || "—"}</span>
-                  {s.updatedAt && (
-                    <>
-                      <span className="opacity-40">·</span>
-                      <span className="shrink-0">{sessionTime(s.updatedAt)}</span>
-                    </>
+                  <button
+                    onClick={() => startEdit(s)}
+                    className="p-1 rounded hover:opacity-70"
+                    style={{ color: "var(--text-secondary)" }}
+                    title="重命名"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  {confirmDelete === s.sessionKey ? (
+                    <button
+                      onClick={() => handleDelete(s.sessionKey)}
+                      className="p-1 rounded"
+                      style={{ color: "#ff453a" }}
+                      title="确认删除"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(s.sessionKey)}
+                      className="p-1 rounded hover:opacity-70"
+                      style={{ color: "var(--text-secondary)" }}
+                      title="删除会话"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   )}
                 </div>
-              </div>
-            </button>
+              )}
+            </div>
           );
         })}
       </div>

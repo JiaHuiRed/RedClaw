@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicehash/tauri/dev/crates/tauri-config-schema/schema.json",
   "productName": "RedClaw",
-  "version": "0.3.0",
+  "version": "0.3.3",
   "identifier": "com.redclaw.desktop",
   "build": {
     "devUrl": "http://localhost:1420",
@@ -30,7 +30,11 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.ico"
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png",
+      "icons/Square150x150Logo.png",
+      "icons/StoreLogo.png"
     ]
   }
 }

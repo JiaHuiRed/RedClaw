@@ -158,6 +158,11 @@ const entrySpecs: readonly CommandGroupDescriptorSpec<SubCliRegistrar>[] = [
       exportName: "registerTuiCli",
     },
     {
+      commandNames: ["gui"],
+      loadModule: () => import("../gui-cli.js"),
+      exportName: "registerGuiCli",
+    },
+    {
       commandNames: ["cron"],
       loadModule: () => import("../cron-cli.js"),
       exportName: "registerCronCli",
