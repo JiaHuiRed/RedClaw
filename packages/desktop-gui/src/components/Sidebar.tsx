@@ -1,5 +1,5 @@
 import { Plus, MessageCircle, Check, X, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { ChatSession } from "../gateway/client";
 
 interface SidebarProps {
@@ -39,6 +39,13 @@ export default function Sidebar({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+    };
+  }, []);
 
   const startEdit = (s: ChatSession) => {
     setEditingKey(s.sessionKey);
@@ -59,11 +66,15 @@ export default function Sidebar({
   };
 
   const handleDelete = (sessionKey: string) => {
+    if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
     if (confirmDelete === sessionKey) {
       onDeleteSession(sessionKey);
       setConfirmDelete(null);
     } else {
       setConfirmDelete(sessionKey);
+      confirmTimeoutRef.current = setTimeout(() => {
+        setConfirmDelete(null);
+      }, 3000);
     }
   };
 
