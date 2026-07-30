@@ -151,6 +151,10 @@ const loadSendHandlers = lazyHandlerModule(
   () => import("./server-methods/send.js"),
   (module) => module.sendHandlers,
 );
+const loadTodoHandlers = lazyHandlerModule(
+  () => import("./server-methods/todo.js"),
+  (module) => module.todoHandlers,
+);
 const loadSessionsHandlers = lazyHandlerModule(
   () => import("./server-methods/sessions.js"),
   (module) => module.sessionsHandlers,
@@ -277,6 +281,10 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...createLazyCoreHandlers({
     methods: ["commands.list"],
     loadHandlers: loadCommandsHandlers,
+  }),
+  ...createLazyCoreHandlers({
+    methods: ["todo.list", "todo.get", "todo.add", "todo.update", "todo.remove"],
+    loadHandlers: loadTodoHandlers,
   }),
   ...createLazyCoreHandlers({
     methods: [

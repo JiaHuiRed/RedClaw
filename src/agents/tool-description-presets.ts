@@ -1,6 +1,7 @@
 export const EXEC_TOOL_DISPLAY_SUMMARY = "Run shell now.";
 export const PROCESS_TOOL_DISPLAY_SUMMARY = "Inspect/control exec sessions.";
 export const CRON_TOOL_DISPLAY_SUMMARY = "Schedule reminders, cron, wake events.";
+export const TODO_TOOL_DISPLAY_SUMMARY = "Persistent structured to-do list.";
 export const SESSIONS_LIST_TOOL_DISPLAY_SUMMARY = "List visible sessions; filters/previews.";
 export const SESSIONS_HISTORY_TOOL_DISPLAY_SUMMARY = "Read sanitized session history.";
 export const SESSIONS_SEND_TOOL_DISPLAY_SUMMARY = "Message session or configured agent.";

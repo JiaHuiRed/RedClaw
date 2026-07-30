@@ -8,6 +8,7 @@ import {
   Check,
   Square,
   Settings,
+  ListTodo,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
@@ -196,6 +197,7 @@ interface ChatPanelProps {
   sessionInfo: SessionInfo;
   commands: CommandEntry[];
   onToggleCode: () => void;
+  onToggleTodo: () => void;
   loadingHistory?: boolean;
 }
 
@@ -209,6 +211,7 @@ export default function ChatPanel({
   sessionInfo,
   commands,
   onToggleCode,
+  onToggleTodo,
   loadingHistory,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -611,6 +614,14 @@ export default function ChatPanel({
               </div>
             )}
           </div>
+          <button
+            onClick={onToggleTodo}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
+            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+          >
+            <ListTodo size={14} />
+            待办
+          </button>
           <button
             onClick={onToggleCode}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"

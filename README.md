@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.3.4-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.5-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -60,6 +60,7 @@ pnpm tauri dev
 - **模型选择器** — 可搜索模型列表，一键切换大模型
 - **推理强度控制** — off / low / medium / high
 - **会话管理** — 新建 / 重命名 / 删除会话
+- **待办清单** — 与秋秋对话共用同一份数据，新增 / 完成 / 删除
 - **状态栏** — 连接状态、当前模型、Token 用量
 
 ---
@@ -128,15 +129,16 @@ redclaw onboard   # 中文交互式向导
 
 详见 [CHANGELOG.md](CHANGELOG.md)。
 
-| 版本   | 内容                                        |
-| ------ | ------------------------------------------- |
-| v0.3.4 | 停止生成、错误提示、连接设置面板、连接修复  |
-| v0.3.3 | 应用图标、Step 256k 上下文修正、构建集成    |
-| v0.3.2 | 模型选择器 + 推理强度 + 流式修复            |
-| v0.3.0 | Tauri Desktop GUI 首版                      |
-| v0.0.6 | 精简：删除 39 extension、40 skill、520 脚本 |
-| v0.0.2 | 🐲 品牌化、redclaw 命令别名                 |
-| v0.0.1 | 从 OpenClaw 分支                            |
+| 版本   | 内容                                           |
+| ------ | ---------------------------------------------- |
+| v0.3.5 | 结构化待办清单（agent 工具 + 网关 + GUI 面板） |
+| v0.3.4 | 停止生成、错误提示、连接设置面板、连接修复     |
+| v0.3.3 | 应用图标、Step 256k 上下文修正、构建集成       |
+| v0.3.2 | 模型选择器 + 推理强度 + 流式修复               |
+| v0.3.0 | Tauri Desktop GUI 首版                         |
+| v0.0.6 | 精简：删除 39 extension、40 skill、520 脚本    |
+| v0.0.2 | 🐲 品牌化、redclaw 命令别名                    |
+| v0.0.1 | 从 OpenClaw 分支                               |
 
 ---
 
