@@ -44,6 +44,10 @@ apps/shared/OpenClawKit/.build/
 apps/shared/*/.build/
 apps/shared/OpenClawKit/Package.resolved
 **/ModuleCache/
+
+# Tauri / Rust build output (desktop-gui)
+packages/desktop-gui/src-tauri/target/
+packages/desktop-gui/src-tauri/gen/
 bin/
 bin/clawdbot-mac
 bin/docs-list

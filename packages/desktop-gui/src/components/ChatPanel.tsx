@@ -1,4 +1,14 @@
-import { Send, Plug, PlugZap, PanelRight, Slash, Copy, Check, Square } from "lucide-react";
+import {
+  Send,
+  Plug,
+  PlugZap,
+  PanelRight,
+  Slash,
+  Copy,
+  Check,
+  Square,
+  Settings,
+} from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,6 +19,9 @@ import {
   type CommandEntry,
   type ModelEntry,
 } from "../gateway/client";
+
+const GATEWAY_URL_KEY = "redclaw:gatewayUrl";
+const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
 
 function fmt(n: number | null): string {
   if (n == null) return "—";
@@ -206,7 +219,13 @@ export default function ChatPanel({
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [availableModels, setAvailableModels] = useState<ModelEntry[]>(gateway.models);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsUrl, setSettingsUrl] = useState(() => localStorage.getItem(GATEWAY_URL_KEY) ?? "");
+  const [settingsToken, setSettingsToken] = useState(
+    () => localStorage.getItem(GATEWAY_TOKEN_KEY) ?? "",
+  );
   const modelSelectorRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -221,6 +240,30 @@ export default function ChatPanel({
     if (showModelSelector) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showModelSelector]);
+
+  // Close settings popover on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    }
+    if (showSettings) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showSettings]);
+
+  function handleSaveSettings() {
+    const url = settingsUrl.trim();
+    const token = settingsToken.trim();
+    if (url) localStorage.setItem(GATEWAY_URL_KEY, url);
+    else localStorage.removeItem(GATEWAY_URL_KEY);
+    if (token) localStorage.setItem(GATEWAY_TOKEN_KEY, token);
+    else localStorage.removeItem(GATEWAY_TOKEN_KEY);
+    gateway.configure(url || undefined, token);
+    setShowSettings(false);
+    gateway.stop();
+    gateway.start();
+  }
 
   const filteredCommands = useMemo(() => {
     if (!cmdFilter || cmdFilter === "/") return commands.slice(0, 15);
@@ -513,6 +556,61 @@ export default function ChatPanel({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <div className="relative" ref={settingsRef}>
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
+              style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+              title="连接设置"
+            >
+              <Settings size={14} />
+            </button>
+            {showSettings && (
+              <div
+                className="absolute top-full right-0 mt-1 w-72 rounded-xl border shadow-lg z-50 p-3 space-y-2"
+                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
+              >
+                <div>
+                  <div
+                    className="text-[10px] uppercase tracking-wider mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Gateway URL
+                  </div>
+                  <input
+                    className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                    style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+                    placeholder="ws://127.0.0.1:18789"
+                    value={settingsUrl}
+                    onChange={(e) => setSettingsUrl(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div
+                    className="text-[10px] uppercase tracking-wider mb-1"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Token
+                  </div>
+                  <input
+                    type="password"
+                    className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                    style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+                    placeholder="gateway.auth.token"
+                    value={settingsToken}
+                    onChange={(e) => setSettingsToken(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={handleSaveSettings}
+                  className="w-full text-xs py-1.5 rounded-md font-medium hover:opacity-80"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  保存并重连
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={onToggleCode}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"

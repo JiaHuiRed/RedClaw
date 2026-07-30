@@ -11,6 +11,8 @@ import {
 } from "./gateway/client";
 
 const DEFAULT_SESSION_KEY = "agent:main:main";
+const GATEWAY_URL_KEY = "redclaw:gatewayUrl";
+const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
 
 export default function App() {
   const [connected, setConnected] = useState(false);
@@ -49,6 +51,13 @@ export default function App() {
     const unsubCmds = gateway.onCommands((cmds) => setCommands(cmds));
     const unsubSessions = gateway.onSessionList((list) => setSessions(list));
     const unsubError = gateway.onError((message) => pushToast(message));
+
+    // Apply any saved gateway URL/token before auto-connecting
+    const savedUrl = localStorage.getItem(GATEWAY_URL_KEY);
+    const savedToken = localStorage.getItem(GATEWAY_TOKEN_KEY);
+    if (savedUrl || savedToken) {
+      gateway.configure(savedUrl || undefined, savedToken ?? undefined);
+    }
 
     // Auto-connect on launch so the user doesn't have to click "连接" every time
     gateway.start();

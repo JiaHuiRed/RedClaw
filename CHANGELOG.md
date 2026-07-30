@@ -1,5 +1,27 @@
 # 更新日志
 
+## [0.3.4] - 2026-07-30
+
+### 新增
+
+- **停止生成**（ChatPanel）：流式回复期间发送按钮变为红色停止按钮，调用真实存在的 `chat.abort` RPC 中断当前请求。
+- **命令面板支持带参数命令**（ChatPanel）：点击 `acceptsArgs` 为真的命令时把命令名填入输入框并聚焦，而不是直接发送；不需要参数的命令保持原样直接发送。
+- **自动连接 Gateway**（App）：应用启动时自动调用 `gateway.start()`，不用再手动点"连接"按钮。
+- **错误提示 toast**（App/client.ts）：新增 `gateway.onError` 监听机制，发消息/切模型/调推理强度/删除会话/重命名会话/连接握手失败时右下角弹出提示，不再只是 `console.error` 或静默吞掉。
+- **连接设置面板**（ChatPanel）：Header 新增齿轮图标，可填写 Gateway URL / Token 并持久化到 localStorage，下次启动自动带上；解决 `gateway.controlUi` 要求 token 鉴权时桌面客户端无法配置的问题。
+
+### 修复
+
+- **"device identity required" 连接失败**（src/utils/message-channel.ts）：桌面客户端连接握手身份从冒充 `openclaw-tui` 改为独立的 `openclaw-desktop` 后，`isOperatorUiClient()` 未同步识别新 client id，导致丢失 TUI 原本享有的 operator-ui 豁免，本地 `dangerouslyDisableDeviceAuth` 场景下仍被拒绝；现已补上。
+- **流式回复中止/报错后残留文字不清空**（client.ts）：`aborted`/`error` 状态原先调用 `_notifyDelta("","")` 是个 no-op（因为 onDelta 是追加逻辑），现改为显式的 `onStreamEnd` 通知，中止时若有部分内容会正确落定为一条消息。
+- **连接被拒绝时无限重连刷屏**（client.ts）：网关明确拒绝握手（如身份/令牌问题）时不再依赖 `onclose` 自动重连每 2 秒重试一次，而是直接停止，避免 toast 无限刷屏。
+- **会话删除误触风险**（Sidebar）：二次确认删除按钮加 3 秒自动解除超时，不再无限期"武装"等着被误点。
+- **`tauri dev`/`tauri build` 需要手动开两个终端**（tauri.conf.json）：补上 `beforeDevCommand`/`beforeBuildCommand`，自动拉起前端 dev server。
+- **`pnpm build` 对整个项目失败**（src/cli/program）：移除 v0.3.3 引入但从未实现的 `gui` 子命令注册（`import("../gui-cli.js")` 目标文件从未创建的死引用）。
+- **仓库体积**（packages/qiu-owo）：删除三处自我复制的重复目录（`public/public/` 完整重复 + `pet/pet`、`pet2/pet2` 嵌套重复），均来自 qiu-owo 引入时的一次性误操作。
+
+---
+
 ## [0.3.3] - 2026-07-19
 
 ### 新增
