@@ -452,18 +452,18 @@ class GatewayClient {
         this.fetchCommands();
         this.fetchModels();
       } else {
-        this._connecting = false;
-        this.connected = false;
-        this._notifyStatus();
+        // The Gateway explicitly rejected this handshake (bad/missing auth,
+        // device identity, etc). Retrying with the same credentials would
+        // just fail again, so stop() instead of letting onclose reschedule
+        // another attempt.
         this._notifyError(`连接被拒绝：${res.error?.message || "未知错误"}`);
+        this.stop();
       }
     } catch (err) {
       console.error("[Gateway] connect failed:", err);
-      this._connecting = false;
-      this.connected = false;
-      this._notifyStatus();
       const message = err instanceof Error ? err.message : String(err);
       this._notifyError(`连接失败：${message}`);
+      this.stop();
     }
   }
 
