@@ -53,6 +53,8 @@ type SessionInfoListener = (info: SessionInfo) => void;
 type SessionListListener = (sessions: ChatSession[]) => void;
 type CommandsListener = (cmds: CommandEntry[]) => void;
 type ModelListListener = (models: ModelEntry[]) => void;
+type ErrorListener = (message: string) => void;
+type StreamEndListener = () => void;
 
 class GatewayClient {
   private ws: WebSocket | null = null;
@@ -84,6 +86,8 @@ class GatewayClient {
   private sessionListListeners: SessionListListener[] = [];
   private commandsListeners: CommandsListener[] = [];
   private modelListListeners: ModelListListener[] = [];
+  private errorListeners: ErrorListener[] = [];
+  private streamEndListeners: StreamEndListener[] = [];
 
   get sessionInfo() {
     return this._sessionInfo;
@@ -184,16 +188,49 @@ class GatewayClient {
     };
   }
 
+  onError(fn: ErrorListener) {
+    this.errorListeners.push(fn);
+    return () => {
+      this.errorListeners = this.errorListeners.filter((l) => l !== fn);
+    };
+  }
+
+  onStreamEnd(fn: StreamEndListener) {
+    this.streamEndListeners.push(fn);
+    return () => {
+      this.streamEndListeners = this.streamEndListeners.filter((l) => l !== fn);
+    };
+  }
+
   async sendMessage(text: string, sessionKey?: string) {
     if (!this.connected) throw new Error("Gateway not connected");
     const key = sessionKey ?? this._activeSessionKey;
     const idempotencyKey = crypto.randomUUID();
-    await this._request("chat.send", {
-      sessionKey: key,
-      message: text,
-      deliver: false,
-      idempotencyKey,
-    });
+    try {
+      await this._request("chat.send", {
+        sessionKey: key,
+        message: text,
+        deliver: false,
+        idempotencyKey,
+      });
+    } catch (err) {
+      console.error("[Gateway] sendMessage failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`发送失败：${message}`);
+      throw err;
+    }
+  }
+
+  async abortChat(sessionKey?: string) {
+    const key = sessionKey ?? this._activeSessionKey;
+    try {
+      await this._request("chat.abort", { sessionKey: key });
+    } catch (err) {
+      console.error("[Gateway] abortChat failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`停止失败：${message}`);
+      throw err;
+    }
   }
 
   async fetchSessionInfo() {
@@ -288,6 +325,8 @@ class GatewayClient {
       this._notifySessionInfo();
     } catch (err) {
       console.error("[Gateway] switchModel failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`切换模型失败：${message}`);
       throw err;
     }
   }
@@ -300,6 +339,8 @@ class GatewayClient {
       });
     } catch (err) {
       console.error("[Gateway] setReasoning failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`调整推理强度失败：${message}`);
       throw err;
     }
   }
@@ -327,6 +368,8 @@ class GatewayClient {
       this.fetchSessionInfo();
     } catch (err) {
       console.error("[Gateway] deleteSession failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`删除会话失败：${message}`);
       throw err;
     }
   }
@@ -341,6 +384,8 @@ class GatewayClient {
       this.fetchSessionInfo();
     } catch (err) {
       console.error("[Gateway] renameSession failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`重命名会话失败：${message}`);
       throw err;
     }
   }
@@ -388,8 +433,8 @@ class GatewayClient {
         minProtocol: 4,
         maxProtocol: 4,
         client: {
-          id: "openclaw-tui",
-          version: "0.1.0",
+          id: "openclaw-desktop",
+          version: __REDCLAW_VERSION__,
           platform: "windows",
           mode: "ui",
         },
@@ -408,10 +453,17 @@ class GatewayClient {
         this.fetchModels();
       } else {
         this._connecting = false;
+        this.connected = false;
+        this._notifyStatus();
+        this._notifyError(`连接被拒绝：${res.error?.message || "未知错误"}`);
       }
     } catch (err) {
       console.error("[Gateway] connect failed:", err);
       this._connecting = false;
+      this.connected = false;
+      this._notifyStatus();
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`连接失败：${message}`);
     }
   }
 
@@ -469,11 +521,30 @@ class GatewayClient {
         // refresh session info after each completed response
         this.fetchSessionInfo();
         break;
-      case "aborted":
-        this._notifyDelta("", "");
+      case "aborted": {
+        const partialText =
+          message?.text ||
+          message?.content
+            ?.filter((c: any) => c.type === "text")
+            ?.map((c: any) => c.text)
+            ?.join("") ||
+          "";
+        if (partialText) {
+          this._notifyMessage({
+            id: message?.id || crypto.randomUUID(),
+            role: "assistant",
+            content: partialText,
+            timestamp: Date.now(),
+            reasoning: message?.reasoning || "",
+          });
+        }
+        this._notifyStreamEnd();
         break;
+      }
       case "error":
         console.error("[Gateway] chat error:", errorMessage);
+        this._notifyStreamEnd();
+        this._notifyError(errorMessage || "生成失败");
         break;
     }
   }
@@ -504,6 +575,14 @@ class GatewayClient {
 
   private _notifyModels() {
     this.modelListListeners.forEach((fn) => fn(this._models));
+  }
+
+  private _notifyError(message: string) {
+    this.errorListeners.forEach((fn) => fn(message));
+  }
+
+  private _notifyStreamEnd() {
+    this.streamEndListeners.forEach((fn) => fn());
   }
 
   private _request(method: string, params: any) {

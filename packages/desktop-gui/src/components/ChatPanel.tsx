@@ -1,4 +1,4 @@
-import { Send, Plug, PlugZap, PanelRight, Slash, Copy, Check } from "lucide-react";
+import { Send, Plug, PlugZap, PanelRight, Slash, Copy, Check, Square } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -200,6 +200,7 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [showCmdPalette, setShowCmdPalette] = useState(false);
   const [cmdFilter, setCmdFilter] = useState("");
   const [showModelSelector, setShowModelSelector] = useState(false);
@@ -244,10 +245,16 @@ export default function ChatPanel({
     const unsubMsg = gateway.onMessage((msg) => {
       setMessages((prev) => [...prev, msg]);
       setStreamingText("");
+      setIsGenerating(false);
     });
 
     const unsubDelta = gateway.onDelta((text, _reasoning) => {
       setStreamingText((prev) => prev + text);
+    });
+
+    const unsubStreamEnd = gateway.onStreamEnd(() => {
+      setStreamingText("");
+      setIsGenerating(false);
     });
 
     const unsubStatus = gateway.onStatus((status) => {
@@ -262,6 +269,7 @@ export default function ChatPanel({
     return () => {
       unsubMsg();
       unsubDelta();
+      unsubStreamEnd();
       unsubStatus();
       unsubModels();
       gateway.stop();
@@ -285,7 +293,7 @@ export default function ChatPanel({
 
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
-    if (!msg || !connected) return;
+    if (!msg || !connected || isGenerating) return;
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -296,11 +304,21 @@ export default function ChatPanel({
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setShowCmdPalette(false);
+    setIsGenerating(true);
 
     try {
       await gateway.sendMessage(msg);
     } catch (err) {
       console.error("send failed:", err);
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleStop() {
+    try {
+      await gateway.abortChat();
+    } catch (err) {
+      console.error("abort failed:", err);
     }
   }
 
@@ -649,7 +667,15 @@ export default function ChatPanel({
             {filteredCommands.map((cmd) => (
               <button
                 key={cmd.name}
-                onClick={() => handleSend(cmd.name + " ")}
+                onClick={() => {
+                  if (cmd.acceptsArgs) {
+                    setInput(cmd.name + " ");
+                    setShowCmdPalette(false);
+                    inputRef.current?.focus();
+                  } else {
+                    handleSend(cmd.name);
+                  }
+                }}
                 className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center gap-2"
                 style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border)" }}
               >
@@ -679,14 +705,25 @@ export default function ChatPanel({
             className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
             style={{ color: "var(--text-primary)" }}
           />
-          <button
-            onClick={() => handleSend()}
-            disabled={!connected || !input.trim()}
-            className="shrink-0 rounded-lg p-1.5 disabled:opacity-30"
-            style={{ background: "var(--accent)", color: "#fff" }}
-          >
-            <Send size={16} />
-          </button>
+          {isGenerating ? (
+            <button
+              onClick={handleStop}
+              className="shrink-0 rounded-lg p-1.5"
+              style={{ background: "#ff453a", color: "#fff" }}
+              title="停止生成"
+            >
+              <Square size={16} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSend()}
+              disabled={!connected || !input.trim()}
+              className="shrink-0 rounded-lg p-1.5 disabled:opacity-30"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              <Send size={16} />
+            </button>
+          )}
         </div>
       </div>
     </div>
