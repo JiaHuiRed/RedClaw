@@ -1,5 +1,16 @@
 # 更新日志
 
+## [0.3.5] - 2026-07-30
+
+### 新增
+
+- **结构化待办清单**（`todo`）：新增持久化待办列表，与临时性的 `cron` 提醒、`openclaw tasks` 后台任务执行记录是三个独立概念。存储在 `~/.openclaw/todos.json`，字段含标题/备注/状态（open/in_progress/done/cancelled）/优先级/截止时间/标签。
+  - 新增 agent 工具 `todo`（list/get/add/update/complete/remove），已加入工具注册表和 system prompt 工具说明，秋秋可以直接在对话里维护待办。
+  - 新增网关 RPC 方法 `todo.list`/`todo.get`/`todo.add`/`todo.update`/`todo.remove`，与 agent 工具共用同一份存储，桌面 GUI 和聊天里改的是同一份数据。
+  - 桌面 GUI（`packages/desktop-gui`）新增"待办"面板：Header 新增入口按钮，与"代码"面板互斥显示；支持快速新增、勾选完成/取消、悬停删除、优先级与截止时间标签、已完成项默认折叠。
+
+---
+
 ## [0.3.4] - 2026-07-30
 
 ### 新增

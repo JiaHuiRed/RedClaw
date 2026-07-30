@@ -46,6 +46,39 @@ export interface ModelEntry {
   reasoning?: boolean;
 }
 
+export type TodoStatus = "open" | "in_progress" | "done" | "cancelled";
+export type TodoPriority = "low" | "medium" | "high";
+
+export interface Todo {
+  id: string;
+  title: string;
+  notes?: string;
+  status: TodoStatus;
+  priority?: TodoPriority;
+  dueAt?: number;
+  tags?: string[];
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}
+
+export interface TodoCreateInput {
+  title: string;
+  notes?: string;
+  priority?: TodoPriority;
+  dueAt?: number;
+  tags?: string[];
+}
+
+export interface TodoUpdateInput {
+  title?: string;
+  notes?: string;
+  status?: TodoStatus;
+  priority?: TodoPriority;
+  dueAt?: number | null;
+  tags?: string[];
+}
+
 type Listener = (msg: Message) => void;
 type DeltaListener = (text: string, reasoning: string) => void;
 type StatusListener = (connected: boolean) => void;
@@ -386,6 +419,53 @@ class GatewayClient {
       console.error("[Gateway] renameSession failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       this._notifyError(`重命名会话失败：${message}`);
+      throw err;
+    }
+  }
+
+  async fetchTodos(filter?: { status?: TodoStatus; tag?: string; dueBefore?: number }) {
+    try {
+      const res = await this._request("todo.list", filter ?? {});
+      return (res.payload?.todos ?? []) as Todo[];
+    } catch (err) {
+      console.error("[Gateway] fetchTodos failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`加载待办失败：${message}`);
+      return [];
+    }
+  }
+
+  async addTodo(input: TodoCreateInput): Promise<Todo> {
+    try {
+      const res = await this._request("todo.add", input);
+      return res.payload.todo as Todo;
+    } catch (err) {
+      console.error("[Gateway] addTodo failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`新增待办失败：${message}`);
+      throw err;
+    }
+  }
+
+  async updateTodo(id: string, patch: TodoUpdateInput): Promise<Todo> {
+    try {
+      const res = await this._request("todo.update", { id, ...patch });
+      return res.payload.todo as Todo;
+    } catch (err) {
+      console.error("[Gateway] updateTodo failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`更新待办失败：${message}`);
+      throw err;
+    }
+  }
+
+  async removeTodo(id: string): Promise<void> {
+    try {
+      await this._request("todo.remove", { id });
+    } catch (err) {
+      console.error("[Gateway] removeTodo failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`删除待办失败：${message}`);
       throw err;
     }
   }

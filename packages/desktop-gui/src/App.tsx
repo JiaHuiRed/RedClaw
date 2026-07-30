@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import ChatPanel from "./components/ChatPanel";
 import CodePanel from "./components/CodePanel";
 import Sidebar from "./components/Sidebar";
+import TodoPanel from "./components/TodoPanel";
 import {
   gateway,
   type Message,
@@ -18,7 +19,7 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingText, setStreamingText] = useState("");
-  const [showCodePanel, setShowCodePanel] = useState(false);
+  const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo">("none");
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>(gateway.sessionInfo);
   const [commands, setCommands] = useState<CommandEntry[]>(gateway.commands);
   const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
@@ -145,10 +146,12 @@ export default function App() {
         setStreamingText={setStreamingText}
         sessionInfo={sessionInfo}
         commands={commands}
-        onToggleCode={() => setShowCodePanel((v) => !v)}
+        onToggleCode={() => setRightPanel((p) => (p === "code" ? "none" : "code"))}
+        onToggleTodo={() => setRightPanel((p) => (p === "todo" ? "none" : "todo"))}
         loadingHistory={loadingHistory}
       />
-      {showCodePanel && <CodePanel onClose={() => setShowCodePanel(false)} />}
+      {rightPanel === "code" && <CodePanel onClose={() => setRightPanel("none")} />}
+      {rightPanel === "todo" && <TodoPanel onClose={() => setRightPanel("none")} />}
       {toasts.length > 0 && (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
           {toasts.map((t) => (
