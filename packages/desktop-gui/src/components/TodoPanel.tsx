@@ -17,8 +17,8 @@ function formatDue(dueAt?: number): { label: string; overdue: boolean } | null {
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
-  high: "#ff453a",
-  medium: "#ff9f0a",
+  high: "var(--danger)",
+  medium: "var(--warning)",
   low: "var(--text-secondary)",
 };
 
@@ -118,7 +118,7 @@ export default function TodoPanel({ onClose }: TodoPanelProps) {
             onClick={handleAdd}
             disabled={!input.trim() || adding}
             className="shrink-0 rounded-md p-1 disabled:opacity-30"
-            style={{ background: "var(--accent)", color: "#fff" }}
+            style={{ background: "var(--accent)", color: "var(--on-solid)" }}
           >
             <Plus size={14} />
           </button>
@@ -160,7 +160,9 @@ export default function TodoPanel({ onClose }: TodoPanelProps) {
                       </span>
                     )}
                     {due && (
-                      <span style={{ color: due.overdue ? "#ff453a" : "var(--text-secondary)" }}>
+                      <span
+                        style={{ color: due.overdue ? "var(--danger)" : "var(--text-secondary)" }}
+                      >
                         {due.overdue ? "已逾期 " : ""}
                         {due.label}
                       </span>
@@ -202,7 +204,7 @@ export default function TodoPanel({ onClose }: TodoPanelProps) {
                     style={{ background: "var(--accent)" }}
                     title="标记未完成"
                   >
-                    <Check size={10} color="#fff" />
+                    <Check size={10} color="var(--on-solid)" />
                   </button>
                   <div className="flex-1 min-w-0 truncate line-through">{todo.title}</div>
                   <button

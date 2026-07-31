@@ -1,5 +1,14 @@
 # 更新日志
 
+## [0.3.6] - 2026-07-31
+
+### 新增
+
+- **12 阶色阶系统**（`packages/desktop-gui`）：新增 `scripts/generate-color-scales.mjs`，用 OKLCH 插值生成灰度/蓝色两组 12 阶色阶（暗色档位校准到与现有硬编码色值几乎一致，避免"顺手"改了已有配色），产物写入 `src/theme/scales.css`。`App.css` 重构为"色阶 + 语义别名"两层（`--bg-primary: var(--gray-1)` 这种），组件侧继续引用原来的语义变量名，零改动。
+- 顺带把散落在 `Sidebar`/`ChatPanel`/`TodoPanel` 里的状态色和 `#fff` 字面量（连接成功绿、错误红、待办优先级黄等）收敛成 `--success`/`--warning`/`--danger`/`--on-solid` 语义变量，跟着新色阶走。
+
+---
+
 ## [0.3.5] - 2026-07-30
 
 ### 新增
