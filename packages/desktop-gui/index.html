@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RedClaw</title>
     <link rel="icon" type="image/png" href="/icon.png" />
+    <script>
+      // Runs synchronously, before the stylesheet's html/body/#root background
+      // paints, so the correct theme is already on the root element by the
+      // time anything renders (avoids a flash of the wrong theme). Kept in
+      // sync with the resolution logic in src/theme/theme-store.ts.
+      (function () {
+        try {
+          var stored = localStorage.getItem("redclaw:theme");
+          var pref = stored === "light" || stored === "dark" ? stored : "system";
+          var resolved =
+            pref === "system"
+              ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+              : pref;
+          document.documentElement.setAttribute("data-theme", resolved);
+        } catch (e) {
+          // localStorage/matchMedia unavailable - CSS already defaults to dark.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
