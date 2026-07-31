@@ -19,7 +19,13 @@ import {
   type SessionInfo,
   type CommandEntry,
   type ModelEntry,
+  type ChatSession,
 } from "../gateway/client";
+import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
+import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
+import { useTheme } from "../theme/useTheme";
+import ChatEmptyState from "./ChatEmptyState";
+import CommandPalette from "./CommandPalette";
 
 const GATEWAY_URL_KEY = "redclaw:gatewayUrl";
 const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
@@ -190,12 +196,18 @@ function MarkdownBlock({ content }: { content: string }) {
 interface ChatPanelProps {
   connected: boolean;
   setConnected: (v: boolean) => void;
+  connecting: boolean;
+  setConnecting: (v: boolean) => void;
+  connectionState: ConnectionState;
   messages: Message[];
   setMessages: (fn: Message[] | ((prev: Message[]) => Message[])) => void;
   streamingText: string;
   setStreamingText: (fn: string | ((prev: string) => string)) => void;
   sessionInfo: SessionInfo;
   commands: CommandEntry[];
+  sessions: ChatSession[];
+  currentSessionKey: string;
+  onSelectSession: (sessionKey: string) => void;
   onToggleCode: () => void;
   onToggleTodo: () => void;
   loadingHistory?: boolean;
@@ -204,21 +216,27 @@ interface ChatPanelProps {
 export default function ChatPanel({
   connected,
   setConnected,
+  connecting,
+  setConnecting,
+  connectionState,
   messages,
   setMessages,
   streamingText,
   setStreamingText,
   sessionInfo,
   commands,
+  sessions,
+  currentSessionKey,
+  onSelectSession,
   onToggleCode,
   onToggleTodo,
   loadingHistory,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
-  const [connecting, setConnecting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCmdPalette, setShowCmdPalette] = useState(false);
-  const [cmdFilter, setCmdFilter] = useState("");
+  const [cmdCategory, setCmdCategory] = useState<string | null>(null);
+  const [cmdSelectedIndex, setCmdSelectedIndex] = useState(0);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [availableModels, setAvailableModels] = useState<ModelEntry[]>(gateway.models);
@@ -227,6 +245,7 @@ export default function ChatPanel({
   const [settingsToken, setSettingsToken] = useState(
     () => localStorage.getItem(GATEWAY_TOKEN_KEY) ?? "",
   );
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -268,13 +287,39 @@ export default function ChatPanel({
     gateway.start();
   }
 
-  const filteredCommands = useMemo(() => {
-    if (!cmdFilter || cmdFilter === "/") return commands.slice(0, 15);
-    const q = cmdFilter.toLowerCase().slice(1);
-    return commands
-      .filter((c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
-      .slice(0, 15);
-  }, [commands, cmdFilter]);
+  const paletteItems = useMemo(
+    () => getVisibleItems(commands, input, cmdCategory),
+    [commands, input, cmdCategory],
+  );
+
+  // Any navigation that changes what's visible (typing, drilling in/out)
+  // should reset the highlighted row rather than leaving it pointing at
+  // whatever happened to be at that index before.
+  useEffect(() => {
+    setCmdSelectedIndex(0);
+  }, [input, cmdCategory]);
+
+  // Closing the palette by any path (Escape at root, sending a command,
+  // clearing the input) should always land back at root next time it opens.
+  useEffect(() => {
+    if (!showCmdPalette) setCmdCategory(null);
+  }, [showCmdPalette]);
+
+  function activatePaletteItem(item: PaletteItem) {
+    if (item.kind === "header") {
+      setCmdCategory(item.category);
+      setInput("/");
+      return;
+    }
+    const cmd = item.command;
+    if (cmd.acceptsArgs) {
+      setInput(cmd.name + " ");
+      setShowCmdPalette(false);
+      inputRef.current?.focus();
+    } else {
+      handleSend(cmd.name);
+    }
+  }
 
   const filteredModels = useMemo(() => {
     if (!modelSearch) return availableModels;
@@ -368,15 +413,16 @@ export default function ChatPanel({
     }
   }
 
+  function handleShowCommands() {
+    setInput("/");
+    setShowCmdPalette(true);
+    inputRef.current?.focus();
+  }
+
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
     setInput(val);
-    if (val.startsWith("/")) {
-      setShowCmdPalette(true);
-      setCmdFilter(val);
-    } else {
-      setShowCmdPalette(false);
-    }
+    setShowCmdPalette(val.startsWith("/"));
     // auto-resize
     const ta = e.target;
     ta.style.height = "auto";
@@ -384,9 +430,41 @@ export default function ChatPanel({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (showCmdPalette && e.key === "Escape") {
-      setShowCmdPalette(false);
-      return;
+    if (showCmdPalette) {
+      if (e.key === "Escape") {
+        if (cmdCategory) {
+          setCmdCategory(null);
+          setInput("/");
+        } else {
+          setShowCmdPalette(false);
+        }
+        return;
+      }
+      // Only pops the category when there's truly nothing left to delete in
+      // the current scope - must not hijack backspacing through real query text.
+      if (e.key === "Backspace" && cmdCategory && input === "/") {
+        e.preventDefault();
+        setCmdCategory(null);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCmdSelectedIndex((i) => Math.min(i + 1, Math.max(paletteItems.length - 1, 0)));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCmdSelectedIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        const item = paletteItems[cmdSelectedIndex];
+        if (item) {
+          e.preventDefault();
+          activatePaletteItem(item);
+          return;
+        }
+      }
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -578,39 +656,76 @@ export default function ChatPanel({
                     className="text-[10px] uppercase tracking-wider mb-1"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    Gateway URL
+                    主题
                   </div>
-                  <input
-                    className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
-                    style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
-                    placeholder="ws://127.0.0.1:18789"
-                    value={settingsUrl}
-                    onChange={(e) => setSettingsUrl(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <div
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    Token
+                  <div className="flex gap-1">
+                    {(
+                      [
+                        ["light", "浅色"],
+                        ["dark", "深色"],
+                        ["system", "跟随系统"],
+                      ] as const
+                    ).map(([value, label]) => {
+                      const active = themePreference === value;
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => setThemePreference(value)}
+                          className="flex-1 text-[10px] py-1.5 rounded-md font-medium transition-colors hover:opacity-80"
+                          style={{
+                            background: active ? "var(--accent)" : "var(--bg-tertiary)",
+                            color: active ? "var(--on-solid)" : "var(--text-secondary)",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <input
-                    type="password"
-                    className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
-                    style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
-                    placeholder="gateway.auth.token"
-                    value={settingsToken}
-                    onChange={(e) => setSettingsToken(e.target.value)}
-                  />
                 </div>
-                <button
-                  onClick={handleSaveSettings}
-                  className="w-full text-xs py-1.5 rounded-md font-medium hover:opacity-80"
-                  style={{ background: "var(--accent)", color: "#fff" }}
+                <div
+                  style={{ borderTop: "1px solid var(--border)", paddingTop: "0.5rem" }}
+                  className="space-y-2"
                 >
-                  保存并重连
-                </button>
+                  <div>
+                    <div
+                      className="text-[10px] uppercase tracking-wider mb-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Gateway URL
+                    </div>
+                    <input
+                      className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                      style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+                      placeholder="ws://127.0.0.1:18789"
+                      value={settingsUrl}
+                      onChange={(e) => setSettingsUrl(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      className="text-[10px] uppercase tracking-wider mb-1"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Token
+                    </div>
+                    <input
+                      type="password"
+                      className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                      style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+                      placeholder="gateway.auth.token"
+                      value={settingsToken}
+                      onChange={(e) => setSettingsToken(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveSettings}
+                    className="w-full text-xs py-1.5 rounded-md font-medium hover:opacity-80"
+                    style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+                  >
+                    保存并重连
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -635,8 +750,13 @@ export default function ChatPanel({
             disabled={connecting}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80 disabled:opacity-50"
             style={{
-              background: connected ? "#34c759" : "var(--accent)",
-              color: "#fff",
+              // Idle keeps the accent color (it's still an inviting call to
+              // action, not a passive status readout) - connecting/connected/
+              // error defer to the shared map so the button and the Sidebar
+              // badge never disagree about what those three actually mean.
+              background:
+                connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
+              color: "var(--on-solid)",
             }}
           >
             {connecting ? (
@@ -656,34 +776,43 @@ export default function ChatPanel({
 
       {/* Messages */}
       <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && !hasStreaming && (
-          <div
-            className="flex items-center justify-center h-full text-sm"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            <div className="text-center space-y-2">
-              {loadingHistory ? (
-                <>
-                  <div
-                    className="inline-block w-5 h-5 border-2 rounded-full animate-spin"
-                    style={{
-                      borderColor: "var(--text-secondary)",
-                      borderTopColor: "var(--accent)",
-                    }}
-                  />
-                  <p className="text-xs mt-2">加载历史消息…</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-lg font-medium">RedClaw</p>
-                  <p className="text-xs">
-                    {connected ? "选择一个会话开始聊天" : "连接 Gateway 后开始聊天"}
-                  </p>
-                </>
-              )}
+        {messages.length === 0 &&
+          !hasStreaming &&
+          (loadingHistory ? (
+            <div
+              className="flex items-center justify-center h-full text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <div className="text-center space-y-2">
+                <div
+                  className="inline-block w-5 h-5 border-2 rounded-full animate-spin"
+                  style={{
+                    borderColor: "var(--text-secondary)",
+                    borderTopColor: "var(--accent)",
+                  }}
+                />
+                <p className="text-xs mt-2">加载历史消息…</p>
+              </div>
             </div>
-          </div>
-        )}
+          ) : connected ? (
+            <ChatEmptyState
+              sessions={sessions}
+              currentSessionKey={currentSessionKey}
+              onSelectSession={onSelectSession}
+              onShowCommands={handleShowCommands}
+              onOpenTodos={onToggleTodo}
+            />
+          ) : (
+            <div
+              className="flex items-center justify-center h-full text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <div className="text-center space-y-2">
+                <p className="text-lg font-medium">RedClaw</p>
+                <p className="text-xs">连接 Gateway 后开始聊天</p>
+              </div>
+            </div>
+          ))}
 
         {messages.map((msg) => (
           <div
@@ -694,7 +823,7 @@ export default function ChatPanel({
               className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
               style={{
                 background: msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
-                color: msg.role === "user" ? "#fff" : "var(--text-primary)",
+                color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
                 border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
               }}
             >
@@ -748,7 +877,7 @@ export default function ChatPanel({
             {percentUsed != null && (
               <span
                 className="ml-1"
-                style={{ color: (percentUsed ?? 0) > 80 ? "#ff453a" : undefined }}
+                style={{ color: (percentUsed ?? 0) > 80 ? "var(--danger)" : undefined }}
               >
                 ({Math.round(percentUsed)}%)
               </span>
@@ -765,38 +894,18 @@ export default function ChatPanel({
       {/* Input */}
       <div className="p-4 border-t shrink-0 relative" style={{ borderColor: "var(--border)" }}>
         {/* Command palette */}
-        {showCmdPalette && filteredCommands.length > 0 && (
-          <div
-            className="absolute bottom-full left-4 right-4 mb-2 rounded-xl border overflow-y-auto max-h-52"
-            style={{
-              background: "var(--bg-secondary)",
-              borderColor: "var(--border)",
+        {showCmdPalette && (
+          <CommandPalette
+            items={paletteItems}
+            selectedIndex={cmdSelectedIndex}
+            category={cmdCategory}
+            onSelectIndex={setCmdSelectedIndex}
+            onActivate={activatePaletteItem}
+            onBack={() => {
+              setCmdCategory(null);
+              setInput("/");
             }}
-          >
-            {filteredCommands.map((cmd) => (
-              <button
-                key={cmd.name}
-                onClick={() => {
-                  if (cmd.acceptsArgs) {
-                    setInput(cmd.name + " ");
-                    setShowCmdPalette(false);
-                    inputRef.current?.focus();
-                  } else {
-                    handleSend(cmd.name);
-                  }
-                }}
-                className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center gap-2"
-                style={{ color: "var(--text-primary)", borderBottom: "1px solid var(--border)" }}
-              >
-                <span className="font-medium" style={{ color: "var(--accent)" }}>
-                  {cmd.name}
-                </span>
-                <span style={{ color: "var(--text-secondary)" }} className="truncate">
-                  {cmd.description}
-                </span>
-              </button>
-            ))}
-          </div>
+          />
         )}
 
         <div
@@ -818,7 +927,7 @@ export default function ChatPanel({
             <button
               onClick={handleStop}
               className="shrink-0 rounded-lg p-1.5"
-              style={{ background: "#ff453a", color: "#fff" }}
+              style={{ background: "var(--danger)", color: "var(--on-solid)" }}
               title="停止生成"
             >
               <Square size={16} fill="currentColor" />
@@ -828,7 +937,7 @@ export default function ChatPanel({
               onClick={() => handleSend()}
               disabled={!connected || !input.trim()}
               className="shrink-0 rounded-lg p-1.5 disabled:opacity-30"
-              style={{ background: "var(--accent)", color: "#fff" }}
+              style={{ background: "var(--accent)", color: "var(--on-solid)" }}
             >
               <Send size={16} />
             </button>

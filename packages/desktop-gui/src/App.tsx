@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ChatPanel from "./components/ChatPanel";
 import CodePanel from "./components/CodePanel";
 import Sidebar from "./components/Sidebar";
@@ -10,6 +10,7 @@ import {
   type ChatSession,
   type CommandEntry,
 } from "./gateway/client";
+import { getConnectionState } from "./lib/connectionStatus";
 
 const DEFAULT_SESSION_KEY = "agent:main:main";
 const GATEWAY_URL_KEY = "redclaw:gatewayUrl";
@@ -17,6 +18,8 @@ const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
 
 export default function App() {
   const [connected, setConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo">("none");
@@ -26,6 +29,28 @@ export default function App() {
   const [currentSessionKey, setCurrentSessionKey] = useState(DEFAULT_SESSION_KEY);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
+  const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const connectionState = useMemo(
+    () => getConnectionState(connected, connecting, hasRecentError),
+    [connected, connecting, hasRecentError],
+  );
+
+  // A genuine successful connection supersedes a stale error badge. Only on
+  // `true`, deliberately - a rejected handshake's own cleanup path (see
+  // gateway/client.ts _sendConnect's else-branch) calls stop() right after
+  // notifying the error, which fires this same setter with `false` in the
+  // same tick; clearing on `false` too would erase the error badge before
+  // anyone could see it.
+  const handleConnectedChange = useCallback((v: boolean) => {
+    setConnected(v);
+    if (!v) return;
+    setHasRecentError(false);
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+  }, []);
 
   const pushToast = useCallback((message: string) => {
     const id = crypto.randomUUID();
@@ -51,7 +76,18 @@ export default function App() {
     const unsubInfo = gateway.onSessionInfo((info) => setSessionInfo(info));
     const unsubCmds = gateway.onCommands((cmds) => setCommands(cmds));
     const unsubSessions = gateway.onSessionList((list) => setSessions(list));
-    const unsubError = gateway.onError((message) => pushToast(message));
+    const unsubError = gateway.onError((message) => {
+      pushToast(message);
+      // gateway.onError can fire for failures (e.g. a rejected chat.send)
+      // that never touch connection status, so this can't rely solely on
+      // handleConnectedChange to clear it - it needs its own timer too.
+      setHasRecentError(true);
+      if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = setTimeout(() => {
+        setHasRecentError(false);
+        errorTimeoutRef.current = null;
+      }, 4000);
+    });
 
     // Apply any saved gateway URL/token before auto-connecting
     const savedUrl = localStorage.getItem(GATEWAY_URL_KEY);
@@ -73,6 +109,7 @@ export default function App() {
       unsubCmds();
       unsubSessions();
       unsubError();
+      if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
     };
   }, [loadHistory, pushToast]);
 
@@ -130,6 +167,7 @@ export default function App() {
     <div className="flex h-screen w-screen">
       <Sidebar
         connected={connected}
+        connectionState={connectionState}
         sessions={sessions}
         currentSessionKey={currentSessionKey}
         onSelectSession={handleSelectSession}
@@ -139,13 +177,19 @@ export default function App() {
       />
       <ChatPanel
         connected={connected}
-        setConnected={setConnected}
+        setConnected={handleConnectedChange}
+        connecting={connecting}
+        setConnecting={setConnecting}
+        connectionState={connectionState}
         messages={messages}
         setMessages={setMessages}
         streamingText={streamingText}
         setStreamingText={setStreamingText}
         sessionInfo={sessionInfo}
         commands={commands}
+        sessions={sessions}
+        currentSessionKey={currentSessionKey}
+        onSelectSession={handleSelectSession}
         onToggleCode={() => setRightPanel((p) => (p === "code" ? "none" : "code"))}
         onToggleTodo={() => setRightPanel((p) => (p === "todo" ? "none" : "todo"))}
         loadingHistory={loadingHistory}
