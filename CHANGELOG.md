@@ -1,5 +1,13 @@
 # 更新日志
 
+## [0.3.9] - 2026-07-31
+
+### 新增
+
+- **连接状态徽标基础设施**：`src/lib/connectionStatus.ts` 定义 `getConnectionState()`（灰=未连接/黄=连接中/绿=已连接/红=最近出错，优先级从后往前）和对应的语义色映射；`src/components/ConnectionBadge.tsx` 是四态圆点组件（可选带文字，为以后其它服务连接状态复用）。接入 Sidebar/ChatPanel 放在下一个提交（要跟 App.tsx 的状态提升一起改，拆不开）。
+
+---
+
 ## [0.3.8] - 2026-07-31
 
 ### 新增
