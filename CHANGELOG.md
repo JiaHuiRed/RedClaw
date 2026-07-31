@@ -1,5 +1,14 @@
 # 更新日志
 
+## [0.3.7] - 2026-07-31
+
+### 新增
+
+- **主题模块**（`packages/desktop-gui`）：新增框架无关的主题 store（`src/theme/theme-store.ts`，单例 + 订阅者数组，跟 `gateway/client.ts` 是同一种写法，不用 React Context），读取顺序为 `localStorage["redclaw:theme"]` 显式设置 → `matchMedia('(prefers-color-scheme: dark)')` 兜底；`src/theme/useTheme.ts` 用 `useSyncExternalStore` 包一层给组件用。
+- `index.html` 的 `<head>` 里加了一段同步内联脚本，在样式表渲染前就把 `data-theme` 属性设好，避免刷新时先闪一下默认深色再纠正成用户选的浅色（会在下一个提交接入设置面板里的实际切换开关）。
+
+---
+
 ## [0.3.6] - 2026-07-31
 
 ### 新增
