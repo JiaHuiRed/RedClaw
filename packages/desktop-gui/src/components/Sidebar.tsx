@@ -1,9 +1,12 @@
 import { Plus, MessageCircle, Check, X, Pencil, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import type { ChatSession } from "../gateway/client";
+import type { ConnectionState } from "../lib/connectionStatus";
+import ConnectionBadge from "./ConnectionBadge";
 
 interface SidebarProps {
   connected: boolean;
+  connectionState: ConnectionState;
   sessions: ChatSession[];
   currentSessionKey: string;
   onSelectSession: (sessionKey: string) => void;
@@ -29,6 +32,7 @@ function sessionTime(ts?: number): string {
 
 export default function Sidebar({
   connected,
+  connectionState,
   sessions,
   currentSessionKey,
   onSelectSession,
@@ -93,10 +97,7 @@ export default function Sidebar({
         style={{ borderColor: "var(--border)" }}
       >
         <div className="flex items-center gap-2">
-          <div
-            className="w-2.5 h-2.5 rounded-full shrink-0"
-            style={{ background: connected ? "#34c759" : "#ff453a" }}
-          />
+          <ConnectionBadge state={connectionState} />
           <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
             RedClaw
           </span>
@@ -217,7 +218,7 @@ export default function Sidebar({
                     <button
                       onClick={() => handleDelete(s.sessionKey)}
                       className="p-1 rounded"
-                      style={{ color: "#ff453a" }}
+                      style={{ color: "var(--danger)" }}
                       title="确认删除"
                     >
                       <Trash2 size={12} />
