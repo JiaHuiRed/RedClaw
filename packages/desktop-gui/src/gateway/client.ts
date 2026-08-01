@@ -513,7 +513,7 @@ class GatewayClient {
         minProtocol: 4,
         maxProtocol: 4,
         client: {
-          id: "openclaw-desktop",
+          id: "redclaw-desktop",
           version: __REDCLAW_VERSION__,
           platform: "windows",
           mode: "ui",
