@@ -1,5 +1,16 @@
 # 更新日志
 
+## [0.3.12] - 2026-08-02
+
+> TTS 朗读播放 + 聊天双方头像上传显示。
+
+### 新增
+
+- **TTS 朗读播放**（`ChatPanel.tsx`、`client.ts`）：assistant 消息旁新增喇叭按钮，点击调 `tts.convert` RPC，经 gateway 的 speech-core 插件（OpenAI 兼容通道 → stepfun `/step_plan/v1`）合成语音后本地播放；`tauri.conf.json` 增加 `assetProtocol` scope 允许 WebView 读取 `%TEMP%\openclaw` 下的音频文件（Tauri 2 asset 协议默认白名单不含 Temp 目录，`convertFileSrc` URL 会被 403）。
+- **头像上传与显示**（`ChatPanel.tsx`、`client.ts`）：聊天双方消息旁显示 50px 圆形头像，hover 出现铅笔按钮可上传图片（canvas 压缩 256×256 JPEG）；用户头像存 `localStorage`（`redclaw:userAvatar:v1`），AI 头像经 `agents.update` RPC 写 agent 配置（data URL），启动时经 `agent.identity.get` 拉取。
+
+---
+
 ## [0.3.11] - 2026-08-01
 
 > 侧边栏折叠/拖拽、响应中提示、会话切换与输入卡顿修复。
