@@ -376,9 +376,10 @@ class GatewayClient {
 
   async fetchAgentIdentity(agentId?: string) {
     const id = agentId ?? this._agentId;
-    if (!id) return null;
+    // _agentId 可能尚未从 status 拉取到（竞态）；不传 agentId 时 server 解析默认 agent
+    const params = id ? { agentId: id } : {};
     try {
-      const res = await this._request("agent.identity.get", { agentId: id });
+      const res = await this._request("agent.identity.get", params);
       if (res.ok && res.payload) {
         const p = res.payload;
         return {
@@ -400,7 +401,8 @@ class GatewayClient {
 
   async updateAgentAvatar(agentId: string, avatar: string) {
     try {
-      const res = await this._request("agents.update", { agentId, avatar });
+      const id = agentId ?? this._agentId;
+      const res = await this._request("agents.update", id ? { agentId: id, avatar } : { avatar });
       if (!res.ok) throw new Error(res.error?.message ?? "未知错误");
       return true;
     } catch (err) {
