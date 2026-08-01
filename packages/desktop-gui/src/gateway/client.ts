@@ -300,6 +300,25 @@ class GatewayClient {
     }
   }
 
+  async ttsConvert(text: string, provider?: string) {
+    if (!this.connected) throw new Error("Gateway not connected");
+    try {
+      const res = await this._request("tts.convert", {
+        text,
+        provider,
+      });
+      if (!res.payload?.audioPath) {
+        throw new Error("TTS 无音频返回");
+      }
+      return res.payload.audioPath as string;
+    } catch (err) {
+      console.error("[Gateway] ttsConvert failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`语音合成失败：${message}`);
+      throw err;
+    }
+  }
+
   async fetchSessionInfo() {
     try {
       const res = await this._request("status", { includeChannelSummary: false });

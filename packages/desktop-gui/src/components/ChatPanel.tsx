@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Send,
   Plug,
@@ -9,6 +10,7 @@ import {
   Square,
   Settings,
   ListTodo,
+  Volume2,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo } from "react";
 import ReactMarkdown from "react-markdown";
@@ -241,6 +243,23 @@ export default function ChatPanel({
   const [elapsed, setElapsed] = useState(0);
   const [streamingReasoning, setStreamingReasoning] = useState("");
   const [toolCalls, setToolCalls] = useState<ToolCallEvent[]>([]);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  async function handleSpeak(msg: Message) {
+    if (!msg.content) return;
+    try {
+      const path = await gateway.ttsConvert(msg.content);
+      if (!audioRef.current) audioRef.current = new Audio();
+      audioRef.current.src = convertFileSrc(path);
+      audioRef.current.onended = () => setSpeakingMsgId(null);
+      audioRef.current.onerror = () => setSpeakingMsgId(null);
+      setSpeakingMsgId(msg.id);
+      audioRef.current.play().catch(() => setSpeakingMsgId(null));
+    } catch {
+      setSpeakingMsgId(null);
+    }
+  }
   const [showCmdPalette, setShowCmdPalette] = useState(false);
   const [cmdCategory, setCmdCategory] = useState<string | null>(null);
   const [cmdSelectedIndex, setCmdSelectedIndex] = useState(0);
@@ -890,6 +909,21 @@ export default function ChatPanel({
               }}
             >
               <MarkdownBlock content={msg.content} />
+              {msg.role === "assistant" && msg.content && (
+                <button
+                  onClick={() => handleSpeak(msg)}
+                  className="mt-1.5 flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    color: speakingMsgId === msg.id ? "var(--accent)" : "var(--text-secondary)",
+                    border: "1px solid var(--border)",
+                  }}
+                  title="朗读这条回复"
+                >
+                  <Volume2 size={12} />
+                  {speakingMsgId === msg.id ? "播放中…" : "朗读"}
+                </button>
+              )}
               {msg.reasoning && (
                 <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
                   <summary>思考过程</summary>
