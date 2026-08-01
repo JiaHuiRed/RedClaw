@@ -95,6 +95,7 @@ export function createWindowsOutputDecoder(params?: {
   const utf8Decoder =
     platform === "win32" && legacyDecoder ? new TextDecoder("utf-8", { fatal: true }) : null;
   let useLegacyDecoder = false;
+  let utf16leDecoder: TextDecoder | null = null;
   let pendingUtf8Bytes = Buffer.alloc(0);
 
   return {
@@ -103,40 +104,97 @@ export function createWindowsOutputDecoder(params?: {
       if (!legacyDecoder || !utf8Decoder) {
         return buffer.toString("utf8");
       }
-      if (useLegacyDecoder) {
-        return legacyDecoder.decode(buffer, { stream: true });
+      if (utf16leDecoder) {
+        // The WSL startup banner is UTF-16LE, but the shell that continues
+        // the stream (bash error messages, later stdout) is usually UTF-8.
+        // Once the banner activates the UTF-16LE path, an ASCII/UTF-8 chunk
+        // would decode as mojibake (every byte pair becomes one CJK code
+        // point, e.g. "bash: line..." -> "慢獲›汬敮"). Detect the switch: a
+        // chunk whose high bytes carry no nulls and that is valid strict
+        // UTF-8 is no longer UTF-16LE text. Flush the UTF-16LE tail, drop
+        // the decoder, and let the regular UTF-8/legacy path handle it.
+        if (looksLikeUtf8AfterUtf16Le(buffer)) {
+          const tail = utf16leDecoder.decode();
+          utf16leDecoder = null;
+          return tail + decodeFollowingChunk(buffer);
+        }
+        return utf16leDecoder.decode(buffer, { stream: true });
       }
-      const replayBuffer =
-        pendingUtf8Bytes.length > 0 ? Buffer.concat([pendingUtf8Bytes, buffer]) : buffer;
-      try {
-        const decoded = utf8Decoder.decode(buffer, { stream: true });
-        pendingUtf8Bytes = Buffer.from(getTrailingIncompleteUtf8Bytes(replayBuffer));
-        return decoded;
-      } catch {
-        useLegacyDecoder = true;
+      // wsl.exe and some Windows console programs emit UTF-16LE text without
+      // a BOM (e.g. the WSL startup banner). UTF-16LE bytes almost always
+      // fail strict UTF-8 once a multibyte high byte appears, which would
+      // permanently flip us to the legacy codepage and garble the whole
+      // stream. Detect the ASCII/null-byte alternating pattern first.
+      if (!useLegacyDecoder && looksLikeUtf16LeText(buffer)) {
+        utf16leDecoder = new TextDecoder("utf-16le");
         pendingUtf8Bytes = Buffer.alloc(0);
-        return legacyDecoder.decode(replayBuffer, { stream: true });
+        return utf16leDecoder.decode(buffer, { stream: true });
       }
+      return decodeFollowingChunk(buffer);
     },
     flush() {
       if (!legacyDecoder || !utf8Decoder) {
         return "";
       }
+      if (utf16leDecoder) {
+        return utf16leDecoder.decode();
+      }
+      return decodeFollowingChunk(undefined);
+    },
+  };
+
+  function decodeFollowingChunk(chunk?: Buffer) {
+    if (!chunk || chunk.length === 0) {
       if (useLegacyDecoder) {
-        return legacyDecoder.decode();
+        return legacyDecoder!.decode();
       }
       try {
-        const decoded = utf8Decoder.decode();
+        const decoded = utf8Decoder!.decode();
         pendingUtf8Bytes = Buffer.alloc(0);
         return decoded;
       } catch {
         useLegacyDecoder = true;
         const replayBuffer = pendingUtf8Bytes;
         pendingUtf8Bytes = Buffer.alloc(0);
-        return replayBuffer.length > 0 ? legacyDecoder.decode(replayBuffer) : "";
+        return replayBuffer.length > 0 ? legacyDecoder!.decode(replayBuffer) : "";
       }
-    },
-  };
+    }
+    if (useLegacyDecoder) {
+      return legacyDecoder!.decode(chunk, { stream: true });
+    }
+    const replayBuffer =
+      pendingUtf8Bytes.length > 0 ? Buffer.concat([pendingUtf8Bytes, chunk]) : chunk;
+    try {
+      const decoded = utf8Decoder!.decode(chunk, { stream: true });
+      pendingUtf8Bytes = Buffer.from(getTrailingIncompleteUtf8Bytes(replayBuffer));
+      return decoded;
+    } catch {
+      useLegacyDecoder = true;
+      pendingUtf8Bytes = Buffer.alloc(0);
+      return legacyDecoder!.decode(replayBuffer, { stream: true });
+    }
+  }
+}
+
+function looksLikeUtf8AfterUtf16Le(buffer: Buffer): boolean {
+  if (buffer.length < 8) {
+    return false;
+  }
+  const pairs = Math.floor(buffer.length / 2);
+  let oddZero = 0;
+  for (let i = 0; i < pairs; i += 1) {
+    if (buffer[i * 2 + 1] === 0) {
+      oddZero += 1;
+    }
+  }
+  // UTF-16LE ASCII keeps 0x00 in every odd byte; UTF-16LE CJK keeps
+  // non-ASCII high bytes there. A chunk with almost no null high bytes
+  // that is also valid strict UTF-8 must be a UTF-8/ASCII continuation of
+  // the stream, not more UTF-16LE.
+  if (oddZero / pairs >= 0.1) {
+    return false;
+  }
+  return decodeStrictUtf8(buffer) !== null;
 }
 
 function getTrailingIncompleteUtf8Bytes(buffer: Buffer): Buffer {
@@ -164,6 +222,28 @@ function getTrailingIncompleteUtf8Bytes(buffer: Buffer): Buffer {
 
   const availableBytes = continuationBytes + 1;
   return availableBytes < sequenceLength ? buffer.subarray(index) : Buffer.alloc(0);
+}
+
+function looksLikeUtf16LeText(buffer: Buffer): boolean {
+  if (buffer.length < 8) {
+    return false;
+  }
+  const pairs = Math.floor(buffer.length / 2);
+  let evenNonZero = 0;
+  let oddZero = 0;
+  for (let i = 0; i < pairs; i += 1) {
+    if (buffer[i * 2] !== 0) {
+      evenNonZero += 1;
+    }
+    if (buffer[i * 2 + 1] === 0) {
+      oddZero += 1;
+    }
+  }
+  // ASCII-heavy UTF-16LE text: every ASCII code unit is followed by a 0x00
+  // and its low byte is non-zero. Binary data has runs of 0x00 on both
+  // parities, so the even-non-zero check keeps it from matching. GBK and
+  // UTF-8 text have non-zero high/odd bytes and also stay out.
+  return evenNonZero / pairs >= 0.6 && oddZero / pairs >= 0.35;
 }
 
 function getUtf8SequenceLength(byte: number): number {
