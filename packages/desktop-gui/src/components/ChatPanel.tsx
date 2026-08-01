@@ -235,6 +235,7 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [showCmdPalette, setShowCmdPalette] = useState(false);
   const [cmdCategory, setCmdCategory] = useState<string | null>(null);
   const [cmdSelectedIndex, setCmdSelectedIndex] = useState(0);
@@ -332,6 +333,18 @@ export default function ChatPanel({
         m.provider.toLowerCase().includes(q),
     );
   }, [availableModels, modelSearch]);
+
+  // Response-time counter: the gateway protocol does not stream reasoning
+  // deltas, so while the model is thinking the UI would otherwise look
+  // frozen. Show explicit "响应中... Ns" feedback instead.
+  useEffect(() => {
+    if (!isGenerating) {
+      setElapsed(0);
+      return;
+    }
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [isGenerating]);
 
   useEffect(() => {
     const unsubMsg = gateway.onMessage((msg) => {
@@ -838,6 +851,28 @@ export default function ChatPanel({
             </div>
           </div>
         ))}
+
+        {isGenerating && !hasStreaming && (
+          <div className="flex justify-start">
+            <div
+              className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs"
+              style={{
+                background: "var(--assistant-bubble)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <span
+                className="inline-block w-3 h-3 border-2 rounded-full animate-spin"
+                style={{
+                  borderColor: "var(--text-secondary)",
+                  borderTopColor: "var(--accent)",
+                }}
+              />
+              响应中... {elapsed}s
+            </div>
+          </div>
+        )}
 
         {hasStreaming && (
           <div className="flex justify-start">
