@@ -11,8 +11,12 @@ import {
   Settings,
   ListTodo,
   Volume2,
+  Bot,
+  User,
+  Pencil,
+  Loader2,
 } from "lucide-react";
-import { useState, useEffect, useRef, useMemo, memo } from "react";
+import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -33,6 +37,9 @@ import CommandPalette from "./CommandPalette";
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
 const GATEWAY_URL_KEY = "redclaw:gatewayUrl:v2";
 const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
+// v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
+const USER_AVATAR_KEY = "redclaw:userAvatar:v1";
+const AVATAR_SIZE = 256;
 
 function fmt(n: number | null): string {
   if (n == null) return "—";
@@ -199,6 +206,117 @@ const MarkdownBlock = memo(function MarkdownBlock({ content }: { content: string
   );
 });
 
+/** 读取图片文件 → canvas 居中裁剪缩放到 AVATAR_SIZE 方形 → JPEG data URL（几十 KB） */
+function compressImageFile(file: File, maxSize = AVATAR_SIZE, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("canvas 不可用"));
+          return;
+        }
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, maxSize, maxSize);
+        const scale = maxSize / Math.max(img.width, img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (maxSize - w) / 2, (maxSize - h) / 2, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("图片解码失败"));
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => reject(new Error("文件读取失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** 圆形头像：有 src 显示图片，加载失败或无 src 回落为图标 */
+function Avatar({
+  src,
+  icon,
+  size = 50,
+}: {
+  src: string | null;
+  icon: React.ReactNode;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <div
+        className="rounded-full flex items-center justify-center shrink-0"
+        style={{
+          width: size,
+          height: size,
+          background: "var(--bg-tertiary)",
+          color: "var(--text-secondary)",
+        }}
+      >
+        {icon}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="rounded-full object-cover shrink-0"
+      style={{ width: size, height: size }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/** 头像 + 悬浮铅笔按钮：点击换头像（隐藏 file input → 压缩 → onPick 回调） */
+function EditableAvatar({
+  src,
+  icon,
+  size = 50,
+  uploading,
+  title,
+  onPick,
+}: {
+  src: string | null;
+  icon: React.ReactNode;
+  size?: number;
+  uploading: boolean;
+  title: string;
+  onPick: (file: File | undefined) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    onPick(e.target.files?.[0]);
+    e.target.value = "";
+  };
+  return (
+    <div className="relative group shrink-0">
+      <Avatar src={src} icon={icon} size={size} />
+      <button
+        type="button"
+        title={title}
+        onClick={() => fileRef.current?.click()}
+        className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/40 text-white"
+      >
+        {uploading ? <Loader2 size={20} className="animate-spin" /> : <Pencil size={20} />}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={handleChange}
+      />
+    </div>
+  );
+}
+
 interface ChatPanelProps {
   connected: boolean;
   setConnected: (v: boolean) => void;
@@ -245,6 +363,13 @@ export default function ChatPanel({
   const [toolCalls, setToolCalls] = useState<ToolCallEvent[]>([]);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const [userAvatar, setUserAvatar] = useState<string | null>(() =>
+    localStorage.getItem(USER_AVATAR_KEY),
+  );
+  const [agentAvatar, setAgentAvatar] = useState<string | null>(null);
+  const [agentAvatarStatus, setAgentAvatarStatus] = useState<string>("none");
+  const [avatarBusy, setAvatarBusy] = useState<"user" | "agent" | null>(null);
 
   async function handleSpeak(msg: Message) {
     if (!msg.content) return;
@@ -357,6 +482,55 @@ export default function ChatPanel({
         m.provider.toLowerCase().includes(q),
     );
   }, [availableModels, modelSearch]);
+
+  // AI 头像：连接后拉 agent identity；avatarStatus=data 时 avatar 是完整 data URL
+  useEffect(() => {
+    let cancelled = false;
+    if (connected) {
+      gateway.fetchAgentIdentity().then((identity) => {
+        if (cancelled || !identity) return;
+        setAgentAvatar(identity.avatar ?? null);
+        setAgentAvatarStatus(identity.avatarStatus ?? "none");
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
+
+  const agentAvatarSrc = useMemo(() => {
+    if (!agentAvatar) return null;
+    if (agentAvatarStatus === "data" || agentAvatar.startsWith("data:")) return agentAvatar;
+    if (agentAvatar.startsWith("http")) return agentAvatar;
+    if (agentAvatarStatus === "local" && agentAvatar.startsWith("/")) {
+      // workspace 相对路径 → gateway HTTP 同源端口（/avatar/:agentId 端点）
+      return gateway.serverUrl.replace(/^ws:\/\//, "http://") + agentAvatar;
+    }
+    return null;
+  }, [agentAvatar, agentAvatarStatus]);
+
+  async function handlePickAvatar(kind: "user" | "agent", file: File | undefined) {
+    if (!file) return;
+    try {
+      setAvatarBusy(kind);
+      const dataUrl = await compressImageFile(file);
+      if (kind === "user") {
+        localStorage.setItem(USER_AVATAR_KEY, dataUrl);
+        setUserAvatar(dataUrl);
+      } else {
+        const agentId = gateway.agentId;
+        if (!agentId) throw new Error("agentId 未知");
+        await gateway.updateAgentAvatar(agentId, dataUrl);
+        setAgentAvatar(dataUrl);
+        setAgentAvatarStatus("data");
+      }
+    } catch (err) {
+      console.error("[ChatPanel] avatar update failed:", err);
+      // gateway 内部已 notifyError；localStorage 失败静默
+    } finally {
+      setAvatarBusy(null);
+    }
+  }
 
   // Response-time counter + live thinking feed. The gateway broadcasts
   // "agent" events with stream==="thinking" (data.text = full text so far),
@@ -898,8 +1072,17 @@ export default function ChatPanel({
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
           >
+            {msg.role === "assistant" && (
+              <EditableAvatar
+                src={agentAvatarSrc}
+                icon={<Bot size={26} />}
+                uploading={avatarBusy === "agent"}
+                title="更换秋秋头像"
+                onPick={(file) => handlePickAvatar("agent", file)}
+              />
+            )}
             <div
               className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
               style={{
@@ -931,6 +1114,15 @@ export default function ChatPanel({
                 </details>
               )}
             </div>
+            {msg.role === "user" && (
+              <EditableAvatar
+                src={userAvatar}
+                icon={<User size={26} />}
+                uploading={avatarBusy === "user"}
+                title="更换我的头像"
+                onPick={(file) => handlePickAvatar("user", file)}
+              />
+            )}
           </div>
         ))}
 

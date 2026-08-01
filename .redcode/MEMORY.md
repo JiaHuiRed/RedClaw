@@ -7,14 +7,13 @@
 **给秋秋（RedClaw AI）做一个漂亮的 GUI 界面。**
 走 Tauri 2 桌面客户端路线，底层连 RedClaw 的 Gateway WebSocket runtime。
 
-## 当前进度
-
-- 近期重要改动（commit 链：479a87cd77 bump v0.3.11 → 90dc0dc7bf thinking+工具可视化 → 0de6fdd40a exec 乱码修复）：
-  - v0.3.6-v0.3.10 已从远端 pull（色阶系统、主题模块、空状态、连接徽标、cmdk 命令面板）
-  - 修复 GUI 连不上 gateway：DEFAULT_URL 19001→18789 + localStorage URL key 升 v2
-  - **思考流显示（任务1）**：gateway 侧 chat.ts 传 `onReasoningStream: () => undefined` 激活 thinking 事件（agent 层 emitReasoningStream 只在 onReasoningStream 存在时发）；GUI client.ts 收 agent 事件 stream=thinking + ChatPanel「思考中…」块。注意：stepfun-plan/step-3.7-flash **不产 reasoning 流**，thinking 事件要换支持 reasoning 的模型（deepseek-v4-flash）才能看到思考块，「响应中... Ns」兜底
-  - **工具调用可视化（任务2）**：client.ts 连接后 `sessions.subscribe` RPC（server 端 server-methods/sessions.ts:1039）→ 收 session.tool 事件（data {phase,name,input,result}）→ ChatPanel 工具卡片（running spin / Check / 失败）+ formatToolPreview 输入预览
-  - **exec WSL 乱码修复**：src/infra/windows-encoding.ts createWindowsOutputDecoder 加 UTF-16LE 检测（looksLikeUtf16LeText）+ UTF-8 退出检测（looksLikeUtf8AfterUtf16Le）——WSL 横幅是 UTF-16LE 无 BOM，bash 错误是 UTF-8，混合流同 decoder 处理
+- v0.3.6-v0.3.10 已从远端 pull（色阶系统、主题模块、空状态、连接徽标、cmdk 命令面板）
+- 修复 GUI 连不上 gateway：DEFAULT_URL 19001→18789 + localStorage URL key 升 v2
+- **思考流显示（任务1）**：gateway 侧 chat.ts 传 `onReasoningStream: () => undefined` 激活 thinking 事件（agent 层 emitReasoningStream 只在 onReasoningStream 存在时发）；GUI client.ts 收 agent 事件 stream=thinking + ChatPanel「思考中…」块。注意：stepfun-plan/step-3.7-flash **不产 reasoning 流**，thinking 事件要换支持 reasoning 的模型（deepseek-v4-flash）才能看到思考块，「响应中... Ns」兜底
+- **工具调用可视化（任务2）**：client.ts 连接后 `sessions.subscribe` RPC（server 端 server-methods/sessions.ts:1039）→ 收 session.tool 事件（data {phase,name,input,result}）→ ChatPanel 工具卡片（running spin / Check / 失败）+ formatToolPreview 输入预览
+- **exec WSL 乱码修复**：src/infra/windows-encoding.ts createWindowsOutputDecoder 加 UTF-16LE 检测（looksLikeUtf16LeText）+ UTF-8 退出检测（looksLikeUtf8AfterUtf16Le）——WSL 横幅是 UTF-16LE 无 BOM，bash 错误是 UTF-8，混合流同 decoder 处理
+- **秋秋 workspace 优化**（~/.openclaw/workspace/，独立 git master）：删 IDENTITY/USER 合并进 MEMORY.md（b5465d5）、AGENTS.md 删群聊段（11.9KB）、SOUL.md 加可甜可御+Working Style（0316e15）。备份 workspace-backup-20260801/。ClawHub/jCodeMunch 秋秋真用，别砍；MEMORY.md 历史记忆不删（秋秋活人感）
+- 待办：
   - **秋秋 workspace 优化**（~/.openclaw/workspace/，独立 git master）：删 IDENTITY/USER 合并进 MEMORY.md（b5465d5）、AGENTS.md 删群聊段（11.9KB）、SOUL.md 加可甜可御+Working Style（0316e15）。备份 workspace-backup-20260801/。ClawHub/jCodeMunch 秋秋真用，别砍；MEMORY.md 历史记忆不删（秋秋活人感）
   2. STT 语音转文字（getUserMedia 录音 → gateway whisper）
   3. Markdown 代码渲染 / Tauri dev 完整测试 / 会话重命名删除
