@@ -35,6 +35,16 @@ export interface SessionInfo {
   percentUsed: number | null;
 }
 
+export interface AgentIdentity {
+  agentId: string;
+  name?: string;
+  emoji?: string;
+  avatar?: string | null;
+  avatarSource?: string | null;
+  avatarStatus?: "none" | "local" | "remote" | "data" | string;
+  avatarReason?: string;
+}
+
 export interface CommandEntry {
   name: string;
   textAliases?: string[];
@@ -127,6 +137,7 @@ class GatewayClient {
     percentUsed: null,
   };
   private _sessions: ChatSession[] = [];
+  private _agentId: string | null = null;
   private _commands: CommandEntry[] = [];
   private _models: ModelEntry[] = [];
 
@@ -147,6 +158,12 @@ class GatewayClient {
   }
   get sessions() {
     return this._sessions;
+  }
+  get agentId() {
+    return this._agentId;
+  }
+  get serverUrl() {
+    return this.url;
   }
   get commands() {
     return this._commands;
@@ -333,6 +350,7 @@ class GatewayClient {
           percentUsed: s.percentUsed ?? null,
         };
         this._notifySessionInfo();
+        this._agentId = s.agentId ?? this._agentId;
 
         // parse session list
         this._sessions = res.payload.sessions.recent.map((s: any) => ({
@@ -353,6 +371,43 @@ class GatewayClient {
       }
     } catch (err) {
       console.error("[Gateway] fetchSessionInfo failed:", err);
+    }
+  }
+
+  async fetchAgentIdentity(agentId?: string) {
+    const id = agentId ?? this._agentId;
+    if (!id) return null;
+    try {
+      const res = await this._request("agent.identity.get", { agentId: id });
+      if (res.ok && res.payload) {
+        const p = res.payload;
+        return {
+          agentId: id,
+          name: p.name,
+          emoji: p.emoji,
+          avatar: p.avatar ?? null,
+          avatarSource: p.avatarSource ?? null,
+          avatarStatus: p.avatarStatus ?? "none",
+          avatarReason: p.avatarReason ?? null,
+        } as AgentIdentity;
+      }
+      return null;
+    } catch (err) {
+      console.error("[Gateway] fetchAgentIdentity failed:", err);
+      return null;
+    }
+  }
+
+  async updateAgentAvatar(agentId: string, avatar: string) {
+    try {
+      const res = await this._request("agents.update", { agentId, avatar });
+      if (!res.ok) throw new Error(res.error?.message ?? "未知错误");
+      return true;
+    } catch (err) {
+      console.error("[Gateway] updateAgentAvatar failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`头像更新失败：${message}`);
+      throw err;
     }
   }
 
