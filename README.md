@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的秋秋
 
-[![版本](https://img.shields.io/badge/版本-v0.3.11-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.12-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -135,6 +135,7 @@ redclaw onboard   # 中文交互式向导
 
 | 版本    | 内容                                             |
 | ------- | ------------------------------------------------ |
+| v0.3.12 | TTS 朗读播放 + 聊天双方头像上传显示              |
 | v0.3.11 | 侧边栏折叠/拖拽 + 响应中提示 + 会话切换修复      |
 | v0.3.10 | cmdk 命令面板 + 主题开关/空状态/连接徽标接入界面 |
 | v0.3.9  | 连接状态徽标基础设施                             |
