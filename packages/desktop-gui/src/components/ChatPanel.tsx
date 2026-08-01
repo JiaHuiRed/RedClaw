@@ -20,6 +20,7 @@ import {
   type CommandEntry,
   type ModelEntry,
   type ChatSession,
+  type ToolCallEvent,
 } from "../gateway/client";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
 import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
@@ -238,6 +239,8 @@ export default function ChatPanel({
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [streamingReasoning, setStreamingReasoning] = useState("");
+  const [toolCalls, setToolCalls] = useState<ToolCallEvent[]>([]);
   const [showCmdPalette, setShowCmdPalette] = useState(false);
   const [cmdCategory, setCmdCategory] = useState<string | null>(null);
   const [cmdSelectedIndex, setCmdSelectedIndex] = useState(0);
@@ -336,9 +339,11 @@ export default function ChatPanel({
     );
   }, [availableModels, modelSearch]);
 
-  // Response-time counter: the gateway protocol does not stream reasoning
-  // deltas, so while the model is thinking the UI would otherwise look
-  // frozen. Show explicit "响应中... Ns" feedback instead.
+  // Response-time counter + live thinking feed. The gateway broadcasts
+  // "agent" events with stream==="thinking" (data.text = full text so far),
+  // so while the model is thinking we can show its reasoning live instead
+  // of a frozen-looking UI. "响应中... Ns" stays as a fallback when the
+  // model emits no reasoning (e.g. a model without thinking support).
   useEffect(() => {
     if (!isGenerating) {
       setElapsed(0);
@@ -352,6 +357,8 @@ export default function ChatPanel({
     const unsubMsg = gateway.onMessage((msg) => {
       setMessages((prev) => [...prev, msg]);
       setStreamingText("");
+      setStreamingReasoning("");
+      setToolCalls([]);
       setIsGenerating(false);
     });
 
@@ -359,8 +366,28 @@ export default function ChatPanel({
       setStreamingText((prev) => prev + text);
     });
 
+    const unsubThinking = gateway.onThinking((evt) => {
+      // data.text is always the full accumulated reasoning; replace when
+      // the server flags a non-prefix change, otherwise just overwrite.
+      setStreamingReasoning(evt.text);
+    });
+
+    const unsubTool = gateway.onTool((tool) => {
+      setToolCalls((prev) => {
+        const key = tool.id ?? tool.name;
+        if (!key) return prev;
+        const idx = prev.findIndex((t) => (t.id ?? t.name) === key);
+        if (idx === -1) return [...prev, tool];
+        const next = [...prev];
+        next[idx] = tool;
+        return next;
+      });
+    });
+
     const unsubStreamEnd = gateway.onStreamEnd(() => {
       setStreamingText("");
+      setStreamingReasoning("");
+      setToolCalls([]);
       setIsGenerating(false);
     });
 
@@ -376,6 +403,8 @@ export default function ChatPanel({
     return () => {
       unsubMsg();
       unsubDelta();
+      unsubThinking();
+      unsubTool();
       unsubStreamEnd();
       unsubStatus();
       unsubModels();
@@ -401,6 +430,19 @@ export default function ChatPanel({
     gateway.start();
   }
 
+  // Show a compact one-line preview of a tool's most meaningful input
+  // field, mirroring the open-claude-cowork formatToolPreview approach.
+  function formatToolPreview(tool: ToolCallEvent): string {
+    const input = tool.input as Record<string, unknown> | undefined;
+    if (!input) return "";
+    const key = ["pattern", "command", "file_path", "path", "query", "content", "description"].find(
+      (k) => input[k] !== undefined,
+    );
+    if (!key) return "";
+    const v = String(input[key]).replace(/\s+/g, " ").trim();
+    return v.length > 50 ? v.slice(0, 50) + "…" : v;
+  }
+
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
     if (!msg || !connected || isGenerating) return;
@@ -414,6 +456,7 @@ export default function ChatPanel({
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setShowCmdPalette(false);
+    setToolCalls([]);
     setIsGenerating(true);
 
     try {
@@ -857,7 +900,79 @@ export default function ChatPanel({
           </div>
         ))}
 
-        {isGenerating && !hasStreaming && (
+        {isGenerating && toolCalls.length > 0 && (
+          <div className="flex flex-col gap-1.5 mb-1">
+            {toolCalls.map((tc, i) => {
+              const running =
+                tc.phase === "start" && tc.result === undefined && tc.error === undefined;
+              const failed = tc.error !== undefined;
+              const preview = formatToolPreview(tc);
+              return (
+                <div
+                  key={i}
+                  className="flex items-start gap-2 rounded-xl px-3 py-2 text-xs"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  {failed ? (
+                    <span className="shrink-0 mt-0.5" style={{ color: "var(--danger)" }}>
+                      失败
+                    </span>
+                  ) : !running ? (
+                    <Check
+                      size={14}
+                      className="shrink-0 mt-0.5"
+                      style={{ color: "var(--success)" }}
+                    />
+                  ) : (
+                    <span
+                      className="inline-block w-3 h-3 border-2 rounded-full animate-spin shrink-0 mt-0.5"
+                      style={{
+                        borderColor: "var(--text-secondary)",
+                        borderTopColor: "var(--accent)",
+                      }}
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                      {tc.name}
+                    </span>
+                    {preview && (
+                      <div
+                        className="mt-0.5 truncate"
+                        style={{ fontFamily: "var(--font-mono, monospace)" }}
+                      >
+                        {preview}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isGenerating && streamingReasoning && !hasStreaming && (
+          <div className="flex justify-start">
+            <div
+              className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap"
+              style={{
+                background: "var(--bg-tertiary)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border)",
+                fontStyle: "italic",
+              }}
+            >
+              <span className="mb-1 block font-medium not-italic">思考中…</span>
+              {streamingReasoning}
+            </div>
+          </div>
+        )}
+
+        {isGenerating && !hasStreaming && !streamingReasoning && (
           <div className="flex justify-start">
             <div
               className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs"

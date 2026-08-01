@@ -2993,6 +2993,12 @@ export const chatHandlers: GatewayRequestHandlers = {
               thinkingLevelOverride: p.thinking,
               fastModeOverride: p.fastMode,
               userTurnTranscriptRecorder: userTurnRecorder,
+              // Activate reasoning streaming for WS clients: the embedded
+              // runner only emits "thinking" agent events when
+              // onReasoningStream is provided (streamReasoning=true). The
+              // thinking text reaches the GUI via the global agent-event bus,
+              // so this callback only needs to exist to enable it.
+              onReasoningStream: () => undefined,
               onAgentRunStart: (runId) => {
                 agentRunStarted = true;
                 const connId = typeof client?.connId === "string" ? client.connId : undefined;

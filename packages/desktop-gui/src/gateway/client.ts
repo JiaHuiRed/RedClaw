@@ -10,6 +10,22 @@ export interface Message {
   reasoning?: string;
 }
 
+export interface ThinkingEvent {
+  text: string;
+  delta?: string;
+  replace?: boolean;
+}
+
+export interface ToolCallEvent {
+  phase?: string;
+  name?: string;
+  input?: unknown;
+  result?: unknown;
+  partialResult?: unknown;
+  id?: string;
+  [key: string]: unknown;
+}
+
 export interface SessionInfo {
   model: string | null;
   configuredModel: string | null;
@@ -87,6 +103,8 @@ type SessionListListener = (sessions: ChatSession[]) => void;
 type CommandsListener = (cmds: CommandEntry[]) => void;
 type ModelListListener = (models: ModelEntry[]) => void;
 type ErrorListener = (message: string) => void;
+type ThinkingListener = (thinking: ThinkingEvent) => void;
+type ToolListener = (tool: ToolCallEvent) => void;
 type StreamEndListener = () => void;
 
 class GatewayClient {
@@ -121,6 +139,8 @@ class GatewayClient {
   private modelListListeners: ModelListListener[] = [];
   private errorListeners: ErrorListener[] = [];
   private streamEndListeners: StreamEndListener[] = [];
+  private thinkingListeners: ThinkingListener[] = [];
+  private toolListeners: ToolListener[] = [];
 
   get sessionInfo() {
     return this._sessionInfo;
@@ -232,6 +252,20 @@ class GatewayClient {
     this.streamEndListeners.push(fn);
     return () => {
       this.streamEndListeners = this.streamEndListeners.filter((l) => l !== fn);
+    };
+  }
+
+  onThinking(fn: ThinkingListener) {
+    this.thinkingListeners.push(fn);
+    return () => {
+      this.thinkingListeners = this.thinkingListeners.filter((l) => l !== fn);
+    };
+  }
+
+  onTool(fn: ToolListener) {
+    this.toolListeners.push(fn);
+    return () => {
+      this.toolListeners = this.toolListeners.filter((l) => l !== fn);
     };
   }
 
@@ -528,6 +562,8 @@ class GatewayClient {
         this.connected = true;
         this._connecting = false;
         this._notifyStatus();
+        // subscribe to session-scoped events (session.tool / session.message / sessions.changed)
+        this._request("sessions.subscribe", {}).catch(() => undefined);
         // fetch session info and commands after connect
         this.fetchSessionInfo();
         this.fetchCommands();
@@ -559,6 +595,11 @@ class GatewayClient {
       }
       if (frame.event === "chat") {
         this._handleChatEvent(frame.payload);
+        return;
+      }
+      // agent events (thinking/tool/... broadcast) and session.tool events
+      if (frame.event === "agent" || frame.event === "session.tool") {
+        this._handleAgentEvent(frame.payload);
         return;
       }
       return;
@@ -627,6 +668,29 @@ class GatewayClient {
         this._notifyStreamEnd();
         this._notifyError(errorMessage || "生成失败");
         break;
+      case "error":
+        console.error("[Gateway] chat error:", errorMessage);
+        this._notifyStreamEnd();
+        this._notifyError(errorMessage || "生成失败");
+        break;
+    }
+  }
+
+  private _handleAgentEvent(payload: any) {
+    if (!payload) return;
+    const { sessionKey, stream, data } = payload;
+    if (sessionKey && sessionKey !== this._activeSessionKey) return;
+
+    if (stream === "thinking") {
+      this._notifyThinking({
+        text: data?.text ?? "",
+        delta: data?.delta,
+        replace: data?.replace === true,
+      });
+      return;
+    }
+    if (stream === "tool") {
+      this._notifyTool((data ?? {}) as ToolCallEvent);
     }
   }
 
@@ -664,6 +728,14 @@ class GatewayClient {
 
   private _notifyStreamEnd() {
     this.streamEndListeners.forEach((fn) => fn());
+  }
+
+  private _notifyThinking(thinking: ThinkingEvent) {
+    this.thinkingListeners.forEach((fn) => fn(thinking));
+  }
+
+  private _notifyTool(tool: ToolCallEvent) {
+    this.toolListeners.forEach((fn) => fn(tool));
   }
 
   private _request(method: string, params: any) {
