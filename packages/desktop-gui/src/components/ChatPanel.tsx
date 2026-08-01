@@ -10,7 +10,7 @@ import {
   Settings,
   ListTodo,
 } from "lucide-react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -61,7 +61,9 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function MarkdownBlock({ content }: { content: string }) {
+// memo: 输入框每次按键都会触发 ChatPanel 全量重渲染，
+// 历史消息的 content 引用不变时跳过 ReactMarkdown 重新解析（消息多时打字卡顿的根因）
+const MarkdownBlock = memo(function MarkdownBlock({ content }: { content: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -192,7 +194,7 @@ function MarkdownBlock({ content }: { content: string }) {
       {content}
     </ReactMarkdown>
   );
-}
+});
 
 interface ChatPanelProps {
   connected: boolean;
@@ -377,7 +379,10 @@ export default function ChatPanel({
       unsubStreamEnd();
       unsubStatus();
       unsubModels();
-      gateway.stop();
+      // NOTE: do not gateway.stop() here. Vite HMR / StrictMode remounts
+      // run this cleanup and would kill the WebSocket, leaving the UI
+      // looking "connected" while every send silently fails. Connection
+      // lifecycle is owned by the connect button / App layer instead.
     };
   }, []);
 

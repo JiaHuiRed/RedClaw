@@ -283,7 +283,8 @@ class GatewayClient {
 
         // parse session list
         this._sessions = res.payload.sessions.recent.map((s: any) => ({
-          sessionKey: s.sessionKey ?? DEFAULT_SESSION_KEY,
+          // gateway 返回的字段名是 key（不是 sessionKey），见 status.summary.ts buildSessionRows
+          sessionKey: s.key ?? s.sessionKey ?? DEFAULT_SESSION_KEY,
           sessionId: s.sessionId,
           model: s.model,
           configuredModel: s.configuredModel,
