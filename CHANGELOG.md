@@ -1,5 +1,22 @@
 # 更新日志
 
+## [0.3.11] - 2026-08-01
+
+> 侧边栏折叠/拖拽、响应中提示、会话切换与输入卡顿修复。
+
+### 新增
+
+- **侧边栏折叠 + 拖拽调整宽度**（`Sidebar.tsx`）：折叠按钮（`PanelLeftClose`/`PanelLeftOpen`）收起成 48px 图标窄条；右缘 3px 拖拽手柄调整宽度（clamp 160–480px）。宽度与折叠状态持久化到 `localStorage`（`redclaw:sidebarWidth` / `redclaw:sidebarCollapsed`），折叠态按钮组垂直居中避免与标题栏重叠。
+- **响应中提示**（`ChatPanel.tsx`）：模型思考阶段不吐文本时界面无反馈，新增「响应中… Ns」气泡（spinner + 每秒计时），`isGenerating && !hasStreaming` 时显示，流式文本或 final 到达即消失。
+
+### 修复
+
+- **会话切换无效**（`client.ts`）：`status` RPC 返回的 `sessions.recent` 字段名是 `key` 而非 `sessionKey`，解析时全部回退到默认会话，点击历史会话无反应。改为 `s.key ?? s.sessionKey ?? DEFAULT_SESSION_KEY`。
+- **输入卡顿**（`ChatPanel.tsx`）：每键 `setInput` 触发全组件重渲染，历史消息的 `MarkdownBlock`（ReactMarkdown + remarkGfm）全量重解析。用 `memo` 包裹，消息多时打字恢复流畅。
+- **HMR/重渲染后连接静默断开**（`ChatPanel.tsx`）：订阅 useEffect 的 cleanup 里有 `gateway.stop()`，vite HMR 推送组件 remount 时杀掉 WebSocket，界面仍显示已连接但发送全部静默失败。移除 cleanup 中的 `stop()`，连接生命周期归连接按钮/App 层管理。
+
+---
+
 ## [0.3.10] - 2026-07-31
 
 ### 新增
