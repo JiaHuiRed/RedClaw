@@ -9,8 +9,11 @@
 
 ## 当前进度
 
-- 最后工作日期：260712
-- 上次做到：v0.3.1 — Sidebar 会话列表 + chat.history 加载历史消息 + 输入框自适应
+- 最后工作日期：260801
+- 上次做到：v0.3.10 — GUI 成功连上 gateway（之前连不上的根因已修复）
+- 近期重要改动：
+  - v0.3.6-v0.3.10 已从远端 pull（色阶系统、主题模块、空状态、连接徽标、cmdk 命令面板）
+  - 修复 GUI 连不上 gateway：DEFAULT_URL 19001→18789 + localStorage URL key 升 v2
 - 待办：
   1. Markdown 代码渲染
   2. Tauri dev 完整运行测试
@@ -57,6 +60,9 @@
 ## 踩坑记录
 
 - **Gateway 连接被 origin check 拒**：Tauri WebView 发 WebSocket 带 `Origin: http://tauri.localhost`，需在 `~/.openclaw/openclaw.json` 的 `gateway.controlUi.allowedOrigins` 加入该 origin
+- **localStorage 旧 URL 覆盖默认值（260801 实战）**：GUI 连不上 gateway 且代码 DEFAULT_URL 改对也没用——根因是 WebView2 localStorage 里存了旧的 `redclaw:gatewayUrl=ws://127.0.0.1:19001`（死端口），App.tsx 启动时 `gateway.configure(savedUrl)` 覆盖默认值。修法：URL key 加版本后缀 `redclaw:gatewayUrl:v2`（App.tsx + ChatPanel.tsx 两处），旧值作废。**教训：改默认连接地址时，必须同步考虑 localStorage 里可能存的旧值**
+- **WebView2 localStorage 位置**：`%LOCALAPPDATA%\com.redclaw.desktop\EBWebView\Default\Local Storage\leveldb\`（leveldb 二进制，进程运行时被锁，可用 FileShare.ReadWrite 读）
+- **tauri dev 的 HMR 不重跑 useEffect**：改 App.tsx 的配置读取逻辑后，Fast Refresh 保留组件状态，`useEffect` 不会重新执行——必须杀 exe 重启才生效
 - **build 产物锁 exe**：`npx tauri build --no-bundle` 在旧 exe 运行时会被锁，需先关闭窗口
 - **GUI 版本随主版本**：desktop-gui 不设独立版本号，跟红爪根版本一致
 - git push 走 Clash 代理：`git -c http.proxy="" push` 绕过代理
