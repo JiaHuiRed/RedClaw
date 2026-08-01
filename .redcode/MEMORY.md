@@ -13,8 +13,9 @@
 - **工具调用可视化（任务2）**：client.ts 连接后 `sessions.subscribe` RPC（server 端 server-methods/sessions.ts:1039）→ 收 session.tool 事件（data {phase,name,input,result}）→ ChatPanel 工具卡片（running spin / Check / 失败）+ formatToolPreview 输入预览
 - **exec WSL 乱码修复**：src/infra/windows-encoding.ts createWindowsOutputDecoder 加 UTF-16LE 检测（looksLikeUtf16LeText）+ UTF-8 退出检测（looksLikeUtf8AfterUtf16Le）——WSL 横幅是 UTF-16LE 无 BOM，bash 错误是 UTF-8，混合流同 decoder 处理
 - **秋秋 workspace 优化**（~/.openclaw/workspace/，独立 git master）：删 IDENTITY/USER 合并进 MEMORY.md（b5465d5）、AGENTS.md 删群聊段（11.9KB）、SOUL.md 加可甜可御+Working Style（0316e15）。备份 workspace-backup-20260801/。ClawHub/jCodeMunch 秋秋真用，别砍；MEMORY.md 历史记忆不删（秋秋活人感）
+- **头像上传与显示（v0.3.12）**：聊天双方 50px 圆形头像。client.ts：AgentIdentity 类型 + fetchAgentIdentity（agent.identity.get）+ updateAgentAvatar（agents.update {agentId, avatar}）+ \_agentId 跟踪（status 的 sessions.recent[].agentId）；ChatPanel.tsx：Avatar/EditableAvatar 组件（canvas 压缩 256×256 JPEG data URL）+ 消息行渲染（user 右/assistant 左）。用户头像存 localStorage（redclaw:userAvatar:v1），AI 头像写 agent 配置（data URL，avatarStatus=data 原样返回）。server 侧：agents.update 写 config + IDENTITY.md；agent.identity.get 返回 avatarSource/avatarStatus（none|local|remote|data）/avatarReason；本地文件头像经 HTTP /avatar/:agentId（control-ui.ts）提供。**坑：agents.update 传空字符串不能清除头像**
 - 待办：
-  - **秋秋 workspace 优化**（~/.openclaw/workspace/，独立 git master）：删 IDENTITY/USER 合并进 MEMORY.md（b5465d5）、AGENTS.md 删群聊段（11.9KB）、SOUL.md 加可甜可御+Working Style（0316e15）。备份 workspace-backup-20260801/。ClawHub/jCodeMunch 秋秋真用，别砍；MEMORY.md 历史记忆不删（秋秋活人感）
+  1. ~~GUI 语音播放验证~~（已完成 260802）+ ~~头像功能~~（已完成，v0.3.12 收工）
   2. STT 语音转文字（getUserMedia 录音 → gateway whisper）
   3. Markdown 代码渲染 / Tauri dev 完整测试 / 会话重命名删除
   4. 秋秋优化后续：AGENTS.md Heartbeats 段精简、TOOLS.md 重写、工作人格已加
@@ -70,3 +71,7 @@
 - **gateway 改 src 后必须 `pnpm build`（根目录）重编 dist 再重启 gateway**（全局 openclaw 包是 Junction 指向项目根）；desktop-gui 用 `pnpm typecheck`（tsc --noEmit），tsgo:core 不适用
 - **bash 命令里含中文会被 hook 拦**（误判写文件）——用英文输入绕过；连续 5 次改动性工具会被 guardrail 拦，需 read 回刚改文件或跑验证命令解除
 - **敏感度**：compress 高频会断 DeepSeek 前缀缓存（99%→91%），会话长了少压缩；stepfun key 在 openclaw.json models.providers.'stepfun-plan'.apiKey（65 字符，$cfg 提取不回显）
+
+- **AI 头像重启后丢失（260802 实战）**：根因是 GUI 竞态——fetchAgentIdentity 依赖 `this._agentId`（status RPC 填充），identity RPC 先回时 `_agentId` 为 null → return null → 不重试 → 永久 Bot 图标。**修法：agent.identity.get / agents.update 的 agentId 参数都是 Optional，无 id 时直接不带参数调用，server 缺省解析默认 agent**，彻底绕开 \_agentId 依赖。教训：RPC 方法有默认 agent 语义时，别在客户端前置依赖另一个 RPC 的结果
+- **tauri dev 僵尸页面坑（260802 实战）**：vite dev server 死后 GUI 窗口变成"僵尸页面"——页面能操作但代码源已断，HMR 推送失效，改前端代码界面毫无反应。**判断法：查 1420 端口有无监听/有无 node vite 进程；修法：杀 exe → pnpm tauri:dev 重启整条链**
+- **gateway WS 探针帧类型**：请求帧 `type: "req"`（不是 "rpc"！）；connect.challenge 是 event 帧（frame.type === "event" && frame.event === "connect.challenge"）。成功模板：%TEMP%\redcode\probe-avatar.cjs / probe-status.cjs
