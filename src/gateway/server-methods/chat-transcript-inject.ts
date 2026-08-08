@@ -1,4 +1,5 @@
 import type { SessionManager } from "@earendil-works/pi-coding-agent";
+import { isSessionWriteLockTimeoutError } from "../../agents/session-write-lock-error.js";
 import { appendSessionTranscriptMessage } from "../../config/sessions/transcript-append.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { formatErrorMessage } from "../../infra/errors.js";
@@ -123,6 +124,37 @@ export async function appendInjectedAssistantMessageToTranscript(params: {
     });
     return { ok: true, messageId, message: appendedMessage as unknown as Record<string, unknown> };
   } catch (err) {
+    // 会话文件锁竞争（如生图完成的注入与主会话 agent 回合并发写同一
+    // transcript）会抛 SessionWriteLockTimeoutError；锁是瞬时的，退避
+    // 重试几次就能写入，避免单次锁超时直接丢消息。
+    if (isSessionWriteLockTimeoutError(err)) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        try {
+          const { messageId, message: appendedMessage } = await appendSessionTranscriptMessage({
+            transcriptPath: params.transcriptPath,
+            message: messageBody,
+            now,
+            useRawWhenLinear: true,
+            config: params.config,
+          });
+          emitSessionTranscriptUpdate({
+            sessionFile: params.transcriptPath,
+            message: appendedMessage,
+            messageId,
+          });
+          return {
+            ok: true,
+            messageId,
+            message: appendedMessage as unknown as Record<string, unknown>,
+          };
+        } catch (retryErr) {
+          if (!isSessionWriteLockTimeoutError(retryErr)) {
+            return { ok: false, error: formatErrorMessage(retryErr) };
+          }
+        }
+      }
+    }
     return { ok: false, error: formatErrorMessage(err) };
   }
 }
