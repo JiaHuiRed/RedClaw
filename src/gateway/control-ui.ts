@@ -185,6 +185,9 @@ function applyControlUiSecurityHeaders(res: ServerResponse) {
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
+  // Control UI 页面（tauri.localhost）与 gateway 跨域，JSON API 需放行 CORS；
+  // 文件访问仍受 mediaTicket + 本地根目录双重保护。
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "no-cache");
   res.end(JSON.stringify(body));
 }
@@ -591,6 +594,9 @@ export async function handleControlUiAssistantMediaRequest(
     } else {
       res.setHeader("Content-Type", "application/octet-stream");
     }
+    // 生图图片经 GUI/Control UI（tauri.localhost 等跨域页面）<img>/fetch 显示，
+    // 必须放行 CORS；文件访问本身受 mediaTicket + 本地根目录双重保护。
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Content-Length", String(opened.stat.size));
     const stream = opened.handle.createReadStream({ start: 0, autoClose: false });
