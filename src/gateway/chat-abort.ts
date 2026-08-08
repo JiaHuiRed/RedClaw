@@ -1,3 +1,4 @@
+import { isHeartbeatOkResponse } from "../auto-reply/heartbeat-filter.js";
 import { isAbortRequestText } from "../auto-reply/reply/abort-primitives.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
 import type { BufferedAgentEvent } from "./server-chat-state.js";
@@ -158,19 +159,22 @@ function broadcastChatAborted(
   },
 ) {
   const { runId, sessionKey, stopReason, partialText } = params;
+  const message = partialText
+    ? {
+        role: "assistant",
+        content: [{ type: "text", text: partialText }],
+        timestamp: Date.now(),
+      }
+    : undefined;
   const payload = {
     runId,
     sessionKey,
     seq: (ops.agentRunSeq.get(runId) ?? 0) + 1,
     state: "aborted" as const,
     stopReason,
-    message: partialText
-      ? {
-          role: "assistant",
-          content: [{ type: "text", text: partialText }],
-          timestamp: Date.now(),
-        }
-      : undefined,
+    // 心跳 run 被打断时 partialText 是 HEARTBEAT_OK 之类 ack 文本，
+    // 与 final/history 投影的 isHeartbeatOkResponse 过滤保持一致，不广播给用户。
+    message: message && !isHeartbeatOkResponse(message) ? message : undefined,
   };
   ops.broadcast("chat", payload);
   ops.nodeSendToSession(sessionKey, "chat", payload);

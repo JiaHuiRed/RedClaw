@@ -2,12 +2,21 @@ const DEFAULT_SESSION_KEY = "agent:main:main";
 const RECONNECT_DELAY = 2000;
 const DEFAULT_URL = "ws://127.0.0.1:18789";
 
+export interface MessageImage {
+  url: string;
+  alt?: string;
+  mimeType?: string;
+  width?: number;
+  height?: number;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: number;
   reasoning?: string;
+  images?: MessageImage[];
 }
 
 export interface ThinkingEvent {
@@ -336,6 +345,32 @@ class GatewayClient {
     }
   }
 
+  async generateImage(prompt: string, size?: string, sessionKey?: string) {
+    if (!this.connected) throw new Error("Gateway not connected");
+    const key = sessionKey ?? this._activeSessionKey;
+    try {
+      const res = await this._request("tools.invoke", {
+        name: "image_generate",
+        args: {
+          action: "generate",
+          prompt,
+          ...(size ? { size } : {}),
+        },
+        sessionKey: key,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (!res.ok) {
+        throw new Error(res.error?.message || "生图启动失败");
+      }
+      return res.payload;
+    } catch (err) {
+      console.error("[Gateway] generateImage failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`生图启动失败：${message}`);
+      throw err;
+    }
+  }
+
   async fetchSessionInfo() {
     try {
       const res = await this._request("status", { includeChannelSummary: false });
@@ -442,16 +477,102 @@ class GatewayClient {
     try {
       const res = await this._request("chat.history", { sessionKey: key, limit });
       if (res.ok && res.payload?.messages) {
-        return res.payload.messages.map((m: any) => ({
-          id: m.id ?? crypto.randomUUID(),
-          role: m.role ?? "assistant",
-          content:
+        const out: Message[] = [];
+        for (const m of res.payload.messages as any[]) {
+          // 只渲染用户/助手消息；工具结果（role=toolResult）在实时聊天里也不显示，
+          // 历史里同样跳过，避免 "Background task started..." 之类文本变成气泡。
+          const role = m.role ?? "assistant";
+          if (role !== "user" && role !== "assistant") {
+            continue;
+          }
+          let content =
             typeof m.content === "string"
               ? m.content
-              : (m.content?.map((c: any) => c.text).join("") ?? ""),
-          timestamp: m.timestamp ?? Date.now(),
-          reasoning: m.reasoning ?? "",
-        }));
+              : (m.content?.map((c: any) => c.text).join("") ?? "");
+          // 过滤内部路由消息（inter-session / task completion），不显示给用户；
+          // 真实回复由 message tool 的 sourceReply 直接补发 assistant 消息。
+          if (
+            content.startsWith("[Inter-session message]") ||
+            content.startsWith("[Internal task completion event]") ||
+            content.startsWith("[Internal message]")
+          ) {
+            continue;
+          }
+          // 心跳 ack 文本（HEARTBEAT_OK）不渲染成气泡：server 实时广播已过滤，
+          // 但历史投影对带 thinking 块的消息 isHeartbeatOkResponse 不命中，这里文本兜底。
+          if (/^HEARTBEAT_OK(\s|$)/.test(content.trim())) {
+            continue;
+          }
+          const mediaCandidates = [
+            ...(Array.isArray(m.mediaUrls) ? m.mediaUrls : []),
+            ...(m.mediaUrl ? [m.mediaUrl] : []),
+            ...(Array.isArray(m.MediaPaths) ? m.MediaPaths : []),
+            ...(m.MediaPath ? [m.MediaPath] : []),
+          ];
+          const mediaTokenRe = /\bMEDIA:\s*`?([^\n]+)`?/gi;
+          let mm: RegExpExecArray | null;
+          while ((mm = mediaTokenRe.exec(content)) !== null) {
+            const p = mm[1].trim();
+            if (p) mediaCandidates.push(p);
+          }
+          // 历史生图消息：图片路径藏在 assistant 消息的 message tool 调用参数里
+          // （chat.history 投影保留 toolCall 块，arguments.attachments[].media 是
+          // 图片绝对路径，arguments.message 是展示文案），顶层字段没有媒体，
+          // 不解析的话历史里就看不到生成的图。
+          if (Array.isArray(m.content)) {
+            for (const block of m.content) {
+              if (block?.type !== "toolCall" || block.name !== "message" || !block.arguments) {
+                continue;
+              }
+              let args: any = block.arguments;
+              if (typeof args === "string") {
+                try {
+                  args = JSON.parse(args);
+                } catch {
+                  args = null;
+                }
+              }
+              if (!args) continue;
+              if (typeof args.message === "string" && !content) {
+                content = args.message;
+              }
+              for (const att of args.attachments ?? []) {
+                if (
+                  att?.media &&
+                  typeof att.media === "string" &&
+                  (att.type === "image" || /\.(png|jpe?g|gif|webp|bmp)$/i.test(att.media))
+                ) {
+                  mediaCandidates.push(att.media);
+                }
+              }
+            }
+          }
+          let images: MessageImage[] = [];
+          // 按源路径先去重：本地路径经 mediaTicket 换发后不是稳定 URL，
+          // 同路径重复字段（mediaUrl + mediaUrls[0]）会解析出两个不同 URL。
+          const seenPaths = new Set<string>();
+          for (const cand of mediaCandidates) {
+            if (!cand || seenPaths.has(cand)) continue;
+            seenPaths.add(cand);
+            const url = await this._resolveMediaHttpUrl(cand);
+            if (!url) continue;
+            if (images.some((img) => img.url === url)) continue;
+            images.push({ url });
+          }
+          // 空内容且无图（生图后台任务 run 的空 final）不渲染成空白气泡。
+          if (!content && images.length === 0) {
+            continue;
+          }
+          out.push({
+            id: m.id ?? crypto.randomUUID(),
+            role: m.role ?? "assistant",
+            content,
+            timestamp: m.timestamp ?? Date.now(),
+            reasoning: m.reasoning ?? "",
+            ...(images.length > 0 ? { images } : {}),
+          });
+        }
+        return out;
       }
     } catch (err) {
       console.error("[Gateway] fetchHistory failed:", err);
@@ -582,7 +703,16 @@ class GatewayClient {
   }
 
   private _connect() {
-    if (!this.running || this.ws) return;
+    if (!this.running) return;
+    // 旧连接句柄可能还在，但底层 TCP 已死（Windows 上杀 gateway 后常见），
+    // 直接复用它会导致 RPC 永远 pending、界面卡在"连接中"。
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      this.ws.close();
+      this.ws = null;
+    }
     this._connecting = false;
     this.ws = new WebSocket(this.url);
 
@@ -696,26 +826,27 @@ class GatewayClient {
   private _handleChatEvent(payload: any) {
     if (!payload) return;
     const { state, sessionKey, message, deltaText, errorMessage } = payload;
-    if (sessionKey && sessionKey !== this._activeSessionKey) return;
+    const hasMedia =
+      !!message?.mediaUrl ||
+      !!message?.mediaUrls ||
+      !!message?.MediaPath ||
+      !!message?.MediaPaths ||
+      (Array.isArray(message?.content) &&
+        message.content.some((c: any) => c?.type === "image" && c?.url));
+    if (
+      sessionKey &&
+      sessionKey !== this._activeSessionKey &&
+      !this._isKnownSessionKey(sessionKey) &&
+      !hasMedia
+    )
+      return;
 
     switch (state) {
       case "delta":
         this._notifyDelta(deltaText || "", message?.reasoning || "");
         break;
       case "final":
-        this._notifyMessage({
-          id: message?.id || crypto.randomUUID(),
-          role: "assistant",
-          content:
-            message?.text ||
-            message?.content
-              ?.filter((c: any) => c.type === "text")
-              ?.map((c: any) => c.text)
-              ?.join("") ||
-            "",
-          timestamp: Date.now(),
-          reasoning: message?.reasoning || "",
-        });
+        void this._handleFinalChatMessage(message);
         // refresh session info after each completed response
         this.fetchSessionInfo();
         break;
@@ -744,12 +875,102 @@ class GatewayClient {
         this._notifyStreamEnd();
         this._notifyError(errorMessage || "生成失败");
         break;
-      case "error":
-        console.error("[Gateway] chat error:", errorMessage);
-        this._notifyStreamEnd();
-        this._notifyError(errorMessage || "生成失败");
-        break;
     }
+  }
+
+  // 生图完成消息：文字 + 图片（content image block / 顶层 mediaUrls / mediaUrl / MEDIA: 文本）
+  // 本地绝对路径经 assistant-media 端点换 ticket 转 HTTP URL
+  private async _handleFinalChatMessage(message: any) {
+    const content =
+      message?.text ||
+      message?.content
+        ?.filter((c: any) => c.type === "text")
+        ?.map((c: any) => c.text)
+        ?.join("") ||
+      "";
+
+    const mediaCandidates = [
+      ...(Array.isArray(message?.mediaUrls) ? message.mediaUrls : []),
+      ...(message?.mediaUrl ? [message.mediaUrl] : []),
+      ...(Array.isArray(message?.MediaPaths) ? message.MediaPaths : []),
+      ...(message?.MediaPath ? [message.MediaPath] : []),
+    ];
+    const mediaTokenRe = /\bMEDIA:\s*`?([^\n]+)`?/gi;
+    let m: RegExpExecArray | null;
+    while ((m = mediaTokenRe.exec(content)) !== null) {
+      const path = m[1].trim();
+      if (path) mediaCandidates.push(path);
+    }
+    await this._resolveAndNotifyImages(mediaCandidates, content);
+  }
+
+  private async _resolveAndNotifyImages(mediaCandidates: string[], text: string) {
+    let images: MessageImage[] = [];
+    // server 可能同时填 mediaUrl + mediaUrls[0]（同一路径双字段），且本地路径
+    // 每次解析换新 mediaTicket，按最终 URL 去重会失效——先按原始路径去重。
+    const seenPaths = new Set<string>();
+    try {
+      for (const cand of mediaCandidates) {
+        if (!cand || seenPaths.has(cand)) continue;
+        seenPaths.add(cand);
+        const url = await this._resolveMediaHttpUrl(cand);
+        if (!url) continue;
+        if (images.some((img) => img.url === url)) continue;
+        images.push({ url });
+      }
+    } catch (err) {
+      console.error("[Gateway] resolve images failed:", err);
+    }
+
+    // 空内容且无图（如生图后台任务 run 结束的空 final 广播）不渲染，
+    // 否则会变成空白气泡。
+    if (!text && images.length === 0) {
+      return;
+    }
+
+    this._notifyMessage({
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: text,
+      timestamp: Date.now(),
+      ...(images.length > 0 ? { images } : {}),
+    });
+  }
+
+  // 把媒体引用解析成可直接 <img> 的 HTTP URL：
+  //  - http(s) 原样
+  //  - / 开头的相对路径拼 gateway http base
+  //  - 本地绝对路径（生图落盘）经 assistant-media 端点换 mediaTicket
+  private async _resolveMediaHttpUrl(source: string | undefined): Promise<string | null> {
+    if (!source) return null;
+    const httpBase = this.url.replace(/^ws/, "http");
+    if (/^https?:\/\//i.test(source)) return source;
+    if (source.startsWith("/")) return `${httpBase}${source}`;
+    // 本地绝对路径：assistant-media meta 换 ticket（allowQueryToken:true）
+    try {
+      const enc = encodeURIComponent(source);
+      const metaUrl = `${httpBase}/__openclaw__/assistant-media?source=${enc}&meta=1${
+        this.token ? `&token=${encodeURIComponent(this.token)}` : ""
+      }`;
+      const res = await fetch(metaUrl);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data?.available && data?.mediaTicket) {
+        return `${httpBase}/__openclaw__/assistant-media?source=${enc}&mediaTicket=${encodeURIComponent(data.mediaTicket)}`;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  private _isKnownSessionKey(sessionKey: string): boolean {
+    if (!sessionKey) return false;
+    if (sessionKey === this._activeSessionKey) return true;
+    if (this._sessions.some((s) => s.sessionKey === sessionKey)) return true;
+    return (
+      sessionKey.includes(this._activeSessionKey) || this._activeSessionKey.includes(sessionKey)
+    );
   }
 
   private _handleAgentEvent(payload: any) {
@@ -766,7 +987,33 @@ class GatewayClient {
       return;
     }
     if (stream === "tool") {
-      this._notifyTool((data ?? {}) as ToolCallEvent);
+      const toolData = data ?? {};
+      // message tool 是内部路由工具：start 阶段保留卡片（告诉用户任务开始），
+      // result 阶段静默（sourceReply 会补发 assistant 消息，避免重复气泡）。
+      if (!(toolData.name === "message" && toolData.phase === "result")) {
+        this._notifyTool(toolData as ToolCallEvent);
+      }
+      // message tool 的 sourceReply 走 internal-ui sink，不经过 chat final
+      // broadcast；GUI/TUI 这里直接消费，补发一条 assistant 消息（含图片）。
+      if (toolData.name === "message" && !toolData.error) {
+        const sourceReply = (toolData as any)?.result?.details?.sourceReply;
+        if (sourceReply) {
+          const text =
+            sourceReply.text ||
+            sourceReply.message ||
+            ((toolData as any)?.result?.content as any[])
+              ?.filter((c: any) => c?.type === "text")
+              ?.map((c: any) => c.text)
+              ?.join("") ||
+            "";
+          const mediaCandidates = [
+            ...(Array.isArray(sourceReply.mediaUrls) ? sourceReply.mediaUrls : []),
+            ...(sourceReply.mediaUrl ? [sourceReply.mediaUrl] : []),
+          ];
+          this._resolveAndNotifyImages(mediaCandidates, text);
+        }
+      }
+      return;
     }
   }
 
