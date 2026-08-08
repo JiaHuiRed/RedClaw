@@ -18,6 +18,7 @@ import type {
   ChannelMessageActionName,
   ChannelThreadingToolContext,
 } from "../../channels/plugins/types.public.js";
+import { appendAssistantMessageToSessionTranscript } from "../../config/sessions/transcript.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import {
   hasInteractiveReplyBlocks,
@@ -727,6 +728,24 @@ async function handleInternalSourceReplySendAction(
     ...(sourceReply.mediaUrls?.length ? { mediaUrls: sourceReply.mediaUrls } : {}),
     dryRun,
   };
+  // inter-session sourceReply 不走 message.action RPC，因此 source-reply-mirror.ts
+  // 的 mirrorDeliveredSourceReplyToTranscript 不会被触发；这里直接写入 mirror，
+  // 让 fetchHistory / 历史消息可见。
+  if (!dryRun && input.sessionKey && sourceReply.payload?.text) {
+    try {
+      await appendAssistantMessageToSessionTranscript({
+        agentId:
+          input.agentId ??
+          resolveSessionAgentId({ sessionKey: input.sessionKey, config: input.cfg }),
+        sessionKey: input.sessionKey,
+        text: sourceReply.payload.text,
+        mediaUrls: sourceReply.payload.mediaUrls,
+        config: input.cfg,
+      });
+    } catch (err) {
+      console.error("[message-action-runner] append sourceReply mirror failed:", err);
+    }
+  }
   return {
     kind: "send",
     channel: INTERNAL_MESSAGE_CHANNEL,
