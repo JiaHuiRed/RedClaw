@@ -1,0 +1,25 @@
+{
+  "id": "stepfun",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": ["stepfun-plan"],
+  "contracts": {
+    "imageGenerationProviders": ["stepfun-plan"]
+  },
+  "imageGenerationProviderMetadata": {
+    "stepfun-plan": {
+      "authSignals": [
+        {
+          "provider": "stepfun-plan"
+        }
+      ]
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
