@@ -1,4 +1,5 @@
 import { resolveToolSearchCodeDisplayTarget } from "../agents/tool-display-common.js";
+import { isHeartbeatOkResponse } from "../auto-reply/heartbeat-filter.js";
 import { DEFAULT_HEARTBEAT_ACK_MAX_CHARS, stripHeartbeatToken } from "../auto-reply/heartbeat.js";
 import { normalizeVerboseLevel } from "../auto-reply/thinking.js";
 import { getRuntimeConfig } from "../config/io.js";
@@ -685,8 +686,16 @@ export function createAgentEventHandler({
         seq,
         state: "final" as const,
         ...(stopReason && { stopReason }),
+        // 纯文本兜底：即使 runId 上下文匹配不到 isHeartbeat，
+        // HEARTBEAT_OK 之类的 ack 文本也不该作为用户可见消息广播
+        // （与 chat-abort / final 投影的 isHeartbeatOkResponse 过滤保持一致）。
         message:
-          text && !shouldSuppressSilent
+          text &&
+          !shouldSuppressSilent &&
+          !isHeartbeatOkResponse({
+            role: "assistant",
+            content: [{ type: "text", text }],
+          })
             ? {
                 role: "assistant",
                 content: [{ type: "text", text }],

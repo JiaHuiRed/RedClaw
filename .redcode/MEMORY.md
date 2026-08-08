@@ -20,6 +20,24 @@
   3. Markdown 代码渲染 / Tauri dev 完整测试 / 会话重命名删除
   4. 秋秋优化后续：AGENTS.md Heartbeats 段精简、TOOLS.md 重写、工作人格已加
 
+## 生图双图 bug（260808 修复，已根因实锤）
+
+**现象**：秋秋（main agent）生图后用 message tool 发图，GUI 同一条消息渲染两张相同图。
+
+**根因**：server 端 `message-action-runner.ts buildSendPayloadParts`（L950-969）的 payload 同时带 `mediaUrl`（= `mergedMediaUrls[0]`）和 `mediaUrls`（同一路径）——**单图场景同路径双字段**。GUI `client.ts _handleAgentEvent` 把 `sourceReply.mediaUrls + sourceReply.mediaUrl` 拼进 mediaCandidates → 路径重复；`_resolveAndNotifyImages` 对本地绝对路径每次 `_resolveMediaHttpUrl` fetch `/__openclaw__/assistant-media?source=enc&meta=1` 换**新 mediaTicket** → 两个不同 URL → 按最终 URL 去重失效 → 一条消息两张相同图。
+
+**修法**：`client.ts _resolveAndNotifyImages`（L849-872）解析前按原始 candidate 路径 `Set` 去重（`seenPaths`）。一处修复覆盖 sourceReply 补发 / final 广播 / fetchHistory 三条 GUI 路径，server 零改动。
+
+**教训**：① 本地路径经 mediaTicket 换发后不是稳定 URL，按最终 URL 去重必然失效——**先按源路径去重**；② 排查 GUI 双消息/双图先抓 transcript 实证（`~/.openclaw/agents/main/sessions/<id>.jsonl`，`{type:"message", message:{role,content,timestamp}}`），比猜代码路径快得多；③ sourceReply mirror 消息 content 是**文件名列表**（`transcript-mirror.ts resolveMirroredTranscriptText`：mediaUrls 非空时忽略 text 只留文件名），别被 mirror 内容迷惑。
+
+## 生图后续三连修（260808，同批部署）
+
+1. **toolResult 气泡**：fetchHistory 不按 role 过滤 → 「Background task started...」「Sent visible reply...」成白色气泡。修：client.ts fetchHistory 只收 role=user/assistant（toolResult 跳过）+ `[Inter-session message]`/`[Internal task completion event]`/`[Internal message]` 前缀跳过
+2. **空白气泡**：生图 run（秋秋无文本输出）final 广播 content 空 → GUI 无条件 \_notifyMessage → 空白气泡。修：`_resolveAndNotifyImages` + fetchHistory 都加 `!text && images.length===0` 跳过
+3. **HEARTBEAT_OK 气泡**：心跳 run 被用户消息打断 → broadcastChatAborted（`src/gateway/chat-abort.ts`）的 partialText=「HEARTBEAT_OK」**直接构造 message 不过滤**（final/history 投影都有 isHeartbeatOkResponse 过滤，唯独 abort 没有）→ GUI 显示 HEARTBEAT_OK 气泡。修：chat-abort.ts broadcastChatAborted 过 `isHeartbeatOkResponse`（`../auto-reply/heartbeat-filter.js`）命中则 message: undefined。**教训：server 显示过滤（projectChatDisplayMessages → shouldHideProjectedHistoryMessage）覆盖 history RPC + chat final 广播，但 abort 广播（broadcastChatAborted）是旁路，改显示逻辑时检查所有 broadcast 出口**
+
+**心跳机制**：秋秋 heartbeat 是「记忆整合」后台任务（workspace AGENTS.md Heartbeats 段标准 prompt「If nothing needs attention, reply HEARTBEAT_OK」）；HEARTBEAT_OK 是标准协议 ack，server 显示层应过滤（isHeartbeatOkResponse：role=assistant + 无 toolCall + stripHeartbeatToken 命中）
+
 ## 架构
 
 ### 技术栈
@@ -75,3 +93,7 @@
 - **AI 头像重启后丢失（260802 实战）**：根因是 GUI 竞态——fetchAgentIdentity 依赖 `this._agentId`（status RPC 填充），identity RPC 先回时 `_agentId` 为 null → return null → 不重试 → 永久 Bot 图标。**修法：agent.identity.get / agents.update 的 agentId 参数都是 Optional，无 id 时直接不带参数调用，server 缺省解析默认 agent**，彻底绕开 \_agentId 依赖。教训：RPC 方法有默认 agent 语义时，别在客户端前置依赖另一个 RPC 的结果
 - **tauri dev 僵尸页面坑（260802 实战）**：vite dev server 死后 GUI 窗口变成"僵尸页面"——页面能操作但代码源已断，HMR 推送失效，改前端代码界面毫无反应。**判断法：查 1420 端口有无监听/有无 node vite 进程；修法：杀 exe → pnpm tauri:dev 重启整条链**
 - **gateway WS 探针帧类型**：请求帧 `type: "req"`（不是 "rpc"！）；connect.challenge 是 event 帧（frame.type === "event" && frame.event === "connect.challenge"）。成功模板：%TEMP%\redcode\probe-avatar.cjs / probe-status.cjs
+
+- **git 代理端口 7897（260802 哥哥确认）**：Clash 代理监听 127.0.0.1:7897。push/pull 首选走代理：`git -c http.proxy="http://127.0.0.1:7897" pull --rebase` / push；代理没起来时（连 7897 失败）退回直连：`git -c http.proxy="" push`
+
+- **步进 TTS 配置坑**（260801，自全局记忆下放）：openai 兼容通道**不回退 models.providers key**——apiKey 必须显式写进 `messages.tts.providers.openai.apiKey`（或 env ${VAR}）；voice id 必须显式配置（StepFun 默认 coral 不存在，用拼音风格如 tianmeinvsheng 甜美女声）。StepFun TTS：model `stepaudio-2.5-tts`、端点 `/step_plan/v1/audio/speech`（voice_id_invalid 报错即端点+鉴权通过）、5.8 元/万字符
