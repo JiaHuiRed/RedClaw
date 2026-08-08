@@ -15,6 +15,7 @@ import {
   User,
   Pencil,
   Loader2,
+  Palette,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
@@ -364,6 +365,12 @@ export default function ChatPanel({
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // 生图模式：🎨 切换，尺寸固定档位（来自 Stepfun API 实测，同 RedStudio）
+  const [imageMode, setImageMode] = useState(false);
+  const [imageSize, setImageSize] = useState("1024x1024");
+  const [imagePending, setImagePending] = useState(false);
+  const IMAGE_SIZES = ["1024x1024", "768x1360", "896x1184", "1360x768", "1184x896"];
+
   const [userAvatar, setUserAvatar] = useState<string | null>(() =>
     localStorage.getItem(USER_AVATAR_KEY),
   );
@@ -532,11 +539,12 @@ export default function ChatPanel({
     }
   }
 
-  // Response-time counter + live thinking feed. The gateway broadcasts
-  // "agent" events with stream==="thinking" (data.text = full text so far),
-  // so while the model is thinking we can show its reasoning live instead
-  // of a frozen-looking UI. "响应中... Ns" stays as a fallback when the
-  // model emits no reasoning (e.g. a model without thinking support).
+  // 生图完成：收到 assistant 消息即代表该轮完成（图片随消息送达）
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+      setImagePending(false);
+    }
+  }, [messages]);
   useEffect(() => {
     if (!isGenerating) {
       setElapsed(0);
@@ -553,6 +561,8 @@ export default function ChatPanel({
       setStreamingReasoning("");
       setToolCalls([]);
       setIsGenerating(false);
+      // 生图异步任务：秋秋回复 final 消息即代表该轮完成（图片随消息送达）
+      setImagePending(false);
     });
 
     const unsubDelta = gateway.onDelta((text, _reasoning) => {
@@ -650,8 +660,24 @@ export default function ChatPanel({
     setInput("");
     setShowCmdPalette(false);
     setToolCalls([]);
-    setIsGenerating(true);
 
+    // 生图模式：把请求发给秋秋 agent，由她调用 image_generate 工具生成
+    // （直接传原文给工具会被模型当字面 prompt，中文描述如"自己的立绘"
+    //  得不到理解；经 agent 能构造出准确的英文 prompt）
+    if (imageMode) {
+      setImagePending(true);
+      setIsGenerating(true);
+      try {
+        await gateway.sendMessage(`请用生图工具生成一张图片（尺寸 ${imageSize}）：${msg}`);
+      } catch (err) {
+        console.error("generate image failed:", err);
+        setImagePending(false);
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    setIsGenerating(true);
     try {
       await gateway.sendMessage(msg);
     } catch (err) {
@@ -1092,6 +1118,21 @@ export default function ChatPanel({
               }}
             >
               <MarkdownBlock content={msg.content} />
+              {msg.images && msg.images.length > 0 && (
+                <div className="mt-2 flex flex-col gap-2">
+                  {msg.images.map((img, i) => (
+                    <img
+                      key={i}
+                      src={img.url}
+                      alt={img.alt ?? "生成图片"}
+                      className="max-w-full rounded-xl border"
+                      style={{ borderColor: "var(--border)" }}
+                      loading="lazy"
+                      title={img.alt ?? "生成图片"}
+                    />
+                  ))}
+                </div>
+              )}
               {msg.role === "assistant" && msg.content && (
                 <button
                   onClick={() => handleSpeak(msg)}
@@ -1294,18 +1335,65 @@ export default function ChatPanel({
           className="flex items-end gap-2 rounded-xl px-3 py-2"
           style={{ background: "var(--bg-tertiary)" }}
         >
+          <button
+            onClick={() => setImageMode((m) => !m)}
+            disabled={!connected}
+            className="shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-30"
+            style={
+              imageMode
+                ? { background: "var(--accent)", color: "var(--on-solid)" }
+                : { color: "var(--text-secondary)", background: "var(--bg-secondary)" }
+            }
+            title="生图模式（Stepfun）"
+          >
+            <Palette size={16} />
+          </button>
+          {imageMode && (
+            <select
+              value={imageSize}
+              onChange={(e) => setImageSize(e.target.value)}
+              disabled={!connected || imagePending}
+              className="shrink-0 rounded-lg px-2 py-1.5 text-xs outline-none disabled:opacity-50"
+              style={{
+                background: "var(--bg-secondary)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border)",
+              }}
+              title="图片尺寸"
+            >
+              {IMAGE_SIZES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
           <textarea
             ref={inputRef}
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={connected ? "输入消息… （/ 查看命令）" : "请先连接 Gateway"}
-            disabled={!connected}
+            placeholder={
+              !connected
+                ? "请先连接 Gateway"
+                : imageMode
+                  ? "描述你想生成的图片…"
+                  : "输入消息… （/ 查看命令）"
+            }
+            disabled={!connected || imagePending}
             rows={1}
             className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
             style={{ color: "var(--text-primary)" }}
           />
-          {isGenerating ? (
+          {imagePending ? (
+            <span
+              className="shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <Loader2 size={14} className="animate-spin" />
+              生成中…
+            </span>
+          ) : isGenerating ? (
             <button
               onClick={handleStop}
               className="shrink-0 rounded-lg p-1.5"
@@ -1320,6 +1408,7 @@ export default function ChatPanel({
               disabled={!connected || !input.trim()}
               className="shrink-0 rounded-lg p-1.5 disabled:opacity-30"
               style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+              title={imageMode ? "生成图片" : "发送"}
             >
               <Send size={16} />
             </button>
