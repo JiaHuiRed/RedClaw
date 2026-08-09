@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
-[![版本](https://img.shields.io/badge/版本-v0.3.12-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.14-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -53,6 +53,8 @@ pnpm tauri dev
 客户端自动连接 Gateway WebSocket，连接后即可和 AI 助手聊天。
 
 - **三栏布局** — 会话列表 / 聊天面板 / 代码面板
+- **代码面板** — 实时展示秋秋的工具调用（名称/阶段/输入/输出），自动滚底
+- **面板拖拽** — 侧边栏与右侧面板均可拖拽调整宽度，持久化记忆
 - **流式打字回复** — 逐字显示，实时可见
 - **Markdown 渲染** — 代码块带语言标签和复制按钮、GFM 表格
 - **模型选择器** — 可搜索模型列表，一键切换大模型
@@ -139,6 +141,8 @@ redclaw onboard   # 中文交互式向导
 
 | 版本    | 内容                                             |
 | ------- | ------------------------------------------------ |
+| v0.3.14 | warm 暖色主题 + 代码面板实装 + 面板拖拽调宽      |
+| v0.3.13 | 生图模式 + StepFun 生图插件 + 生图消息显示修复   |
 | v0.3.12 | TTS 朗读播放 + 聊天双方头像上传显示              |
 | v0.3.11 | 侧边栏折叠/拖拽 + 响应中提示 + 会话切换修复      |
 | v0.3.10 | cmdk 命令面板 + 主题开关/空状态/连接徽标接入界面 |
