@@ -1,5 +1,22 @@
 # 更新日志
 
+## [0.3.14] - 2026-08-09
+
+> warm 暖色主题 + 代码面板实装 + 面板拖拽调宽。
+
+### 新增
+
+- **代码面板实装**（`CodePanel.tsx`、`App.tsx`、`client.ts`）：订阅 gateway agent 工具事件流（`onTool`），实时展示工具调用卡片——工具名 + 阶段标签（运行中/完成/失败）+ 输入摘要 + 完整输出（等宽字体、`whitespace-pre-wrap`），自动滚底，保留最近 60 条；message 工具属内部路由不展示。
+- **面板拖拽调宽**（`ResizeHandle.tsx` 新建、`CodePanel.tsx`、`TodoPanel.tsx`、`App.tsx`）：右侧面板新增 3px 拖拽手柄，宽度 240-560px 可调，持久化 `localStorage redclaw:rightPanelWidth`。
+- **warm 暖色主题**（`generate-color-scales.mjs`、`scales.css`）：新增桃粉色阶（OKLCH 12 阶，深浅主题各一套），accent 从蓝改暖桃粉（warm-9/warm-10）；user 气泡桃粉渐变 + 同色投影；assistant 气泡淡蓝（blue-3）；朗读按钮淡蓝底蓝字、播放中桃粉高亮；greeting 楷体渐变大字 + 暖色光晕背景 + 卡片 hover 微浮。
+
+### 变更
+
+- **GUI 界面文案去除私人名字**（`ChatPanel.tsx`）：头像提示「更换秋秋头像」改「更换头像」。
+- **配置**：`openclaw.json` 移除 jcodemunch MCP（uvx git 源每次启动失败拖慢加载，RedClaw 不再需要）。
+
+---
+
 ## [0.3.13] - 2026-08-09
 
 > 生图模式 + StepFun 生图插件 + 生图消息显示修复（双图/历史图片/toolResult 气泡/心跳 ack）。
