@@ -1,5 +1,30 @@
 # 更新日志
 
+## [0.3.13] - 2026-08-09
+
+> 生图模式 + StepFun 生图插件 + 生图消息显示修复（双图/历史图片/toolResult 气泡/心跳 ack）。
+
+### 新增
+
+- **生图模式**（`ChatPanel.tsx`、`client.ts`）：输入框新增 Palette 按钮 + 尺寸档位（1024×1024 / 768×1360 / 896×1184 / 1360×768 / 1184×896，StepFun 实测档位），选中后发 `请用生图工具生成一张图片（尺寸 X）：...` 由 agent 构造英文 prompt 调 `image_generate`（直接传原文会被当字面 prompt）；生成期间显示状态，assistant 消息到达即完成。媒体消息渲染支持图片展示。
+- **StepFun 图片生成插件**（`extensions/stepfun/`）：注册 `imageGenerationProviders: ["stepfun-plan"]` 契约（`image-generation-provider.ts`），`enabledByDefault`；本地私有插件已随仓库打包（`git ls-files` 驱动），fork 后 `pnpm build` 自动进 `dist/extensions`，配 `models.providers.stepfun-plan.apiKey` 即可生图。
+
+### 修复
+
+- **生图双图重复**（`client.ts` `_resolveAndNotifyImages`）：server 单图场景同路径同时填 `mediaUrl` 与 `mediaUrls[0]` 双字段，本地绝对路径每次解析都换新 `mediaTicket` → 按最终 URL 去重失效。改为解析前按原始 candidate 路径 `Set` 去重（`seenPaths`），一处覆盖 sourceReply 补发 / final 广播 / fetchHistory 三条路径。
+- **历史生图消息图片丢失**（`client.ts` `fetchHistory`）：`chat.history` 投影剥光媒体字段，图片路径实际保留在 assistant 消息 `toolCall` 块的 `arguments.attachments[].media`。fetchHistory 解析 toolCall 块恢复图片与展示文案。
+- **toolResult 文本气泡**（`client.ts` `fetchHistory`）：非 user/assistant 消息（`Background task started`、`Sent visible reply` 等 toolResult）渲染成白色气泡，历史拉取时按 role 过滤跳过。
+- **空白气泡**（`client.ts`）：生图后台 run 结束的空 final 广播、历史中的空 content 消息渲染成空白气泡，空内容且无图的消息不再 `_notifyMessage`。
+- **HEARTBEAT_OK 气泡**（`chat-abort.ts`、`server-chat.ts`）：心跳 run 被打断的 abort 广播与 final 广播都不过滤 ack 文本，两处补 `isHeartbeatOkResponse` 判断（`heartbeat-filter.ts`）；GUI fetchHistory 另加文本兜底。
+- **transcript 写锁超时丢消息**（`chat-transcript-inject.ts`）：生图完成注入与主会话回合并发写同一 transcript，`SessionWriteLockTimeoutError` 时重试（`OPENCLAW_SESSION_WRITE_LOCK_ACQUIRE_TIMEOUT_MS=30000` 配合放宽）。
+- **control-ui JSON API 跨域**（`control-ui.ts`）：`sendJson` 加 `Access-Control-Allow-Origin: *`（tauri.localhost 页面访问 gateway 跨域；文件访问仍受 mediaTicket + 本地根目录双重保护）。
+
+### 变更
+
+- **`.gitignore`**：忽略本地附件截图（`.attachments/`）、秋秋自动学习数据（`.learnings/`）、探针临时脚本（`.redcode/temp/`）与个人脚本，防误提交。
+
+---
+
 ## [0.3.12] - 2026-08-02
 
 > TTS 朗读播放 + 聊天双方头像上传显示。
