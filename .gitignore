@@ -267,6 +267,6 @@ oldmemory/
 # Local attachments, agent learnings, and scratch files (never commit)
 .attachments/
 .learnings/
-.redcode/temp/
+.redcode/
 .tmp-heartbeat-deps.js
 demo/ascii_art.py

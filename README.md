@@ -1,6 +1,6 @@
 # 🐲 RedClaw
 
-> 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的秋秋
+> 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
 [![版本](https://img.shields.io/badge/版本-v0.3.12-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
@@ -12,7 +12,7 @@
 
 ## ✨ 这是什么？
 
-RedClaw 是 OpenClaw 的个人 fork，面向单用户本地部署。自带 **Tauri 2 桌面客户端**，给你一个漂亮的原生 GUI 来和秋秋对话。
+RedClaw 是 OpenClaw 的个人 fork，面向单用户本地部署。自带 **Tauri 2 桌面客户端**，给你一个漂亮的原生 GUI 来和 AI 助手对话。
 
 ```
 ┌─ 技术栈 ─────────────────────────────────┐
@@ -50,7 +50,7 @@ cd packages/desktop-gui
 pnpm tauri dev
 ```
 
-客户端自动连接 Gateway WebSocket，连接后即可和秋秋聊天。
+客户端自动连接 Gateway WebSocket，连接后即可和 AI 助手聊天。
 
 - **三栏布局** — 会话列表 / 聊天面板 / 代码面板
 - **流式打字回复** — 逐字显示，实时可见
@@ -58,13 +58,13 @@ pnpm tauri dev
 - **模型选择器** — 可搜索模型列表，一键切换大模型
 - **推理强度控制** — off / low / medium / high
 - **会话管理** — 新建 / 重命名 / 删除会话
-- **待办清单** — 与秋秋对话共用同一份数据，新增 / 完成 / 删除
+- **待办清单** — 与 AI 助手对话共用同一份数据，新增 / 完成 / 删除
 - **状态栏** — 连接状态、当前模型、Token 用量
 - **主题切换** — 浅色 / 深色 / 跟随系统，12 阶色阶驱动
 - **cmdk 风格命令面板** — `/` 按分类分组 + 下钻搜索，方向键 + Enter 全键盘操作
 - **连接状态徽标** — 灰 / 黄 / 绿 / 红四态，未连接、连接中、已连接、出错一目了然
 - **个性化空状态** — 问候语 + 待办到期 / 继续会话 / 命令入口三张建议卡片
-- **图片生成** — 输入框一键选尺寸（1024×1024 / 768×1360 等），秋秋自动构造提示词经 StepFun 生图并回传
+- **图片生成** — 输入框一键选尺寸（1024×1024 / 768×1360 等），RedClaw 自动构造提示词经 StepFun 生图并回传
 - **TTS 朗读播放** — assistant 消息旁喇叭按钮，点击合成语音本地播放
 - **头像上传显示** — 聊天双方 50px 圆形头像，hover 铅笔按钮即可换图
 
@@ -125,7 +125,7 @@ redclaw onboard   # 中文交互式向导
 
 ```
 ~/.openclaw/
-├── agents/main/agent/AGENTS.md   # 秋秋的人格 + 用户档案
+├── agents/main/agent/AGENTS.md   # AI 助手人格 + 用户档案
 ├── agents/main/sessions/         # 历史对话
 ├── memory/main/                  # 长期记忆
 └── openclaw.json                 # 主配置
