@@ -262,3 +262,11 @@ extensions/**/.openclaw-runtime-deps-stamp.json
 plugins/
 
 oldmemory/
+
+
+# Local attachments, agent learnings, and scratch files (never commit)
+.attachments/
+.learnings/
+.redcode/temp/
+.tmp-heartbeat-deps.js
+demo/ascii_art.py
