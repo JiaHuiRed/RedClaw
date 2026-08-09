@@ -1,8 +1,11 @@
 import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { gateway, type Todo } from "../gateway/client";
+import ResizeHandle from "./ResizeHandle";
 
 interface TodoPanelProps {
+  width: number;
+  onResize: (width: number) => void;
   onClose: () => void;
 }
 
@@ -22,7 +25,7 @@ const PRIORITY_COLOR: Record<string, string> = {
   low: "var(--text-secondary)",
 };
 
-export default function TodoPanel({ onClose }: TodoPanelProps) {
+export default function TodoPanel({ width, onResize, onClose }: TodoPanelProps) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -78,13 +81,21 @@ export default function TodoPanel({ onClose }: TodoPanelProps) {
 
   return (
     <aside
-      className="flex flex-col border-l shrink-0"
+      className="flex flex-col border-l shrink-0 relative"
       style={{
-        width: "var(--right-panel-width)",
+        width,
         background: "var(--bg-secondary)",
         borderColor: "var(--border)",
       }}
     >
+      <ResizeHandle
+        width={width}
+        onResize={onResize}
+        min={240}
+        max={560}
+        direction={-1}
+        style={{ left: -2 }}
+      />
       <div
         className="flex items-center justify-between px-4 h-12 border-b shrink-0"
         style={{ borderColor: "var(--border)" }}
