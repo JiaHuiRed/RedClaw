@@ -30,6 +30,19 @@
   --blue-11: #a5ccff;
   --blue-12: #cee6ff;
 
+  --warm-1: #2b1117;
+  --warm-2: #33141c;
+  --warm-3: #481e28;
+  --warm-4: #672c3b;
+  --warm-5: #8d3d52;
+  --warm-6: #b54f69;
+  --warm-7: #da5f7f;
+  --warm-8: #f46b8e;
+  --warm-9: #fe6f94;
+  --warm-10: #ff8aa5;
+  --warm-11: #ffb0c1;
+  --warm-12: #ffd4de;
+
   --red-9: #ff453a;
   --amber-9: #ff9f0a;
   --green-9: #34c759;
@@ -61,6 +74,19 @@
   --blue-10: #6097e8;
   --blue-11: #335f9f;
   --blue-12: #092c5c;
+
+  --warm-1: #ffe7ef;
+  --warm-2: #ffe1ea;
+  --warm-3: #ffd0db;
+  --warm-4: #ffb7c7;
+  --warm-5: #fe9cb1;
+  --warm-6: #f37f9b;
+  --warm-7: #e96588;
+  --warm-8: #e1527b;
+  --warm-9: #de4a76;
+  --warm-10: #e06886;
+  --warm-11: #983953;
+  --warm-12: #560b25;
 
   --red-9: #ed1e1c;
   --amber-9: #ed8a00;

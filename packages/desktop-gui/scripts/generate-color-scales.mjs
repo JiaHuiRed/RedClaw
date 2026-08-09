@@ -151,6 +151,8 @@ const DARK_ANCHORS = {
   textPrimary: "#f5f5f7", // gray step 12
   accent: "#5e9eff", // blue step 9
   accentHover: "#7ab1ff", // blue step 10
+  warmAccent: "#ff6f91", // warm (coral-pink) step 9 - QiuQiu accent
+  warmAccentHover: "#ff8aa8", // warm step 10
   danger: "#ff453a",
   warning: "#ff9f0a",
   success: "#34c759",
@@ -269,6 +271,42 @@ const blueLight = buildAccentScale({
   hue: blueHue,
 });
 
+// ---------- warm accent scale (QiuQiu coral-pink) ----------
+
+const warmHue = avg([anchorOklch.warmAccent[2], anchorOklch.warmAccentHover[2]]);
+
+const warmDark = buildAccentScale({
+  lAnchors: [
+    { step: 1, value: 0.22 },
+    { step: 9, value: anchorOklch.warmAccent[0] },
+    { step: 10, value: anchorOklch.warmAccentHover[0] },
+    { step: 12, value: 0.92 },
+  ],
+  cAnchors: [
+    { step: 1, value: anchorOklch.warmAccent[1] * 0.25 },
+    { step: 9, value: anchorOklch.warmAccent[1] },
+    { step: 10, value: anchorOklch.warmAccentHover[1] },
+    { step: 12, value: anchorOklch.warmAccent[1] * 0.35 },
+  ],
+  hue: warmHue,
+});
+
+const warmLight = buildAccentScale({
+  lAnchors: [
+    { step: 1, value: 0.97 },
+    { step: 9, value: anchorOklch.warmAccent[0] - 0.1 },
+    { step: 10, value: anchorOklch.warmAccentHover[0] - 0.1 },
+    { step: 12, value: 0.3 },
+  ],
+  cAnchors: [
+    { step: 1, value: anchorOklch.warmAccent[1] * 0.3 },
+    { step: 9, value: anchorOklch.warmAccent[1] * 1.05 },
+    { step: 10, value: anchorOklch.warmAccentHover[1] * 1.05 },
+    { step: 12, value: anchorOklch.warmAccent[1] * 0.6 },
+  ],
+  hue: warmHue,
+});
+
 // ---------- status colors (single "solid" step each, dark + light) ----------
 
 function statusPair(name) {
@@ -318,6 +356,8 @@ ${scaleVars("gray", grayDark)}
 
 ${scaleVars("blue", blueDark)}
 
+${scaleVars("warm", warmDark)}
+
   --red-9: ${danger.dark};
   --amber-9: ${warning.dark};
   --green-9: ${success.dark};
@@ -327,6 +367,8 @@ ${scaleVars("blue", blueDark)}
 ${scaleVars("gray", grayLight)}
 
 ${scaleVars("blue", blueLight)}
+
+${scaleVars("warm", warmLight)}
 
   --red-9: ${danger.light};
   --amber-9: ${warning.light};

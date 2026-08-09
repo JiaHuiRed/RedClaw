@@ -86,23 +86,44 @@ export default function ChatEmptyState({
 
   return (
     <div
-      className="flex items-center justify-center h-full text-sm"
+      className="relative flex items-center justify-center h-full text-sm overflow-hidden"
       style={{ color: "var(--text-secondary)" }}
     >
-      <div className="text-center space-y-4 w-64">
+      {/* 暖色光晕背景：给空状态一点氛围，不抢内容 */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 65% 45% at 50% 28%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%)",
+        }}
+      />
+      <div className="relative text-center space-y-6 w-80">
         <div>
-          <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
+          <p
+            className="text-4xl font-medium mb-2"
+            style={{
+              fontFamily: '"KaiTi", "STKaiti", "楷体", serif',
+              background: "linear-gradient(135deg, var(--text-primary) 30%, var(--accent) 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+            }}
+          >
             {greeting()}
           </p>
-          <p className="text-xs mt-1">RedClaw 已连接，随时可以开始</p>
+          <p className="text-xs">RedClaw 已连接，随时可以开始</p>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {cards.map((card, i) => (
             <button
               key={i}
               onClick={card.onClick}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left hover:opacity-80 transition-opacity"
-              style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs text-left transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90"
+              style={{
+                background: "var(--bg-tertiary)",
+                color: "var(--text-primary)",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              }}
             >
               <span className="shrink-0" style={{ color: "var(--accent)" }}>
                 {card.icon}
