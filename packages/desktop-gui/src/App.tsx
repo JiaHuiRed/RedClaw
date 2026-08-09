@@ -9,6 +9,7 @@ import {
   type SessionInfo,
   type ChatSession,
   type CommandEntry,
+  type ToolCallEvent,
 } from "./gateway/client";
 import { getConnectionState } from "./lib/connectionStatus";
 
@@ -30,7 +31,16 @@ export default function App() {
   const [currentSessionKey, setCurrentSessionKey] = useState(DEFAULT_SESSION_KEY);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
+  const [toolOutputs, setToolOutputs] = useState<ToolCallEvent[]>([]);
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    const saved = Number(localStorage.getItem("redclaw:rightPanelWidth"));
+    return Number.isFinite(saved) && saved >= 240 ? saved : 320;
+  });
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem("redclaw:rightPanelWidth", String(rightPanelWidth));
+  }, [rightPanelWidth]);
 
   const connectionState = useMemo(
     () => getConnectionState(connected, connecting, hasRecentError),
@@ -89,6 +99,11 @@ export default function App() {
         errorTimeoutRef.current = null;
       }, 4000);
     });
+    const unsubTool = gateway.onTool((tool) => {
+      // message tool 是内部路由（sourceReply 补发 assistant 消息），不进代码面板
+      if (tool.name === "message" && tool.phase === "result") return;
+      setToolOutputs((prev) => [...prev.slice(-59), tool]);
+    });
 
     // Apply any saved gateway URL/token before auto-connecting
     const savedUrl = localStorage.getItem(GATEWAY_URL_KEY);
@@ -110,6 +125,7 @@ export default function App() {
       unsubCmds();
       unsubSessions();
       unsubError();
+      unsubTool();
       if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
     };
   }, [loadHistory, pushToast]);
@@ -195,8 +211,21 @@ export default function App() {
         onToggleTodo={() => setRightPanel((p) => (p === "todo" ? "none" : "todo"))}
         loadingHistory={loadingHistory}
       />
-      {rightPanel === "code" && <CodePanel onClose={() => setRightPanel("none")} />}
-      {rightPanel === "todo" && <TodoPanel onClose={() => setRightPanel("none")} />}
+      {rightPanel === "code" && (
+        <CodePanel
+          outputs={toolOutputs}
+          width={rightPanelWidth}
+          onResize={setRightPanelWidth}
+          onClose={() => setRightPanel("none")}
+        />
+      )}
+      {rightPanel === "todo" && (
+        <TodoPanel
+          width={rightPanelWidth}
+          onResize={setRightPanelWidth}
+          onClose={() => setRightPanel("none")}
+        />
+      )}
       {toasts.length > 0 && (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
           {toasts.map((t) => (
