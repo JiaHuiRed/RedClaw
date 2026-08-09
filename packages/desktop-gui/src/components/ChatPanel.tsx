@@ -1115,6 +1115,10 @@ export default function ChatPanel({
                 background: msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
                 color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
                 border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
+                boxShadow:
+                  msg.role === "user"
+                    ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
+                    : "0 1px 2px rgba(0,0,0,0.04)",
               }}
             >
               <MarkdownBlock content={msg.content} />
@@ -1138,9 +1142,9 @@ export default function ChatPanel({
                   onClick={() => handleSpeak(msg)}
                   className="mt-1.5 flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
                   style={{
-                    background: "var(--bg-tertiary)",
-                    color: speakingMsgId === msg.id ? "var(--accent)" : "var(--text-secondary)",
-                    border: "1px solid var(--border)",
+                    background: "color-mix(in srgb, var(--blue-4) 38%, transparent)",
+                    color: speakingMsgId === msg.id ? "var(--accent)" : "var(--blue-9)",
+                    border: "1px solid color-mix(in srgb, var(--blue-6) 35%, transparent)",
                   }}
                   title="朗读这条回复"
                 >

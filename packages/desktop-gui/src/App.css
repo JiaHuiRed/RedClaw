@@ -15,10 +15,10 @@
   --text-primary: var(--gray-12);
   --text-secondary: var(--gray-11);
   --border: var(--gray-6);
-  --accent: var(--blue-9);
-  --accent-hover: var(--blue-10);
-  --user-bubble: var(--blue-9);
-  --assistant-bubble: var(--gray-2);
+  --accent: var(--warm-9);
+  --accent-hover: var(--warm-10);
+  --user-bubble: linear-gradient(135deg, var(--warm-9), var(--warm-8));
+  --assistant-bubble: var(--blue-3);
 
   --success: var(--green-9);
   --warning: var(--amber-9);
