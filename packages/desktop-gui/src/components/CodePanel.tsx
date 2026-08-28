@@ -2,6 +2,23 @@ import { useEffect, useRef } from "react";
 import type { ToolCallEvent } from "../gateway/client";
 import ResizeHandle from "./ResizeHandle";
 
+function hasText(x: unknown): x is { text: string } {
+  return (
+    typeof x === "object" && x !== null && typeof (x as Record<string, unknown>)?.text === "string"
+  );
+}
+
+// content blocks 带类型标记；只取 text 块，避免把带 text 字段的非文本块
+// （如 tool_result/image）误拼进输出。
+function isTextBlock(x: unknown): x is { type: "text"; text: string } {
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    (x as Record<string, unknown>).type === "text" &&
+    typeof (x as Record<string, unknown>).text === "string"
+  );
+}
+
 interface CodePanelProps {
   outputs: ToolCallEvent[];
   width: number;
@@ -16,13 +33,7 @@ function extractToolOutput(tool: ToolCallEvent): string {
   if (typeof r === "string") return r;
   if (Array.isArray(r)) {
     return r
-      .map((item) =>
-        typeof item === "string"
-          ? item
-          : typeof item === "object" && item !== null && typeof (item as any)?.text === "string"
-            ? (item as any).text
-            : "",
-      )
+      .map((item) => (typeof item === "string" ? item : hasText(item) ? item.text : ""))
       .filter(Boolean)
       .join("\n");
   }
@@ -30,8 +41,8 @@ function extractToolOutput(tool: ToolCallEvent): string {
     const obj = r as Record<string, unknown>;
     if (Array.isArray(obj.content)) {
       const text = (obj.content as unknown[])
-        .filter((c: any) => c?.type === "text" && typeof c.text === "string")
-        .map((c: any) => c.text)
+        .filter(isTextBlock)
+        .map((c) => c.text)
         .join("\n");
       if (text) return text;
     }
