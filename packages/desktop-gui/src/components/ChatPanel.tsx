@@ -406,6 +406,10 @@ function ChatPanel({
   const modelSelectorRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
+  // 用户上翻看历史时不被拉回底部。
+  const nearBottomRef = useRef(true);
+  const scrollRafRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Close model selector on outside click
@@ -625,11 +629,23 @@ function ChatPanel({
     };
   }, []);
 
+  // 流式跟随滚动：内容增长（新消息/token/reasoning/工具卡）时若贴底则在下一帧
+  // 滚到底；rAF 合并同帧多次触发，避免每个 token 强制一次同步 reflow。
   useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [messages, streamingText]);
+    if (!nearBottomRef.current) return;
+    if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = listRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+    return () => {
+      if (scrollRafRef.current !== null) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+  }, [messages, streamingText, streamingReasoning, toolCalls]);
 
   async function handleConnect() {
     if (connected) {
@@ -1063,7 +1079,14 @@ function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div
+        ref={listRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+      >
         {messages.length === 0 &&
           !hasStreaming &&
           (loadingHistory ? (
