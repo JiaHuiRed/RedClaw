@@ -1,6 +1,8 @@
 const DEFAULT_SESSION_KEY = "agent:main:main";
 const RECONNECT_DELAY = 2000;
 const DEFAULT_URL = "ws://127.0.0.1:18789";
+// 单请求响应超时。tools.invoke（生图）会等工具跑完才响应，需要留足余量。
+const REQUEST_TIMEOUT_MS = 120_000;
 
 export interface MessageImage {
   url: string;
@@ -131,8 +133,10 @@ class GatewayClient {
   private connected = false;
   private running = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingReqs: Record<string, { resolve: (v: any) => void; reject: (e: Error) => void }> =
-    {};
+  private pendingReqs: Record<
+    string,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+  > = {};
   private url = DEFAULT_URL;
   private token = "";
   private _activeSessionKey = DEFAULT_SESSION_KEY;
@@ -196,6 +200,7 @@ class GatewayClient {
     this.running = false;
     this._connecting = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this._failPending(new Error("Gateway client stopped"));
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.onerror = null;
@@ -204,6 +209,14 @@ class GatewayClient {
     }
     this.connected = false;
     this._notifyStatus();
+  }
+
+  // 断连/停止时清空挂起请求：否则 chat.send 的 promise 永远 pending，
+  // isGenerating 卡 true，输入框锁死到重启。
+  private _failPending(err: Error) {
+    const pending = Object.values(this.pendingReqs);
+    this.pendingReqs = {};
+    for (const p of pending) p.reject(err);
   }
 
   get activeSessionKey() {
@@ -739,6 +752,7 @@ class GatewayClient {
       this.ws = null;
       this._connecting = false;
       this.connected = false;
+      this._failPending(new Error("Gateway connection closed"));
       this._notifyStatus();
       if (this.running) {
         this.reconnectTimer = setTimeout(() => this._connect(), RECONNECT_DELAY);
@@ -1064,13 +1078,27 @@ class GatewayClient {
   private _request(method: string, params: any) {
     return new Promise<any>((resolve, reject) => {
       const id = crypto.randomUUID();
-      this.pendingReqs[id] = { resolve, reject };
+      const timer = setTimeout(() => {
+        delete this.pendingReqs[id];
+        reject(new Error(`Gateway request timed out: ${method}`));
+      }, REQUEST_TIMEOUT_MS);
+      this.pendingReqs[id] = {
+        resolve: (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        reject: (e) => {
+          clearTimeout(timer);
+          reject(e);
+        },
+      };
       const frame = JSON.stringify({ type: "req", id, method, params });
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(frame);
       } else {
-        reject(new Error("WebSocket not connected"));
+        clearTimeout(timer);
         delete this.pendingReqs[id];
+        reject(new Error("WebSocket not connected"));
       }
     });
   }
