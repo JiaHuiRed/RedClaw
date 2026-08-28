@@ -1,5 +1,8 @@
 const DEFAULT_SESSION_KEY = "agent:main:main";
 const RECONNECT_DELAY = 2000;
+const RECONNECT_DELAY_MAX = 30_000;
+// challenge 已到但 connect 应答未到：网关接受了 TCP 却卡死，按失败走退避重连
+const CONNECT_CHALLENGE_TIMEOUT_MS = 10_000;
 const DEFAULT_URL = "ws://127.0.0.1:18789";
 // 单请求响应超时。tools.invoke（生图）会等工具跑完才响应，需要留足余量。
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -133,6 +136,8 @@ class GatewayClient {
   private connected = false;
   private running = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectDelay = RECONNECT_DELAY;
+  private challengeTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingReqs: Record<
     string,
     { resolve: (v: unknown) => void; reject: (e: Error) => void }
@@ -200,6 +205,9 @@ class GatewayClient {
     this.running = false;
     this._connecting = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.challengeTimer) clearTimeout(this.challengeTimer);
+    this.challengeTimer = null;
+    this.reconnectDelay = RECONNECT_DELAY;
     this._failPending(new Error("Gateway client stopped"));
     if (this.ws) {
       this.ws.onclose = null;
@@ -217,6 +225,13 @@ class GatewayClient {
     const pending = Object.values(this.pendingReqs);
     this.pendingReqs = {};
     for (const p of pending) p.reject(err);
+  }
+
+  private _scheduleReconnect() {
+    // 指数退避：网关长时间不在时避免固定间隔连打；连接成功后重置
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => this._connect(), this.reconnectDelay);
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, RECONNECT_DELAY_MAX);
   }
 
   get activeSessionKey() {
@@ -755,12 +770,33 @@ class GatewayClient {
       this._failPending(new Error("Gateway connection closed"));
       this._notifyStatus();
       if (this.running) {
-        this.reconnectTimer = setTimeout(() => this._connect(), RECONNECT_DELAY);
+        this._scheduleReconnect();
       }
     };
   }
 
   private _connecting = false;
+
+  // 网络级握手失败（超时/断连）：清掉挂起的 connect 请求并按退避重连。
+  // 仅显式拒绝（网关返回 ok:false，如鉴权失败）才走 stop()——那种重试没有意义。
+  private _abortHandshake(err: Error) {
+    this._connecting = false;
+    this._failPending(err);
+    if (this.challengeTimer) {
+      clearTimeout(this.challengeTimer);
+      this.challengeTimer = null;
+    }
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      this.ws.close();
+      this.ws = null;
+    }
+    this._notifyStatus();
+    if (this.running) {
+      this._scheduleReconnect();
+    }
+  }
 
   private async _sendConnect() {
     try {
@@ -779,6 +815,11 @@ class GatewayClient {
         locale: "zh-CN",
       });
       if (res.ok) {
+        if (this.challengeTimer) {
+          clearTimeout(this.challengeTimer);
+          this.challengeTimer = null;
+        }
+        this.reconnectDelay = RECONNECT_DELAY;
         this.connected = true;
         this._connecting = false;
         this._notifyStatus();
@@ -791,8 +832,7 @@ class GatewayClient {
       } else {
         // The Gateway explicitly rejected this handshake (bad/missing auth,
         // device identity, etc). Retrying with the same credentials would
-        // just fail again, so stop() instead of letting onclose reschedule
-        // another attempt.
+        // just fail again, so stop() instead of rescheduling.
         this._notifyError(`连接被拒绝：${res.error?.message || "未知错误"}`);
         this.stop();
       }
@@ -800,7 +840,7 @@ class GatewayClient {
       console.error("[Gateway] connect failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       this._notifyError(`连接失败：${message}`);
-      this.stop();
+      this._abortHandshake(err instanceof Error ? err : new Error(message));
     }
   }
 
@@ -809,6 +849,12 @@ class GatewayClient {
       if (frame.event === "connect.challenge") {
         if (!this._connecting) {
           this._connecting = true;
+          this.challengeTimer = setTimeout(() => {
+            this.challengeTimer = null;
+            if (this._connecting) {
+              this._abortHandshake(new Error("Gateway handshake timed out"));
+            }
+          }, CONNECT_CHALLENGE_TIMEOUT_MS);
           this._sendConnect();
         }
         return;
