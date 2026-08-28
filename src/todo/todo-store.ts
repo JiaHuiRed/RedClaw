@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { withFileLock, type FileLockOptions } from "../infra/file-lock.js";
 import { CONFIG_DIR } from "../utils.js";
 
 export const TODO_STATUSES = ["open", "in_progress", "done", "cancelled"] as const;
@@ -49,18 +50,55 @@ function todoFilePath(): string {
   return path.join(CONFIG_DIR, "todos.json");
 }
 
+// Matches src/commitments/store-writer.ts / persistent-dedupe so lock-protected
+// stores share tuning. agent 工具与 gateway RPC（可能不同进程）都会写这个文件，
+// 读-改-写必须互斥，否则并发更新互相吞。
+const TODO_LOCK_OPTIONS: FileLockOptions = {
+  retries: {
+    retries: 6,
+    factor: 1.35,
+    minTimeout: 8,
+    maxTimeout: 180,
+    randomize: true,
+  },
+  stale: 60_000,
+};
+
 function readAllTodos(): Todo[] {
   const filePath = todoFilePath();
+  let raw: string;
   try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed?.todos)) {
-      return [];
-    }
-    return parsed.todos as Todo[];
+    raw = fs.readFileSync(filePath, "utf-8");
   } catch {
     return [];
   }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    !Array.isArray((parsed as { todos?: unknown }).todos)
+  ) {
+    quarantineCorruptStore(filePath);
+    return [];
+  }
+  return (parsed as { todos: Todo[] }).todos;
+}
+
+// 损坏文件隔离留证后重建：不隔离的话下一次写入会静默覆盖掉整个列表。
+function quarantineCorruptStore(filePath: string): void {
+  const quarantined = `${filePath}.corrupt-${Date.now()}`;
+  try {
+    fs.renameSync(filePath, quarantined);
+  } catch (err) {
+    console.error("[todo-store] corrupt todos.json could not be quarantined:", err);
+    return;
+  }
+  console.error(`[todo-store] corrupt todos.json quarantined at ${quarantined}`);
 }
 
 function writeAllTodos(todos: Todo[]): void {
@@ -94,7 +132,7 @@ export function getTodo(id: string): Todo | undefined {
   return readAllTodos().find((t) => t.id === id);
 }
 
-export function addTodo(input: TodoCreateInput): Todo {
+export async function addTodo(input: TodoCreateInput): Promise<Todo> {
   const title = input.title?.trim();
   if (!title) {
     throw new Error("title required");
@@ -111,46 +149,52 @@ export function addTodo(input: TodoCreateInput): Todo {
     createdAt: now,
     updatedAt: now,
   };
-  const todos = readAllTodos();
-  todos.push(todo);
-  writeAllTodos(todos);
+  await withFileLock(todoFilePath(), TODO_LOCK_OPTIONS, async () => {
+    const todos = readAllTodos();
+    todos.push(todo);
+    writeAllTodos(todos);
+  });
   return todo;
 }
 
-export function updateTodo(id: string, patch: TodoUpdateInput): Todo {
-  const todos = readAllTodos();
-  const index = todos.findIndex((t) => t.id === id);
-  if (index === -1) {
-    throw new Error(`todo not found: ${id}`);
-  }
-  const existing = todos[index]!;
-  const now = Date.now();
-  const updated: Todo = {
-    ...existing,
-    ...(patch.title !== undefined ? { title: patch.title.trim() || existing.title } : {}),
-    ...(patch.notes !== undefined ? { notes: patch.notes.trim() || undefined } : {}),
-    ...(patch.status !== undefined ? { status: patch.status } : {}),
-    ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
-    ...(patch.dueAt !== undefined ? { dueAt: patch.dueAt ?? undefined } : {}),
-    ...(patch.tags !== undefined ? { tags: patch.tags.length ? patch.tags : undefined } : {}),
-    updatedAt: now,
-  };
-  if (patch.status === "done" && existing.status !== "done") {
-    updated.completedAt = now;
-  } else if (patch.status && patch.status !== "done") {
-    updated.completedAt = undefined;
-  }
-  todos[index] = updated;
-  writeAllTodos(todos);
-  return updated;
+export async function updateTodo(id: string, patch: TodoUpdateInput): Promise<Todo> {
+  return await withFileLock(todoFilePath(), TODO_LOCK_OPTIONS, async () => {
+    const todos = readAllTodos();
+    const index = todos.findIndex((t) => t.id === id);
+    if (index === -1) {
+      throw new Error(`todo not found: ${id}`);
+    }
+    const existing = todos[index]!;
+    const now = Date.now();
+    const updated: Todo = {
+      ...existing,
+      ...(patch.title !== undefined ? { title: patch.title.trim() || existing.title } : {}),
+      ...(patch.notes !== undefined ? { notes: patch.notes.trim() || undefined } : {}),
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+      ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+      ...(patch.dueAt !== undefined ? { dueAt: patch.dueAt ?? undefined } : {}),
+      ...(patch.tags !== undefined ? { tags: patch.tags.length ? patch.tags : undefined } : {}),
+      updatedAt: now,
+    };
+    if (patch.status === "done" && existing.status !== "done") {
+      updated.completedAt = now;
+    } else if (patch.status && patch.status !== "done") {
+      updated.completedAt = undefined;
+    }
+    todos[index] = updated;
+    writeAllTodos(todos);
+    return updated;
+  });
 }
 
-export function removeTodo(id: string): boolean {
-  const todos = readAllTodos();
-  const next = todos.filter((t) => t.id !== id);
-  if (next.length === todos.length) {
-    return false;
-  }
-  writeAllTodos(next);
-  return true;
+export async function removeTodo(id: string): Promise<boolean> {
+  return await withFileLock(todoFilePath(), TODO_LOCK_OPTIONS, async () => {
+    const todos = readAllTodos();
+    const next = todos.filter((t) => t.id !== id);
+    if (next.length === todos.length) {
+      return false;
+    }
+    writeAllTodos(next);
+    return true;
+  });
 }

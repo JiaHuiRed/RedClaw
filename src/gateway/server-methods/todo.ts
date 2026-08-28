@@ -46,14 +46,14 @@ export const todoHandlers: GatewayRequestHandlers = {
     respond(true, { todo }, undefined);
   },
 
-  "todo.add": ({ params, respond }) => {
+  "todo.add": async ({ params, respond }) => {
     const title = typeof params.title === "string" ? params.title.trim() : "";
     if (!title) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "title required"));
       return;
     }
     try {
-      const todo = addTodo({
+      const todo = await addTodo({
         title,
         notes: typeof params.notes === "string" ? params.notes : undefined,
         priority: isTodoPriority(params.priority) ? params.priority : undefined,
@@ -70,14 +70,14 @@ export const todoHandlers: GatewayRequestHandlers = {
     }
   },
 
-  "todo.update": ({ params, respond }) => {
+  "todo.update": async ({ params, respond }) => {
     const id = typeof params.id === "string" ? params.id : "";
     if (!id) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "id required"));
       return;
     }
     try {
-      const todo = updateTodo(id, {
+      const todo = await updateTodo(id, {
         title: typeof params.title === "string" ? params.title : undefined,
         notes: typeof params.notes === "string" ? params.notes : undefined,
         status: isTodoStatus(params.status) ? params.status : undefined,
@@ -100,13 +100,13 @@ export const todoHandlers: GatewayRequestHandlers = {
     }
   },
 
-  "todo.remove": ({ params, respond }) => {
+  "todo.remove": async ({ params, respond }) => {
     const id = typeof params.id === "string" ? params.id : "";
     if (!id) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "id required"));
       return;
     }
-    const removed = removeTodo(id);
+    const removed = await removeTodo(id);
     if (!removed) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, `todo not found: ${id}`));
       return;

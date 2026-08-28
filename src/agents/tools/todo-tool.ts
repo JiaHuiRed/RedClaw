@@ -99,7 +99,7 @@ Dates (dueAt/dueBefore) are ISO-8601; parsed as given (include a timezone offset
             ? params.tags.filter((t): t is string => typeof t === "string")
             : undefined;
           return jsonResult(
-            addTodo({
+            await addTodo({
               title,
               notes,
               priority: priority as (typeof TODO_PRIORITIES)[number] | undefined,
@@ -120,7 +120,7 @@ Dates (dueAt/dueBefore) are ISO-8601; parsed as given (include a timezone offset
             ? params.tags.filter((t): t is string => typeof t === "string")
             : undefined;
           return jsonResult(
-            updateTodo(id, {
+            await updateTodo(id, {
               title,
               notes,
               status: status as (typeof TODO_STATUSES)[number] | undefined,
@@ -132,11 +132,11 @@ Dates (dueAt/dueBefore) are ISO-8601; parsed as given (include a timezone offset
         }
         case "complete": {
           const id = readStringParam(params, "id", { required: true });
-          return jsonResult(updateTodo(id, { status: "done" }));
+          return jsonResult(await updateTodo(id, { status: "done" }));
         }
         case "remove": {
           const id = readStringParam(params, "id", { required: true });
-          const removed = removeTodo(id);
+          const removed = await removeTodo(id);
           if (!removed) {
             throw new ToolInputError(`todo not found: ${id}`);
           }
