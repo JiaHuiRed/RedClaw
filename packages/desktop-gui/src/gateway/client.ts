@@ -578,13 +578,20 @@ class GatewayClient {
           let images: MessageImage[] = [];
           // 按源路径先去重：本地路径经 mediaTicket 换发后不是稳定 URL，
           // 同路径重复字段（mediaUrl + mediaUrls[0]）会解析出两个不同 URL。
+          // 去重后并行解析，图片多的会话切换延迟从 O(N) 往返降为 1。
           const seenPaths = new Set<string>();
-          for (const cand of mediaCandidates) {
-            if (!cand || seenPaths.has(cand)) continue;
+          const uniqueCandidates = mediaCandidates.filter((cand) => {
+            if (!cand || seenPaths.has(cand)) return false;
             seenPaths.add(cand);
-            const url = await this._resolveMediaHttpUrl(cand);
-            if (!url) continue;
-            if (images.some((img) => img.url === url)) continue;
+            return true;
+          });
+          const resolvedUrls = await Promise.all(
+            uniqueCandidates.map((cand) => this._resolveMediaHttpUrl(cand)),
+          );
+          const seenUrls = new Set<string>();
+          for (const url of resolvedUrls) {
+            if (!url || seenUrls.has(url)) continue;
+            seenUrls.add(url);
             images.push({ url });
           }
           // 空内容且无图（生图后台任务 run 的空 final）不渲染成空白气泡。
@@ -967,15 +974,20 @@ class GatewayClient {
   private async _resolveAndNotifyImages(mediaCandidates: string[], text: string) {
     let images: MessageImage[] = [];
     // server 可能同时填 mediaUrl + mediaUrls[0]（同一路径双字段），且本地路径
-    // 每次解析换新 mediaTicket，按最终 URL 去重会失效——先按原始路径去重。
+    // 每次解析换新 mediaTicket，按最终 URL 去重会失效——先按原始路径去重，
+    // 再并行解析（串行时 N 张图 = N 个串行往返，最终气泡明显延迟）。
     const seenPaths = new Set<string>();
+    const uniqueCandidates = mediaCandidates.filter((c) => {
+      if (!c || seenPaths.has(c)) return false;
+      seenPaths.add(c);
+      return true;
+    });
     try {
-      for (const cand of mediaCandidates) {
-        if (!cand || seenPaths.has(cand)) continue;
-        seenPaths.add(cand);
-        const url = await this._resolveMediaHttpUrl(cand);
-        if (!url) continue;
-        if (images.some((img) => img.url === url)) continue;
+      const urls = await Promise.all(uniqueCandidates.map((c) => this._resolveMediaHttpUrl(c)));
+      const seenUrls = new Set<string>();
+      for (const url of urls) {
+        if (!url || seenUrls.has(url)) continue;
+        seenUrls.add(url);
         images.push({ url });
       }
     } catch (err) {
@@ -1001,6 +1013,10 @@ class GatewayClient {
   //  - http(s) 原样
   //  - / 开头的相对路径拼 gateway http base
   //  - 本地绝对路径（生图落盘）经 assistant-media 端点换 mediaTicket
+  // ticket 5 分钟 TTL，同路径反复换发结果等价：按源路径缓存，历史加载
+  // /重复消息不再每张图都打一次 meta 往返。
+  private mediaTicketCache = new Map<string, { url: string; expiresAt: number }>();
+
   private async _resolveMediaHttpUrl(source: string | undefined): Promise<string | null> {
     if (!source) return null;
     const httpBase = this.url.replace(/^ws/, "http");
@@ -1008,6 +1024,10 @@ class GatewayClient {
     if (source.startsWith("/")) return `${httpBase}${source}`;
     // 本地绝对路径：assistant-media meta 换 ticket（allowQueryToken:true）
     try {
+      const cached = this.mediaTicketCache.get(source);
+      if (cached && cached.expiresAt - 60_000 > Date.now()) {
+        return cached.url;
+      }
       const enc = encodeURIComponent(source);
       const metaUrl = `${httpBase}/__openclaw__/assistant-media?source=${enc}&meta=1${
         this.token ? `&token=${encodeURIComponent(this.token)}` : ""
@@ -1016,7 +1036,14 @@ class GatewayClient {
       if (!res.ok) return null;
       const data = await res.json();
       if (data?.available && data?.mediaTicket) {
-        return `${httpBase}/__openclaw__/assistant-media?source=${enc}&mediaTicket=${encodeURIComponent(data.mediaTicket)}`;
+        const url = `${httpBase}/__openclaw__/assistant-media?source=${enc}&mediaTicket=${encodeURIComponent(data.mediaTicket)}`;
+        const parsedExp = data.mediaTicketExpiresAt ? Date.parse(data.mediaTicketExpiresAt) : NaN;
+        if (this.mediaTicketCache.size > 200) this.mediaTicketCache.clear();
+        this.mediaTicketCache.set(source, {
+          url,
+          expiresAt: Number.isFinite(parsedExp) ? parsedExp : Date.now() + 4 * 60_000,
+        });
+        return url;
       }
       return null;
     } catch {
