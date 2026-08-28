@@ -52,6 +52,7 @@ import {
   resolveTrustedHttpOperatorScopes,
 } from "./http-utils.js";
 import { authorizeOperatorScopesForMethod } from "./method-scopes.js";
+import { isLoopbackAddress, isLoopbackHost } from "./net.js";
 import { resolveRequestClientIp } from "./net.js";
 
 const ROOT_PREFIX = "/";
@@ -182,12 +183,58 @@ function applyControlUiSecurityHeaders(res: ServerResponse) {
   res.setHeader("Referrer-Policy", "no-referrer");
 }
 
-function sendJson(res: ServerResponse, status: number, body: unknown) {
+// RedClaw desktop GUI 跑在 Tauri webview（tauri.localhost），与 gateway 不同源，
+// JSON API 与生图媒体需要 CORS。只回显可信 origin：Tauri / Vite dev 固定 origin，
+// 或本地回环客户端带来的回环 origin（与 WS 侧 checkBrowserOrigin 的
+// local-loopback 策略一致）。不做 Access-Control-Allow-Origin: * —— 无鉴权网关下
+// 任意网页可跨域读取 bootstrap-config（媒体根目录、身份、版本）。
+const CONTROL_UI_CORS_ALLOWED_ORIGINS = new Set([
+  "tauri://localhost",
+  "http://tauri.localhost",
+  "https://tauri.localhost",
+  "http://localhost:1420",
+  "http://127.0.0.1:1420",
+]);
+
+function controlUiCorsAllowOrigin(req: IncomingMessage): string | null {
+  // 部分内部/测试调用传入的 req 没有 headers 桩，这里可选读取而不是走 getHeader
+  const headers = req.headers;
+  const originRaw = (typeof headers?.origin === "string" ? headers.origin : "").trim();
+  if (!originRaw || originRaw === "null") {
+    return null;
+  }
+  if (CONTROL_UI_CORS_ALLOWED_ORIGINS.has(originRaw.toLowerCase())) {
+    return originRaw;
+  }
+  let hostname = "";
+  try {
+    hostname = new URL(originRaw).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (!isLoopbackHost(hostname)) {
+    return null;
+  }
+  const clientIp = req.socket?.remoteAddress;
+  if (!clientIp || !isLoopbackAddress(clientIp)) {
+    return null;
+  }
+  return originRaw;
+}
+
+function applyControlUiCorsHeaders(req: IncomingMessage, res: ServerResponse) {
+  const allowedOrigin = controlUiCorsAllowOrigin(req);
+  if (!allowedOrigin) {
+    return;
+  }
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Vary", "Origin");
+}
+
+function sendJson(req: IncomingMessage, res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  // Control UI 页面（tauri.localhost）与 gateway 跨域，JSON API 需放行 CORS；
-  // 文件访问仍受 mediaTicket + 本地根目录双重保护。
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  applyControlUiCorsHeaders(req, res);
   res.setHeader("Cache-Control", "no-cache");
   res.end(JSON.stringify(body));
 }
@@ -354,7 +401,7 @@ async function authorizeControlUiReadRequest(
     requestedScopes,
   );
   if (!scopeAuth.allowed) {
-    sendJson(res, 403, buildMissingScopeForbiddenBody(scopeAuth.missingScope));
+    sendJson(req, res, 403, buildMissingScopeForbiddenBody(scopeAuth.missingScope));
     return false;
   }
 
@@ -556,6 +603,7 @@ export async function handleControlUiAssistantMediaRequest(
   if (isMetaRequest) {
     const availability = await resolveAssistantMediaAvailability(source, localRoots);
     sendJson(
+      req,
       res,
       200,
       availability.available
@@ -594,9 +642,9 @@ export async function handleControlUiAssistantMediaRequest(
     } else {
       res.setHeader("Content-Type", "application/octet-stream");
     }
-    // 生图图片经 GUI/Control UI（tauri.localhost 等跨域页面）<img>/fetch 显示，
-    // 必须放行 CORS；文件访问本身受 mediaTicket + 本地根目录双重保护。
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    // 生图图片经 GUI（tauri.localhost 等跨源页面）<img>/fetch 显示，按 origin
+    // 白名单回显 CORS；文件访问本身受 mediaTicket + 本地根目录双重保护。
+    applyControlUiCorsHeaders(req, res);
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Content-Length", String(opened.stat.size));
     const stream = opened.handle.createReadStream({ start: 0, autoClose: false });
@@ -681,7 +729,7 @@ export async function handleControlUiAvatarRequest(
         : resolved.kind === "remote" || resolved.kind === "data"
           ? resolved.url
           : null;
-    sendJson(res, 200, {
+    sendJson(req, res, 200, {
       avatarUrl,
       avatarSource: meta.avatarSource,
       avatarStatus: meta.avatarStatus ?? resolved.kind,
@@ -869,7 +917,7 @@ export async function handleControlUiHttpRequest(
       res.end();
       return true;
     }
-    sendJson(res, 200, {
+    sendJson(req, res, 200, {
       basePath,
       assistantName: identity.name,
       assistantAvatar: avatarValue ?? identity.avatar,
