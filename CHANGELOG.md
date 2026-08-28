@@ -1,5 +1,24 @@
 # 更新日志
 
+## [0.3.15] - 2026-08-28
+
+> P0 修复批次：CORS 收紧、GUI 断连/重连健壮性、待办数据安全 + 测试基建修复。
+
+### 修复
+
+- **control-ui CORS 收紧**（`control-ui.ts`、新增 `control-ui.cors.test.ts`）：`sendJson` 与生图媒体流的 `Access-Control-Allow-Origin: *` 改为 origin 白名单回显——Tauri webview 固定 origin（`tauri://localhost`、`http(s)://tauri.localhost`、Vite dev `:1420`）+ 回环客户端的回环 origin（与 WS 侧 `checkBrowserOrigin` 的 local-loopback 策略一致）。原通配放行在无鉴权网关下允许任意网页跨域读 bootstrap-config（媒体根目录、身份、版本）。新增 5 个 CORS 策略测试。
+- **GUI 断连请求挂死**（`client.ts`）：`onclose`/`stop` 时 reject 全部挂起 RPC（新增 `_failPending`），`_request` 加 120s 单请求超时（`tools.invoke` 生图需等工具跑完，留足余量）。原实现 `chat.send` 半途断线后 promise 永远 pending，`isGenerating` 卡 true、输入框锁死到重启。
+- **GUI 重连健壮性**（`client.ts`）：固定 2s 重试改指数退避（2s → 30s 封顶，连接成功重置）；新增 10s 握手超时（challenge 已到但 connect 应答不到时按网络失败走退避重连）；网络级失败（超时/断连）自动重连，仅网关显式拒绝（鉴权失败）才 `stop()`。
+- **待办静默清库**（`todo-store.ts`、新增 `todo-store.test.ts`）：损坏的 `todos.json` 原先被读成 `[]` 且下次写入直接覆盖——改为隔离为 `todos.json.corrupt-<时间戳>` 留证后重建。add/update/remove 走 `withFileLock` 文件锁（与 commitments/persistent-dedupe 同款参数），agent 工具与 gateway RPC 可能跨进程并发写不再互吞；`todo-tool.ts`、`server-methods/todo.ts` 调用点同步 async 化。新增 3 个 store 测试。
+- **CodePanel 文本块提取**（`CodePanel.tsx`）：content blocks 过滤恢复 `type === "text"` 谓词（新增 `isTextBlock` 守卫），避免把带 `text` 字段的非文本块误拼进输出；无类型标记的数组项仍走 `hasText`。
+
+### 变更
+
+- **测试基建**（`test/vitest/vitest.config.ts`）：移除 14 个已精简扩展（discord/telegram/slack 等）的 vitest project 引用——残留引用使 vitest 启动即报错，`pnpm test` 完全不可用。
+- **版本号同步**（`Cargo.toml`、`Cargo.lock`）：Rust crate 版本从 0.1.0 追平 0.3.15，消除与 npm/tauri 版本漂移。
+
+---
+
 ## [0.3.14] - 2026-08-09
 
 > warm 暖色主题 + 代码面板实装 + 面板拖拽调宽。

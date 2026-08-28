@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
-[![版本](https://img.shields.io/badge/版本-v0.3.14-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.15-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -139,25 +139,26 @@ redclaw onboard   # 中文交互式向导
 
 详见 [CHANGELOG.md](CHANGELOG.md)。
 
-| 版本    | 内容                                             |
-| ------- | ------------------------------------------------ |
-| v0.3.14 | warm 暖色主题 + 代码面板实装 + 面板拖拽调宽      |
-| v0.3.13 | 生图模式 + StepFun 生图插件 + 生图消息显示修复   |
-| v0.3.12 | TTS 朗读播放 + 聊天双方头像上传显示              |
-| v0.3.11 | 侧边栏折叠/拖拽 + 响应中提示 + 会话切换修复      |
-| v0.3.10 | cmdk 命令面板 + 主题开关/空状态/连接徽标接入界面 |
-| v0.3.9  | 连接状态徽标基础设施                             |
-| v0.3.8  | 个性化空状态组件                                 |
-| v0.3.7  | 主题模块（浅色 / 深色 / 跟随系统）               |
-| v0.3.6  | 12 阶色阶系统 + 状态色 token 化                  |
-| v0.3.5  | 结构化待办清单（agent 工具 + 网关 + GUI 面板）   |
-| v0.3.4  | 停止生成、错误提示、连接设置面板、连接修复       |
-| v0.3.3  | 应用图标、Step 256k 上下文修正、构建集成         |
-| v0.3.2  | 模型选择器 + 推理强度 + 流式修复                 |
-| v0.3.0  | Tauri Desktop GUI 首版                           |
-| v0.0.6  | 精简：删除 39 extension、40 skill、520 脚本      |
-| v0.0.2  | 🐲 品牌化、redclaw 命令别名                      |
-| v0.0.1  | 从 OpenClaw 分支                                 |
+| 版本    | 内容                                               |
+| ------- | -------------------------------------------------- |
+| v0.3.15 | P0 修复：CORS 收紧 + 断连重连健壮性 + 待办数据安全 |
+| v0.3.14 | warm 暖色主题 + 代码面板实装 + 面板拖拽调宽        |
+| v0.3.13 | 生图模式 + StepFun 生图插件 + 生图消息显示修复     |
+| v0.3.12 | TTS 朗读播放 + 聊天双方头像上传显示                |
+| v0.3.11 | 侧边栏折叠/拖拽 + 响应中提示 + 会话切换修复        |
+| v0.3.10 | cmdk 命令面板 + 主题开关/空状态/连接徽标接入界面   |
+| v0.3.9  | 连接状态徽标基础设施                               |
+| v0.3.8  | 个性化空状态组件                                   |
+| v0.3.7  | 主题模块（浅色 / 深色 / 跟随系统）                 |
+| v0.3.6  | 12 阶色阶系统 + 状态色 token 化                    |
+| v0.3.5  | 结构化待办清单（agent 工具 + 网关 + GUI 面板）     |
+| v0.3.4  | 停止生成、错误提示、连接设置面板、连接修复         |
+| v0.3.3  | 应用图标、Step 256k 上下文修正、构建集成           |
+| v0.3.2  | 模型选择器 + 推理强度 + 流式修复                   |
+| v0.3.0  | Tauri Desktop GUI 首版                             |
+| v0.0.6  | 精简：删除 39 extension、40 skill、520 脚本        |
+| v0.0.2  | 🐲 品牌化、redclaw 命令别名                        |
+| v0.0.1  | 从 OpenClaw 分支                                   |
 
 ---
 
