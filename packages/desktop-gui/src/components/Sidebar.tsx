@@ -13,6 +13,7 @@ import {
   useRef,
   useEffect,
   useCallback,
+  memo,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { ChatSession } from "../gateway/client";
@@ -52,7 +53,7 @@ function sessionTime(ts?: number): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export default function Sidebar({
+function Sidebar({
   connected,
   connectionState,
   sessions,
@@ -357,3 +358,6 @@ export default function Sidebar({
     </>
   );
 }
+
+// props 全部稳定引用（App 层 useCallback/useMemo），流式期间跳过会话列表重渲染
+export default memo(Sidebar);

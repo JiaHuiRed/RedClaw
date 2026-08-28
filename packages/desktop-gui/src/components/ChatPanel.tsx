@@ -326,8 +326,6 @@ interface ChatPanelProps {
   connectionState: ConnectionState;
   messages: Message[];
   setMessages: (fn: Message[] | ((prev: Message[]) => Message[])) => void;
-  streamingText: string;
-  setStreamingText: (fn: string | ((prev: string) => string)) => void;
   sessionInfo: SessionInfo;
   commands: CommandEntry[];
   sessions: ChatSession[];
@@ -338,7 +336,9 @@ interface ChatPanelProps {
   loadingHistory?: boolean;
 }
 
-export default function ChatPanel({
+// streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
+// App 层会让整棵应用树（Sidebar 会话列表等）跟着每个 chunk 重渲染。
+function ChatPanel({
   connected,
   setConnected,
   connecting,
@@ -346,8 +346,6 @@ export default function ChatPanel({
   connectionState,
   messages,
   setMessages,
-  streamingText,
-  setStreamingText,
   sessionInfo,
   commands,
   sessions,
@@ -360,6 +358,7 @@ export default function ChatPanel({
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [streamingText, setStreamingText] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState("");
   const [toolCalls, setToolCalls] = useState<ToolCallEvent[]>([]);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
@@ -545,6 +544,14 @@ export default function ChatPanel({
       setImagePending(false);
     }
   }, [messages]);
+  // 切会话时清空上一会话的流式残留：App 层只负责 messages，
+  // 流式文本/reasoning/工具卡在组件内跟随会话切换统一清理。
+  useEffect(() => {
+    setStreamingText("");
+    setStreamingReasoning("");
+    setToolCalls([]);
+  }, [currentSessionKey]);
+
   useEffect(() => {
     if (!isGenerating) {
       setElapsed(0);
@@ -1422,3 +1429,7 @@ export default function ChatPanel({
     </div>
   );
 }
+
+// App 层的 streamingText 已下沉，props 在流式期间全部稳定，
+// memo 让工具事件等低频 App 重渲染不再穿透到这个 1400 行组件。
+export default memo(ChatPanel);

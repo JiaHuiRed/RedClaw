@@ -23,7 +23,6 @@ export default function App() {
   const [connecting, setConnecting] = useState(false);
   const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [streamingText, setStreamingText] = useState("");
   const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo">("none");
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>(gateway.sessionInfo);
   const [commands, setCommands] = useState<CommandEntry[]>(gateway.commands);
@@ -74,7 +73,6 @@ export default function App() {
   const loadHistory = useCallback(async (sessionKey: string) => {
     setLoadingHistory(true);
     setMessages([]);
-    setStreamingText("");
     try {
       const history = await gateway.fetchHistory(sessionKey);
       setMessages(history);
@@ -144,7 +142,6 @@ export default function App() {
 
   const handleNewSession = useCallback(async () => {
     setMessages([]);
-    setStreamingText("");
     try {
       const key = await gateway.createSession();
       setCurrentSessionKey(key);
@@ -180,6 +177,13 @@ export default function App() {
     }
   }, []);
 
+  const onToggleCode = useCallback(() => {
+    setRightPanel((p) => (p === "code" ? "none" : "code"));
+  }, []);
+  const onToggleTodo = useCallback(() => {
+    setRightPanel((p) => (p === "todo" ? "none" : "todo"));
+  }, []);
+
   return (
     <div className="flex h-screen w-screen">
       <Sidebar
@@ -200,15 +204,13 @@ export default function App() {
         connectionState={connectionState}
         messages={messages}
         setMessages={setMessages}
-        streamingText={streamingText}
-        setStreamingText={setStreamingText}
         sessionInfo={sessionInfo}
         commands={commands}
         sessions={sessions}
         currentSessionKey={currentSessionKey}
         onSelectSession={handleSelectSession}
-        onToggleCode={() => setRightPanel((p) => (p === "code" ? "none" : "code"))}
-        onToggleTodo={() => setRightPanel((p) => (p === "todo" ? "none" : "todo"))}
+        onToggleCode={onToggleCode}
+        onToggleTodo={onToggleTodo}
         loadingHistory={loadingHistory}
       />
       {rightPanel === "code" && (
