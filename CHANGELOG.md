@@ -1,5 +1,15 @@
 # 更新日志
 
+## [0.3.21] - 2026-08-30
+
+> IDENTITY.md 废弃：堵死全部三条复活路径，认知文件瘦身 67KB → 41KB。
+
+### 变更
+
+- **IDENTITY.md 全面废弃**：能力自述（"擅长领域"）对模型无信息量（能力强无需写、弱则写了没用），名字/头像本就持久化在 agent 配置。摘除三条复活路径——`ensureAgentWorkspace` 不再播种（`docs/reference/templates/IDENTITY.md` 模板删除，缺失时跳过而非抛错）、`agents.create`/`agents.update` 不再重建/迁移该文件（旧流程会把 25KB 头像 base64 合并进去并注入每次对话的稳定前缀）、相关过时测试改写为新契约。冷启动前缀 29k → ~22k tokens。工作区副本已删（备份在 `~/.openclaw/oldmemory/`），经 RPC 触发会话准备实测不再复活。
+
+---
+
 ## [0.3.20] - 2026-08-29
 
 > webui 能力移植第一步：用量成本面板进 GUI；仓库减法第一刀。
