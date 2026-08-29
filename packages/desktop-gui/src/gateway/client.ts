@@ -133,6 +133,31 @@ export interface TodoUpdateInput {
   tags?: string[];
 }
 
+// 项目区（agent）：每个 agent 绑定独立工作区，对应 agents.list 行
+export interface AgentSummary {
+  id: string;
+  name?: string;
+  identity?: { name?: string; emoji?: string; avatar?: string };
+  workspace?: string;
+  // 通常是字符串；配置成 provider 路由时可能是对象
+  model?: string | { default?: string };
+}
+
+export interface AgentCreateInput {
+  name: string;
+  workspace: string;
+  model?: string;
+  emoji?: string;
+}
+
+export interface AgentUpdateInput {
+  name?: string;
+  workspace?: string;
+  model?: string | null;
+  emoji?: string | null;
+  avatar?: string;
+}
+
 type Listener = (msg: Message) => void;
 type DeltaListener = (text: string, reasoning: string) => void;
 type StatusListener = (connected: boolean) => void;
@@ -491,6 +516,37 @@ class GatewayClient {
     }
   }
 
+  // 项目区（agent）管理：列表 / 新建 / 编辑 / 删除
+  async fetchAgents(): Promise<{ defaultId: string; agents: AgentSummary[] }> {
+    const res = await this._request("agents.list", {});
+    const payload = res.payload as {
+      defaultId?: string;
+      agents?: AgentSummary[];
+    };
+    return {
+      defaultId: payload?.defaultId ?? "main",
+      agents: Array.isArray(payload?.agents) ? payload.agents : [],
+    };
+  }
+
+  async createAgent(input: AgentCreateInput): Promise<{ agentId: string }> {
+    const res = await this._request("agents.create", input);
+    if (!res.ok) throw new Error(res.error?.message ?? "新建项目区失败");
+    const payload = res.payload as { agentId?: string };
+    if (!payload?.agentId) throw new Error("新建项目区失败：缺少 agentId");
+    return { agentId: payload.agentId };
+  }
+
+  async updateAgent(agentId: string, patch: AgentUpdateInput) {
+    const res = await this._request("agents.update", { agentId, ...patch });
+    if (!res.ok) throw new Error(res.error?.message ?? "更新项目区失败");
+  }
+
+  async deleteAgent(agentId: string) {
+    const res = await this._request("agents.delete", { agentId });
+    if (!res.ok) throw new Error(res.error?.message ?? "删除项目区失败");
+  }
+
   async fetchCommands() {
     try {
       const res = await this._request("commands.list", { scope: "text", includeArgs: false });
@@ -675,6 +731,7 @@ class GatewayClient {
     label?: string;
     model?: string;
     message?: string;
+    agentId?: string;
   }): Promise<string> {
     const res = await this._request("sessions.create", params ?? {});
     const key = res.payload?.key ?? this._activeSessionKey;
