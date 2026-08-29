@@ -1,5 +1,20 @@
 # 更新日志
 
+## [0.3.19] - 2026-08-29
+
+> 侧边栏项目区管理：会话按 agent 分组，新建/编辑/删除项目区不再手敲命令。
+
+### 新增
+
+- **会话按项目区分组**（`Sidebar.tsx`）：会话按所属 agent（`agent:<id>:` 前缀）分组展示，分组头显示 emoji/名称/工作区目录名/会话数，可折叠（记忆在 localStorage）；默认项目区置顶并带「默认」徽标，分组内新建会话直达该区。
+- **项目区新建/编辑/删除**（新增 `ProjectAreaModal.tsx`、`client.ts` 新增 `fetchAgents/createAgent/updateAgent/deleteAgent`）：底部「新建项目区」或分组 hover 铅笔打开表单——名称、工作区路径、emoji、默认模型（下拉候选来自 models.list），走 `agents.create/update/delete` RPC；删除默认二次确认且不删工作区文件，默认项目区不可删。
+
+### 说明
+
+- 全局配置（`config.get` 返回脱敏快照，`__OPENCLAW_REDACTED__` 哨兵在写路径无还原逻辑）整份回写会摧毁真实密钥，因此本轮设置类编辑刻意只走 `agents.*`/`sessions.*` 定向 RPC；涉及密钥的全局配置仍走 CLI——后续做字段级 config.patch 时再解。
+
+---
+
 ## [0.3.18] - 2026-08-29
 
 > 生成失败轮历史折叠：占位文本空泡改为单行细条。
