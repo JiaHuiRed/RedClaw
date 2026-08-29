@@ -10,6 +10,7 @@ import {
   Square,
   Settings,
   ListTodo,
+  Coins,
   Volume2,
   Bot,
   User,
@@ -394,6 +395,7 @@ interface ChatPanelProps {
   onSelectSession: (sessionKey: string) => void;
   onToggleCode: () => void;
   onToggleTodo: () => void;
+  onToggleUsage: () => void;
   loadingHistory?: boolean;
 }
 
@@ -414,6 +416,7 @@ function ChatPanel({
   onSelectSession,
   onToggleCode,
   onToggleTodo,
+  onToggleUsage,
   loadingHistory,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -1146,6 +1149,15 @@ function ChatPanel({
           >
             <ListTodo size={14} />
             待办
+          </button>
+          <button
+            onClick={onToggleUsage}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
+            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            title="用量与成本"
+          >
+            <Coins size={14} />
+            用量
           </button>
           <button
             onClick={onToggleCode}

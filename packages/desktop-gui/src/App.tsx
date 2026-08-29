@@ -3,6 +3,7 @@ import ChatPanel from "./components/ChatPanel";
 import CodePanel from "./components/CodePanel";
 import Sidebar from "./components/Sidebar";
 import TodoPanel from "./components/TodoPanel";
+import UsagePanel from "./components/UsagePanel";
 import {
   gateway,
   type Message,
@@ -23,7 +24,7 @@ export default function App() {
   const [connecting, setConnecting] = useState(false);
   const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo">("none");
+  const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo" | "usage">("none");
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>(gateway.sessionInfo);
   const [commands, setCommands] = useState<CommandEntry[]>(gateway.commands);
   const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
@@ -183,6 +184,9 @@ export default function App() {
   const onToggleTodo = useCallback(() => {
     setRightPanel((p) => (p === "todo" ? "none" : "todo"));
   }, []);
+  const onToggleUsage = useCallback(() => {
+    setRightPanel((p) => (p === "usage" ? "none" : "usage"));
+  }, []);
 
   return (
     <div className="flex h-screen w-screen">
@@ -211,6 +215,7 @@ export default function App() {
         onSelectSession={handleSelectSession}
         onToggleCode={onToggleCode}
         onToggleTodo={onToggleTodo}
+        onToggleUsage={onToggleUsage}
         loadingHistory={loadingHistory}
       />
       {rightPanel === "code" && (
@@ -223,6 +228,13 @@ export default function App() {
       )}
       {rightPanel === "todo" && (
         <TodoPanel
+          width={rightPanelWidth}
+          onResize={setRightPanelWidth}
+          onClose={() => setRightPanel("none")}
+        />
+      )}
+      {rightPanel === "usage" && (
+        <UsagePanel
           width={rightPanelWidth}
           onResize={setRightPanelWidth}
           onClose={() => setRightPanel("none")}
