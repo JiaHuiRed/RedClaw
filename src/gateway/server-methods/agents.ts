@@ -6,8 +6,6 @@ import {
   resolveAgentDir,
   resolveAgentWorkspaceDir,
 } from "../../agents/agent-scope.js";
-import { mergeIdentityMarkdownContent } from "../../agents/identity-file.js";
-import { resolveAgentIdentity } from "../../agents/identity.js";
 import {
   DEFAULT_AGENTS_FILENAME,
   DEFAULT_BOOTSTRAP_FILENAME,
@@ -25,7 +23,6 @@ import {
   purgeAgentSessionStoreEntries,
   resolveSessionTranscriptsDirForAgent,
 } from "../../config/sessions.js";
-import type { IdentityConfig } from "../../config/types.base.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { root, FsSafeError, type ReadResult } from "../../infra/fs-safe.js";
 import { movePathToTrash } from "../../plugin-sdk/browser-maintenance.js";
@@ -342,109 +339,6 @@ function respondWorkspaceFileMissing(params: {
   );
 }
 
-async function writeWorkspaceFileOrRespond(params: {
-  respond: RespondFn;
-  workspaceDir: string;
-  name: string;
-  content: string;
-}): Promise<boolean> {
-  await fs.mkdir(params.workspaceDir, { recursive: true });
-  try {
-    const workspaceRoot = await agentsHandlerDeps.root(params.workspaceDir);
-    await workspaceRoot.write(params.name, params.content, { encoding: "utf8" });
-  } catch (err) {
-    if (err instanceof FsSafeError) {
-      respondWorkspaceFileUnsafe(params.respond, params.name);
-      return false;
-    }
-    throw err;
-  }
-  return true;
-}
-
-function normalizeIdentityForFile(
-  identity: IdentityConfig | undefined,
-): IdentityConfig | undefined {
-  if (!identity) {
-    return undefined;
-  }
-  const resolved = {
-    name: identity.name?.trim() || undefined,
-    theme: identity.theme?.trim() || undefined,
-    emoji: identity.emoji?.trim() || undefined,
-    avatar: identity.avatar?.trim() || undefined,
-  } satisfies IdentityConfig;
-  if (!resolved.name && !resolved.theme && !resolved.emoji && !resolved.avatar) {
-    return undefined;
-  }
-  return resolved;
-}
-
-async function readWorkspaceFileContent(
-  workspaceDir: string,
-  name: string,
-): Promise<string | undefined> {
-  try {
-    const workspaceRoot = await agentsHandlerDeps.root(workspaceDir);
-    const safeRead = await workspaceRoot.read(name, {
-      hardlinks: "reject",
-      nonBlockingRead: true,
-    });
-    return safeRead.buffer.toString("utf-8");
-  } catch (err) {
-    if (err instanceof FsSafeError && err.code === "not-found") {
-      return undefined;
-    }
-    throw err;
-  }
-}
-
-async function buildIdentityMarkdownForWrite(params: {
-  workspaceDir: string;
-  identity: IdentityConfig;
-  fallbackWorkspaceDir?: string;
-  preferFallbackWorkspaceContent?: boolean;
-}): Promise<string> {
-  let baseContent: string | undefined;
-  if (params.preferFallbackWorkspaceContent && params.fallbackWorkspaceDir) {
-    baseContent = await readWorkspaceFileContent(
-      params.fallbackWorkspaceDir,
-      DEFAULT_IDENTITY_FILENAME,
-    );
-    if (baseContent === undefined) {
-      baseContent = await readWorkspaceFileContent(params.workspaceDir, DEFAULT_IDENTITY_FILENAME);
-    }
-  } else {
-    baseContent = await readWorkspaceFileContent(params.workspaceDir, DEFAULT_IDENTITY_FILENAME);
-    if (baseContent === undefined && params.fallbackWorkspaceDir) {
-      baseContent = await readWorkspaceFileContent(
-        params.fallbackWorkspaceDir,
-        DEFAULT_IDENTITY_FILENAME,
-      );
-    }
-  }
-
-  return mergeIdentityMarkdownContent(baseContent, params.identity);
-}
-
-async function buildIdentityMarkdownOrRespondUnsafe(params: {
-  respond: RespondFn;
-  workspaceDir: string;
-  identity: IdentityConfig;
-  fallbackWorkspaceDir?: string;
-  preferFallbackWorkspaceContent?: boolean;
-}): Promise<string | null> {
-  try {
-    return await buildIdentityMarkdownForWrite(params);
-  } catch (err) {
-    if (err instanceof FsSafeError) {
-      respondWorkspaceFileUnsafe(params.respond, DEFAULT_IDENTITY_FILENAME);
-      return null;
-    }
-    throw err;
-  }
-}
-
 export const agentsHandlers: GatewayRequestHandlers = {
   "agents.list": ({ params, respond, context }) => {
     if (!validateAgentsListParams(params)) {
@@ -534,27 +428,8 @@ export const agentsHandlers: GatewayRequestHandlers = {
     });
     await fs.mkdir(resolveSessionTranscriptsDirForAgent(agentId), { recursive: true });
 
-    const persistedIdentity = normalizeIdentityForFile(resolveAgentIdentity(nextConfig, agentId));
-    if (persistedIdentity) {
-      const identityContent = await buildIdentityMarkdownOrRespondUnsafe({
-        respond,
-        workspaceDir,
-        identity: persistedIdentity,
-      });
-      if (identityContent === null) {
-        return;
-      }
-      if (
-        !(await writeWorkspaceFileOrRespond({
-          respond,
-          workspaceDir,
-          name: DEFAULT_IDENTITY_FILENAME,
-          content: identityContent,
-        }))
-      ) {
-        return;
-      }
-    }
+    // IDENTITY.md 不再写入（已废弃）：name/emoji/avatar 持久化在 agent 配置，
+    // 旧流程会把头像 base64 合并进该文件并注入每次对话的稳定前缀。
     try {
       await createAgentConfigEntry({
         agentId,
@@ -618,46 +493,17 @@ export const agentsHandlers: GatewayRequestHandlers = {
       ...(identity ? { identity } : {}),
     });
 
-    let ensuredWorkspace: Awaited<ReturnType<typeof ensureAgentWorkspace>> | undefined;
     if (workspaceDir) {
       const skipBootstrap = Boolean(nextConfig.agents?.defaults?.skipBootstrap);
-      ensuredWorkspace = await ensureAgentWorkspace({
+      await ensureAgentWorkspace({
         dir: workspaceDir,
         ensureBootstrapFiles: !skipBootstrap,
         skipOptionalBootstrapFiles: nextConfig.agents?.defaults?.skipOptionalBootstrapFiles,
       });
     }
 
-    const persistedIdentity = normalizeIdentityForFile(resolveAgentIdentity(nextConfig, agentId));
-    if (persistedIdentity && (workspaceDir || hasIdentityFields)) {
-      const identityWorkspaceDir = resolveAgentWorkspaceDir(nextConfig, agentId);
-      const previousWorkspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
-      const fallbackWorkspaceDir =
-        workspaceDir && identityWorkspaceDir !== previousWorkspaceDir
-          ? previousWorkspaceDir
-          : undefined;
-      const identityContent = await buildIdentityMarkdownOrRespondUnsafe({
-        respond,
-        workspaceDir: identityWorkspaceDir,
-        identity: persistedIdentity,
-        fallbackWorkspaceDir,
-        preferFallbackWorkspaceContent:
-          Boolean(fallbackWorkspaceDir) && ensuredWorkspace?.identityPathCreated === true,
-      });
-      if (identityContent === null) {
-        return;
-      }
-      if (
-        !(await writeWorkspaceFileOrRespond({
-          respond,
-          workspaceDir: identityWorkspaceDir,
-          name: DEFAULT_IDENTITY_FILENAME,
-          content: identityContent,
-        }))
-      ) {
-        return;
-      }
-    }
+    // IDENTITY.md 不再写入/迁移（已废弃）：name/emoji/avatar 持久化在 agent 配置，
+    // 旧流程会把头像 base64 合并进该文件并注入每次对话的稳定前缀。
 
     try {
       await updateAgentConfigEntry({

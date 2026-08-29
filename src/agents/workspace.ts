@@ -251,9 +251,16 @@ async function workspaceProfileLooksConfigured(params: {
   includeGitEvidence?: boolean;
 }): Promise<boolean> {
   const profileFileDiffs = await Promise.all(
-    WORKSPACE_ONBOARDING_PROFILE_FILENAMES.map(async (fileName) =>
-      fileContentDiffersFromTemplate(path.join(params.dir, fileName), await loadTemplate(fileName)),
-    ),
+    WORKSPACE_ONBOARDING_PROFILE_FILENAMES.map(async (fileName) => {
+      // IDENTITY.md 已废弃：不再有模板，视为已配置（下面还有 memory 证据兜底）
+      if (fileName === DEFAULT_IDENTITY_FILENAME) {
+        return true;
+      }
+      return fileContentDiffersFromTemplate(
+        path.join(params.dir, fileName),
+        await loadTemplate(fileName),
+      );
+    }),
   );
   return (
     profileFileDiffs.some(Boolean) ||
@@ -495,7 +502,6 @@ export async function ensureAgentWorkspace(params?: {
   userPath?: string;
   heartbeatPath?: string;
   bootstrapPath?: string;
-  identityPathCreated?: boolean;
 }> {
   const rawDir = params?.dir?.trim() ? params.dir.trim() : DEFAULT_AGENT_WORKSPACE_DIR;
   const dir = resolveUserPath(rawDir);
@@ -535,7 +541,6 @@ export async function ensureAgentWorkspace(params?: {
   const agentsTemplate = await loadTemplate(DEFAULT_AGENTS_FILENAME);
   const soulTemplate = await loadTemplate(DEFAULT_SOUL_FILENAME);
   const toolsTemplate = await loadTemplate(DEFAULT_TOOLS_FILENAME);
-  const identityTemplate = await loadTemplate(DEFAULT_IDENTITY_FILENAME);
   const userTemplate = await loadTemplate(DEFAULT_USER_FILENAME);
   const heartbeatTemplate = await loadTemplate(DEFAULT_HEARTBEAT_FILENAME);
   const skipOptionalBootstrapFiles = new Set(params?.skipOptionalBootstrapFiles ?? []);
@@ -547,9 +552,8 @@ export async function ensureAgentWorkspace(params?: {
     await writeFileIfMissing(soulPath, soulTemplate);
   }
   await writeFileIfMissing(toolsPath, toolsTemplate);
-  const identityPathCreated = shouldWriteBootstrapFile(DEFAULT_IDENTITY_FILENAME)
-    ? await writeFileIfMissing(identityPath, identityTemplate)
-    : false;
+  // IDENTITY.md 不再播种：名字/头像在 agent 配置，能力自述对模型无信息量，
+  // 且历史版本内嵌过 26KB base64 头像污染每次对话的稳定前缀。
   if (shouldWriteBootstrapFile(DEFAULT_USER_FILENAME)) {
     await writeFileIfMissing(userPath, userTemplate);
   }
@@ -626,7 +630,6 @@ export async function ensureAgentWorkspace(params?: {
     userPath,
     heartbeatPath,
     bootstrapPath,
-    identityPathCreated,
   };
 }
 
