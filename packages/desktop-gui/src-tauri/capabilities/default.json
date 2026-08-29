@@ -2,8 +2,5 @@
   "identifier": "default",
   "description": "Default capability for RedClaw",
   "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "shell:allow-open"
-  ]
+  "permissions": ["core:default"]
 }

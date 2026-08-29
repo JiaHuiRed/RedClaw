@@ -26,7 +26,7 @@ import {
   parseAgentSessionKey,
 } from "../routing/session-key.js";
 import { normalizeLowercaseStringOrEmpty } from "../shared/string-coerce.js";
-import { formatCny, formatTokenCount, formatUsd } from "../utils/usage-format.js";
+import { formatCny } from "../utils/usage-format.js";
 import { getSlashCommands } from "./commands.js";
 import { ChatLog } from "./components/chat-log.js";
 import { CustomEditor } from "./components/custom-editor.js";
