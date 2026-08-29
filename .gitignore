@@ -270,3 +270,6 @@ oldmemory/
 .redcode/
 .tmp-heartbeat-deps.js
 demo/ascii_art.py
+
+# qiu-owo 桌宠 webapp：纯静态资源 419MB，仅本地保留，不进仓库
+packages/qiu-owo/
