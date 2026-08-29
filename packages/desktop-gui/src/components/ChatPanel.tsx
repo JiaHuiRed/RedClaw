@@ -16,6 +16,9 @@ import {
   Pencil,
   Loader2,
   Palette,
+  ArrowDown,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
@@ -23,11 +26,13 @@ import remarkGfm from "remark-gfm";
 import {
   gateway,
   type Message,
+  type MessageImage,
   type SessionInfo,
   type CommandEntry,
   type ModelEntry,
   type ChatSession,
   type ToolCallEvent,
+  type OutgoingImageAttachment,
 } from "../gateway/client";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
 import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
@@ -55,6 +60,20 @@ function shortModel(m: string | null): string {
   return parts.length > 1 ? parts[1]! : m;
 }
 
+// 读取图片为 base64 附件（dataUrl 供预览，base64 供 chat.send attachments）
+function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result ?? "");
+      const comma = dataUrl.indexOf(",");
+      resolve({ dataUrl, base64: comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl });
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("read image failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -69,6 +88,47 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
     </button>
+  );
+}
+
+// 消息级操作行：hover 显现（朗读中常驻），复制 + 朗读
+function MessageActions({
+  text,
+  speaking,
+  onSpeak,
+}: {
+  text: string;
+  speaking: boolean;
+  onSpeak: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div
+      className={`mt-1 flex items-center gap-0.5 transition-opacity ${
+        speaking ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+      }`}
+    >
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+        style={{ color: copied ? "var(--success)" : "var(--text-secondary)" }}
+        title={copied ? "已复制" : "复制"}
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </button>
+      <button
+        onClick={onSpeak}
+        className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+        style={{ color: speaking ? "var(--accent)" : "var(--text-secondary)" }}
+        title={speaking ? "播放中…" : "朗读这条回复"}
+      >
+        <Volume2 size={12} />
+      </button>
+    </div>
   );
 }
 
@@ -373,6 +433,15 @@ function ChatPanel({
   const [userAvatar, setUserAvatar] = useState<string | null>(() =>
     localStorage.getItem(USER_AVATAR_KEY),
   );
+  // 图片灯箱：点击消息里的图片全屏预览
+  const [previewImg, setPreviewImg] = useState<MessageImage | null>(null);
+  // 上翻离开底部时显示"回到底部"
+  const [showJump, setShowJump] = useState(false);
+  // 随下一条消息发送的图片附件（按钮选择 / 粘贴）
+  const [pendingImages, setPendingImages] = useState<
+    { id: string; dataUrl: string; base64: string; mimeType: string; fileName: string }[]
+  >([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [agentAvatar, setAgentAvatar] = useState<string | null>(null);
   const [agentAvatarStatus, setAgentAvatarStatus] = useState<string>("none");
   const [avatarBusy, setAvatarBusy] = useState<"user" | "agent" | null>(null);
@@ -669,9 +738,35 @@ function ChatPanel({
     return v.length > 50 ? v.slice(0, 50) + "…" : v;
   }
 
+  async function addPendingImages(files: File[]) {
+    for (const file of files.slice(0, 4)) {
+      if (!file.type.startsWith("image/")) continue;
+      // 服务端 chat.attachments 默认上限 20MB，base64 还有 4/3 膨胀，raw 收到 12MB
+      if (file.size > 12 * 1024 * 1024) {
+        console.error("[ChatPanel] image too large (cap 12MB), skipped:", file.name, file.size);
+        continue;
+      }
+      try {
+        const { base64, dataUrl } = await readFileAsBase64(file);
+        setPendingImages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            base64,
+            dataUrl,
+            mimeType: file.type,
+            fileName: file.name || "image.png",
+          },
+        ]);
+      } catch (err) {
+        console.error("[ChatPanel] read image failed:", err);
+      }
+    }
+  }
+
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
-    if (!msg || !connected || isGenerating) return;
+    if ((!msg && pendingImages.length === 0) || !connected || isGenerating) return;
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -680,9 +775,19 @@ function ChatPanel({
       timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    // 自己发消息意味着要跟到底部
+    nearBottomRef.current = true;
     setInput("");
     setShowCmdPalette(false);
     setToolCalls([]);
+
+    const attachments: OutgoingImageAttachment[] = pendingImages.map((p) => ({
+      type: "image",
+      mimeType: p.mimeType,
+      fileName: p.fileName,
+      content: p.base64,
+    }));
+    setPendingImages([]);
 
     // 生图模式：把请求发给秋秋 agent，由她调用 image_generate 工具生成
     // （直接传原文给工具会被模型当字面 prompt，中文描述如"自己的立绘"
@@ -702,7 +807,7 @@ function ChatPanel({
 
     setIsGenerating(true);
     try {
-      await gateway.sendMessage(msg);
+      await gateway.sendMessage(msg, undefined, attachments.length ? attachments : undefined);
     } catch (err) {
       console.error("send failed:", err);
       setIsGenerating(false);
@@ -780,7 +885,7 @@ function ChatPanel({
   const hasStreaming = streamingText.length > 0;
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 relative">
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 h-12 border-b shrink-0"
@@ -1084,8 +1189,9 @@ function ChatPanel({
         onScroll={(e) => {
           const el = e.currentTarget;
           nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          setShowJump(!nearBottomRef.current);
         }}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto"
       >
         {messages.length === 0 &&
           !hasStreaming &&
@@ -1125,195 +1231,226 @@ function ChatPanel({
             </div>
           ))}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
-          >
-            {msg.role === "assistant" && (
-              <EditableAvatar
-                src={agentAvatarSrc}
-                icon={<Bot size={26} />}
-                uploading={avatarBusy === "agent"}
-                title="更换秋秋头像"
-                onPick={(file) => handlePickAvatar("agent", file)}
-              />
-            )}
-            <div
-              className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
-              style={{
-                background: msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
-                color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
-                border: msg.role === "assistant" ? "1px solid var(--border)" : "none",
-                boxShadow:
-                  msg.role === "user"
-                    ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
-                    : "0 1px 2px rgba(0,0,0,0.04)",
-              }}
-            >
-              <MarkdownBlock content={msg.content} />
-              {msg.images && msg.images.length > 0 && (
-                <div className="mt-2 flex flex-col gap-2">
-                  {msg.images.map((img, i) => (
-                    <img
-                      key={i}
-                      src={img.url}
-                      alt={img.alt ?? "生成图片"}
-                      className="max-w-full rounded-xl border"
-                      style={{ borderColor: "var(--border)" }}
-                      loading="lazy"
-                      title={img.alt ?? "生成图片"}
-                    />
-                  ))}
-                </div>
-              )}
-              {msg.role === "assistant" && msg.content && (
-                <button
-                  onClick={() => handleSpeak(msg)}
-                  className="mt-1.5 flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
-                  style={{
-                    background: "color-mix(in srgb, var(--blue-4) 38%, transparent)",
-                    color: speakingMsgId === msg.id ? "var(--accent)" : "var(--blue-9)",
-                    border: "1px solid color-mix(in srgb, var(--blue-6) 35%, transparent)",
-                  }}
-                  title="朗读这条回复"
-                >
-                  <Volume2 size={12} />
-                  {speakingMsgId === msg.id ? "播放中…" : "朗读"}
-                </button>
-              )}
-              {msg.reasoning && (
-                <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                  <summary>思考过程</summary>
-                  <p className="mt-1 whitespace-pre-wrap">{msg.reasoning}</p>
-                </details>
-              )}
-            </div>
-            {msg.role === "user" && (
-              <EditableAvatar
-                src={userAvatar}
-                icon={<User size={26} />}
-                uploading={avatarBusy === "user"}
-                title="更换我的头像"
-                onPick={(file) => handlePickAvatar("user", file)}
-              />
-            )}
-          </div>
-        ))}
-
-        {isGenerating && toolCalls.length > 0 && (
-          <div className="flex flex-col gap-1.5 mb-1">
-            {toolCalls.map((tc, i) => {
-              const running =
-                tc.phase === "start" && tc.result === undefined && tc.error === undefined;
-              const failed = tc.error !== undefined;
-              const preview = formatToolPreview(tc);
-              return (
+        {(messages.length > 0 || isGenerating) && (
+          <div className="max-w-3xl mx-auto w-full px-4 py-4 flex flex-col gap-4">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
+              >
+                {msg.role === "assistant" && (
+                  <EditableAvatar
+                    src={agentAvatarSrc}
+                    icon={<Bot size={26} />}
+                    uploading={avatarBusy === "agent"}
+                    title="更换秋秋头像"
+                    onPick={(file) => handlePickAvatar("agent", file)}
+                  />
+                )}
                 <div
-                  key={i}
-                  className="flex items-start gap-2 rounded-xl px-3 py-2 text-xs"
+                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    msg.role === "assistant" ? "group" : ""
+                  }`}
                   style={{
-                    background: "var(--bg-tertiary)",
-                    border: "1px solid var(--border)",
-                    color: "var(--text-secondary)",
+                    background:
+                      msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
+                    color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
+                    border: `1px solid ${
+                      msg.role === "assistant"
+                        ? "color-mix(in srgb, var(--border) 55%, transparent)"
+                        : "transparent"
+                    }`,
+                    boxShadow:
+                      msg.role === "user"
+                        ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
+                        : "0 1px 3px rgba(0,0,0,0.05)",
                   }}
                 >
-                  {failed ? (
-                    <span className="shrink-0 mt-0.5" style={{ color: "var(--danger)" }}>
-                      失败
-                    </span>
-                  ) : !running ? (
-                    <Check
-                      size={14}
-                      className="shrink-0 mt-0.5"
-                      style={{ color: "var(--success)" }}
-                    />
+                  {msg.content ? (
+                    <MarkdownBlock content={msg.content} />
                   ) : (
-                    <span
-                      className="inline-block w-3 h-3 border-2 rounded-full animate-spin shrink-0 mt-0.5"
-                      style={{
-                        borderColor: "var(--text-secondary)",
-                        borderTopColor: "var(--accent)",
-                      }}
+                    msg.role === "user" && (
+                      <span className="text-sm" style={{ color: "var(--on-solid)" }}>
+                        📷 图片
+                      </span>
+                    )
+                  )}
+                  {msg.images && msg.images.length > 0 && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      {msg.images.map((img, i) => (
+                        <img
+                          key={i}
+                          src={img.url}
+                          alt={img.alt ?? "生成图片"}
+                          onClick={() => setPreviewImg(img)}
+                          className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
+                          style={{ borderColor: "var(--border)" }}
+                          loading="lazy"
+                          title={img.alt ?? "生成图片（点击放大）"}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {msg.role === "assistant" && msg.content && (
+                    <MessageActions
+                      text={msg.content}
+                      speaking={speakingMsgId === msg.id}
+                      onSpeak={() => handleSpeak(msg)}
                     />
                   )}
-                  <div className="min-w-0">
-                    <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-                      {tc.name}
-                    </span>
-                    {preview && (
-                      <div
-                        className="mt-0.5 truncate"
-                        style={{ fontFamily: "var(--font-mono, monospace)" }}
-                      >
-                        {preview}
-                      </div>
-                    )}
-                  </div>
+                  {msg.reasoning && (
+                    <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                      <summary>思考过程</summary>
+                      <p className="mt-1 whitespace-pre-wrap">{msg.reasoning}</p>
+                    </details>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                {msg.role === "user" && (
+                  <EditableAvatar
+                    src={userAvatar}
+                    icon={<User size={26} />}
+                    uploading={avatarBusy === "user"}
+                    title="更换我的头像"
+                    onPick={(file) => handlePickAvatar("user", file)}
+                  />
+                )}
+              </div>
+            ))}
 
-        {isGenerating && streamingReasoning && !hasStreaming && (
-          <div className="flex justify-start">
-            <div
-              className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap"
-              style={{
-                background: "var(--bg-tertiary)",
-                color: "var(--text-secondary)",
-                border: "1px solid var(--border)",
-                fontStyle: "italic",
-              }}
-            >
-              <span className="mb-1 block font-medium not-italic">思考中…</span>
-              {streamingReasoning}
-            </div>
-          </div>
-        )}
+            {isGenerating && toolCalls.length > 0 && (
+              <div className="flex flex-col gap-1 mb-1">
+                {toolCalls.map((tc, i) => {
+                  const running =
+                    tc.phase === "start" && tc.result === undefined && tc.error === undefined;
+                  const failed = tc.error !== undefined;
+                  const preview = formatToolPreview(tc);
+                  // 单行紧凑卡：状态 + 工具名 + 等宽预览截断，与消息卡形成层级差
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs min-w-0"
+                      style={{
+                        background: "var(--bg-tertiary)",
+                        border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {failed ? (
+                        <span className="shrink-0" style={{ color: "var(--danger)" }}>
+                          失败
+                        </span>
+                      ) : !running ? (
+                        <Check size={13} className="shrink-0" style={{ color: "var(--success)" }} />
+                      ) : (
+                        <span
+                          className="inline-block w-3 h-3 border-2 rounded-full animate-spin shrink-0"
+                          style={{
+                            borderColor: "var(--text-secondary)",
+                            borderTopColor: "var(--accent)",
+                          }}
+                        />
+                      )}
+                      <span
+                        className="font-medium shrink-0"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {tc.name}
+                      </span>
+                      {preview && (
+                        <span
+                          className="truncate min-w-0 opacity-80"
+                          style={{ fontFamily: "var(--font-mono, monospace)" }}
+                        >
+                          {preview}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-        {isGenerating && !hasStreaming && !streamingReasoning && (
-          <div className="flex justify-start">
-            <div
-              className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs"
-              style={{
-                background: "var(--assistant-bubble)",
-                color: "var(--text-secondary)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              <span
-                className="inline-block w-3 h-3 border-2 rounded-full animate-spin"
-                style={{
-                  borderColor: "var(--text-secondary)",
-                  borderTopColor: "var(--accent)",
-                }}
-              />
-              响应中... {elapsed}s
-            </div>
-          </div>
-        )}
+            {isGenerating && streamingReasoning && !hasStreaming && (
+              <div className="flex justify-start">
+                <div
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  <span className="mb-1 block font-medium not-italic">思考中…</span>
+                  {streamingReasoning}
+                </div>
+              </div>
+            )}
 
-        {hasStreaming && (
-          <div className="flex justify-start">
-            <div
-              className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
-              style={{
-                background: "var(--assistant-bubble)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              {streamingText}
-              <span
-                className="inline-block w-1.5 h-4 ml-0.5 animate-pulse"
-                style={{ background: "var(--accent)" }}
-              />
-            </div>
+            {isGenerating && !hasStreaming && !streamingReasoning && (
+              <div className="flex justify-start">
+                <div
+                  className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs"
+                  style={{
+                    background: "var(--assistant-bubble)",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  <span
+                    className="inline-block w-3 h-3 border-2 rounded-full animate-spin"
+                    style={{
+                      borderColor: "var(--text-secondary)",
+                      borderTopColor: "var(--accent)",
+                    }}
+                  />
+                  响应中... {elapsed}s
+                </div>
+              </div>
+            )}
+
+            {hasStreaming && (
+              <div className="flex justify-start">
+                <div
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
+                  style={{
+                    background: "var(--assistant-bubble)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {streamingText}
+                  <span
+                    className="inline-block w-1.5 h-4 ml-0.5 animate-pulse"
+                    style={{ background: "var(--accent)" }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* 回到底部：上翻后流式继续时出现 */}
+      {showJump && (
+        <button
+          onClick={() => {
+            nearBottomRef.current = true;
+            setShowJump(false);
+            const el = listRef.current;
+            if (el) el.scrollTop = el.scrollHeight;
+          }}
+          className="absolute left-1/2 -translate-x-1/2 bottom-28 z-20 flex items-center gap-1 rounded-full px-3 py-1.5 text-xs shadow-lg border transition-opacity hover:opacity-90"
+          style={{
+            background: "var(--bg-secondary)",
+            borderColor: "var(--border)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <ArrowDown size={12} />
+          回到底部
+        </button>
+      )}
 
       {/* Status bar */}
       {connected && (
@@ -1366,89 +1503,165 @@ function ChatPanel({
         )}
 
         <div
-          className="flex items-end gap-2 rounded-xl px-3 py-2"
-          style={{ background: "var(--bg-tertiary)" }}
+          className="input-shell flex flex-col rounded-2xl px-3 py-2 border transition-all"
+          style={{
+            background: "var(--bg-secondary)",
+            borderColor: "var(--border)",
+          }}
         >
-          <button
-            onClick={() => setImageMode((m) => !m)}
-            disabled={!connected}
-            className="shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-30"
-            style={
-              imageMode
-                ? { background: "var(--accent)", color: "var(--on-solid)" }
-                : { color: "var(--text-secondary)", background: "var(--bg-secondary)" }
-            }
-            title="生图模式（Stepfun）"
-          >
-            <Palette size={16} />
-          </button>
-          {imageMode && (
-            <select
-              value={imageSize}
-              onChange={(e) => setImageSize(e.target.value)}
-              disabled={!connected || imagePending}
-              className="shrink-0 rounded-lg px-2 py-1.5 text-xs outline-none disabled:opacity-50"
-              style={{
-                background: "var(--bg-secondary)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border)",
-              }}
-              title="图片尺寸"
-            >
-              {IMAGE_SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
+          {pendingImages.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-1 pt-1 pb-0.5">
+              {pendingImages.map((p) => (
+                <div key={p.id} className="relative">
+                  <img
+                    src={p.dataUrl}
+                    alt={p.fileName}
+                    className="w-12 h-12 rounded-lg object-cover border"
+                    style={{ borderColor: "var(--border)" }}
+                  />
+                  <button
+                    onClick={() => setPendingImages((prev) => prev.filter((x) => x.id !== p.id))}
+                    className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 shadow-md"
+                    style={{
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-secondary)",
+                      border: "1px solid var(--border)",
+                    }}
+                    title="移除"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
               ))}
-            </select>
+            </div>
           )}
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              !connected
-                ? "请先连接 Gateway"
-                : imageMode
-                  ? "描述你想生成的图片…"
-                  : "输入消息… （/ 查看命令）"
-            }
-            disabled={!connected || imagePending}
-            rows={1}
-            className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
-            style={{ color: "var(--text-primary)" }}
-          />
-          {imagePending ? (
-            <span
-              className="shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <Loader2 size={14} className="animate-spin" />
-              生成中…
-            </span>
-          ) : isGenerating ? (
+          <div className="flex items-end gap-2">
             <button
-              onClick={handleStop}
-              className="shrink-0 rounded-lg p-1.5"
-              style={{ background: "var(--danger)", color: "var(--on-solid)" }}
-              title="停止生成"
+              onClick={() => setImageMode((m) => !m)}
+              disabled={!connected}
+              className="shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-30"
+              style={
+                imageMode
+                  ? { background: "var(--accent)", color: "var(--on-solid)" }
+                  : { color: "var(--text-secondary)", background: "var(--bg-secondary)" }
+              }
+              title="生图模式（Stepfun）"
             >
-              <Square size={16} fill="currentColor" />
+              <Palette size={16} />
             </button>
-          ) : (
             <button
-              onClick={() => handleSend()}
-              disabled={!connected || !input.trim()}
-              className="shrink-0 rounded-lg p-1.5 disabled:opacity-30"
-              style={{ background: "var(--accent)", color: "var(--on-solid)" }}
-              title={imageMode ? "生成图片" : "发送"}
+              onClick={() => imageInputRef.current?.click()}
+              disabled={!connected}
+              className="shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-30"
+              style={{ color: "var(--text-secondary)", background: "var(--bg-tertiary)" }}
+              title="发送图片（也可直接粘贴截图）"
             >
-              <Send size={16} />
+              <ImagePlus size={16} />
             </button>
-          )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void addPendingImages(Array.from(e.target.files ?? []));
+                e.target.value = "";
+              }}
+            />
+            {imageMode && (
+              <select
+                value={imageSize}
+                onChange={(e) => setImageSize(e.target.value)}
+                disabled={!connected || imagePending}
+                className="shrink-0 rounded-lg px-2 py-1.5 text-xs outline-none disabled:opacity-50"
+                style={{
+                  background: "var(--bg-secondary)",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border)",
+                }}
+                title="图片尺寸"
+              >
+                {IMAGE_SIZES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            )}
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onPaste={(e) => {
+                const files = Array.from(e.clipboardData?.files ?? []).filter((f) =>
+                  f.type.startsWith("image/"),
+                );
+                if (files.length > 0) {
+                  e.preventDefault();
+                  void addPendingImages(files);
+                }
+              }}
+              placeholder={
+                !connected
+                  ? "请先连接 Gateway"
+                  : imageMode
+                    ? "描述你想生成的图片…"
+                    : "输入消息… （/ 查看命令）"
+              }
+              disabled={!connected || imagePending}
+              rows={1}
+              className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
+              style={{ color: "var(--text-primary)" }}
+            />
+            {imagePending ? (
+              <span
+                className="shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                <Loader2 size={14} className="animate-spin" />
+                生成中…
+              </span>
+            ) : isGenerating ? (
+              <button
+                onClick={handleStop}
+                className="shrink-0 rounded-full w-8 h-8 flex items-center justify-center transition-opacity hover:opacity-90"
+                style={{ background: "var(--danger)", color: "var(--on-solid)" }}
+                title="停止生成"
+              >
+                <Square size={14} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                onClick={() => handleSend()}
+                disabled={!connected || (!input.trim() && pendingImages.length === 0)}
+                className="shrink-0 rounded-full w-8 h-8 flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-30"
+                style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+                title={imageMode ? "生成图片" : "发送"}
+              >
+                <Send size={15} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 图片灯箱：点击遮罩关闭 */}
+      {previewImg && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 cursor-zoom-out"
+          onClick={() => setPreviewImg(null)}
+          title="点击任意处关闭"
+        >
+          <img
+            src={previewImg.url}
+            alt={previewImg.alt ?? "预览"}
+            className="max-w-[92vw] max-h-[92vh] rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

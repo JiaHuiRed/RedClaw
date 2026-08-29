@@ -84,7 +84,7 @@ export default function CodePanel({ outputs, width, onResize, onClose }: CodePan
 
   return (
     <aside
-      className="flex flex-col border-l shrink-0 relative"
+      className="flex flex-col rounded-2xl border shrink-0 relative my-2 mr-2"
       style={{
         width,
         background: "var(--bg-secondary)",
