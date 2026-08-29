@@ -19,6 +19,7 @@ import {
   ArrowDown,
   ImagePlus,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
@@ -1233,89 +1234,107 @@ function ChatPanel({
 
         {(messages.length > 0 || isGenerating) && (
           <div className="max-w-3xl mx-auto w-full px-4 py-4 flex flex-col gap-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
-              >
-                {msg.role === "assistant" && (
-                  <EditableAvatar
-                    src={agentAvatarSrc}
-                    icon={<Bot size={26} />}
-                    uploading={avatarBusy === "agent"}
-                    title="更换秋秋头像"
-                    onPick={(file) => handlePickAvatar("agent", file)}
-                  />
-                )}
+            {messages.map((msg) =>
+              msg.failed ? (
+                // 生成失败轮：折叠成细条，替代占位文本空泡
+                <div key={msg.id} className="flex justify-start px-1">
+                  <div
+                    className="flex items-center gap-1.5 text-xs"
+                    style={{ color: "var(--text-secondary)" }}
+                    title={
+                      "这一轮生成失败，未产生回复（" +
+                      new Date(msg.timestamp).toLocaleTimeString() +
+                      "）"
+                    }
+                  >
+                    <AlertCircle size={12} style={{ color: "var(--warning)" }} />
+                    本轮生成失败，未产生回复
+                  </div>
+                </div>
+              ) : (
                 <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                    msg.role === "assistant" ? "group" : ""
-                  }`}
-                  style={{
-                    background:
-                      msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
-                    color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
-                    border: `1px solid ${
-                      msg.role === "assistant"
-                        ? "color-mix(in srgb, var(--border) 55%, transparent)"
-                        : "transparent"
-                    }`,
-                    boxShadow:
-                      msg.role === "user"
-                        ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
-                        : "0 1px 3px rgba(0,0,0,0.05)",
-                  }}
+                  key={msg.id}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
                 >
-                  {msg.content ? (
-                    <MarkdownBlock content={msg.content} />
-                  ) : (
-                    msg.role === "user" && (
-                      <span className="text-sm" style={{ color: "var(--on-solid)" }}>
-                        📷 图片
-                      </span>
-                    )
-                  )}
-                  {msg.images && msg.images.length > 0 && (
-                    <div className="mt-2 flex flex-col gap-2">
-                      {msg.images.map((img, i) => (
-                        <img
-                          key={i}
-                          src={img.url}
-                          alt={img.alt ?? "生成图片"}
-                          onClick={() => setPreviewImg(img)}
-                          className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
-                          style={{ borderColor: "var(--border)" }}
-                          loading="lazy"
-                          title={img.alt ?? "生成图片（点击放大）"}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {msg.role === "assistant" && msg.content && (
-                    <MessageActions
-                      text={msg.content}
-                      speaking={speakingMsgId === msg.id}
-                      onSpeak={() => handleSpeak(msg)}
+                  {msg.role === "assistant" && (
+                    <EditableAvatar
+                      src={agentAvatarSrc}
+                      icon={<Bot size={26} />}
+                      uploading={avatarBusy === "agent"}
+                      title="更换秋秋头像"
+                      onPick={(file) => handlePickAvatar("agent", file)}
                     />
                   )}
-                  {msg.reasoning && (
-                    <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                      <summary>思考过程</summary>
-                      <p className="mt-1 whitespace-pre-wrap">{msg.reasoning}</p>
-                    </details>
+                  <div
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                      msg.role === "assistant" ? "group" : ""
+                    }`}
+                    style={{
+                      background:
+                        msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
+                      color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
+                      border: `1px solid ${
+                        msg.role === "assistant"
+                          ? "color-mix(in srgb, var(--border) 55%, transparent)"
+                          : "transparent"
+                      }`,
+                      boxShadow:
+                        msg.role === "user"
+                          ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
+                          : "0 1px 3px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    {msg.content ? (
+                      <MarkdownBlock content={msg.content} />
+                    ) : (
+                      msg.role === "user" && (
+                        <span className="text-sm" style={{ color: "var(--on-solid)" }}>
+                          📷 图片
+                        </span>
+                      )
+                    )}
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        {msg.images.map((img, i) => (
+                          <img
+                            key={i}
+                            src={img.url}
+                            alt={img.alt ?? "生成图片"}
+                            onClick={() => setPreviewImg(img)}
+                            className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
+                            style={{ borderColor: "var(--border)" }}
+                            loading="lazy"
+                            title={img.alt ?? "生成图片（点击放大）"}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {msg.role === "assistant" && msg.content && (
+                      <MessageActions
+                        text={msg.content}
+                        speaking={speakingMsgId === msg.id}
+                        onSpeak={() => handleSpeak(msg)}
+                      />
+                    )}
+                    {msg.reasoning && (
+                      <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        <summary>思考过程</summary>
+                        <p className="mt-1 whitespace-pre-wrap">{msg.reasoning}</p>
+                      </details>
+                    )}
+                  </div>
+                  {msg.role === "user" && (
+                    <EditableAvatar
+                      src={userAvatar}
+                      icon={<User size={26} />}
+                      uploading={avatarBusy === "user"}
+                      title="更换我的头像"
+                      onPick={(file) => handlePickAvatar("user", file)}
+                    />
                   )}
                 </div>
-                {msg.role === "user" && (
-                  <EditableAvatar
-                    src={userAvatar}
-                    icon={<User size={26} />}
-                    uploading={avatarBusy === "user"}
-                    title="更换我的头像"
-                    onPick={(file) => handlePickAvatar("user", file)}
-                  />
-                )}
-              </div>
-            ))}
+              ),
+            )}
 
             {isGenerating && toolCalls.length > 0 && (
               <div className="flex flex-col gap-1 mb-1">

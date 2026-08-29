@@ -22,7 +22,13 @@ export interface Message {
   timestamp: number;
   reasoning?: string;
   images?: MessageImage[];
+  // 生成失败轮（占位文本见下）：历史里折叠成细条而不是完整气泡
+  failed?: boolean;
 }
+
+// 与 src/agents/stream-message-shared.ts 的 STREAM_ERROR_FALLBACK_TEXT 对齐：
+// turn 失败时写入 transcript 的唯一占位文本
+const STREAM_ERROR_FALLBACK_TEXT = "[assistant turn failed before producing content]";
 
 export interface ThinkingEvent {
   text: string;
@@ -538,6 +544,17 @@ class GatewayClient {
           // 心跳 ack 文本（HEARTBEAT_OK）不渲染成气泡：server 实时广播已过滤，
           // 但历史投影对带 thinking 块的消息 isHeartbeatOkResponse 不命中，这里文本兜底。
           if (/^HEARTBEAT_OK(\s|$)/.test(content.trim())) {
+            continue;
+          }
+          // 生成失败轮占位：打 failed 标记，UI 折叠成细条，保留时间线但去掉空泡噪音
+          if (content.trim() === STREAM_ERROR_FALLBACK_TEXT) {
+            out.push({
+              id: m.id ?? crypto.randomUUID(),
+              role: "assistant",
+              content: "",
+              timestamp: m.timestamp ?? Date.now(),
+              failed: true,
+            });
             continue;
           }
           const mediaCandidates = [
