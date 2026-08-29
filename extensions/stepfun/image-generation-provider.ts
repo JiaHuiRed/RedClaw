@@ -21,7 +21,7 @@ export function buildStepfunImageGenerationProvider() {
     defaultBaseUrl: "https://api.stepfun.com/step_plan/v1",
     defaultTimeoutMs: 180_000,
     // Stepfun 一次只生成单张，工具层 count>1 时截断为 1
-    resolveCount: ({ req }) => (req.count === undefined || req.count < 1 ? 1 : 1),
+    resolveCount: () => 1,
     buildGenerateRequest: ({ req, model, count }) => ({
       kind: "json",
       body: {
