@@ -30,6 +30,14 @@ export interface ThinkingEvent {
   replace?: boolean;
 }
 
+// 随消息发给 agent 的图片附件（chat.send attachments，base64 无 data: 前缀）
+export interface OutgoingImageAttachment {
+  type: "image";
+  mimeType: string;
+  fileName: string;
+  content: string;
+}
+
 export interface ToolCallEvent {
   phase?: string;
   name?: string;
@@ -323,7 +331,7 @@ class GatewayClient {
     };
   }
 
-  async sendMessage(text: string, sessionKey?: string) {
+  async sendMessage(text: string, sessionKey?: string, attachments?: OutgoingImageAttachment[]) {
     if (!this.connected) throw new Error("Gateway not connected");
     const key = sessionKey ?? this._activeSessionKey;
     const idempotencyKey = crypto.randomUUID();
@@ -331,6 +339,7 @@ class GatewayClient {
       await this._request("chat.send", {
         sessionKey: key,
         message: text,
+        ...(attachments?.length ? { attachments } : {}),
         deliver: false,
         idempotencyKey,
       });

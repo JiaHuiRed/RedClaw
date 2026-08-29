@@ -25,6 +25,30 @@
   --danger: var(--red-9);
   --neutral: var(--gray-9);
   --on-solid: #fff;
+
+  --font-mono: "Cascadia Code", Consolas, "Courier New", monospace;
+}
+
+/* 细滚动条：贴合深浅主题 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 30%, transparent);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+}
+
+/* 输入壳：聚焦时桃粉光晕 */
+.input-shell:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 html,
