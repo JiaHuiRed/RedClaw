@@ -143,6 +143,22 @@ export interface AgentSummary {
   model?: string | { default?: string };
 }
 
+// usage.cost 返回（src/infra/session-cost-usage.types.ts CostUsageSummary 子集）
+export interface UsageCostDaily {
+  date: string;
+  totalTokens: number;
+  totalCost: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+export interface UsageCostSummary {
+  updatedAt: number;
+  days: number;
+  daily: UsageCostDaily[];
+  totals: { totalTokens: number; totalCost: number };
+}
+
 export interface AgentCreateInput {
   name: string;
   workspace: string;
@@ -545,6 +561,28 @@ class GatewayClient {
   async deleteAgent(agentId: string) {
     const res = await this._request("agents.delete", { agentId });
     if (!res.ok) throw new Error(res.error?.message ?? "删除项目区失败");
+  }
+
+  // 用量成本（usage.cost，operator.read）：days=7|30
+  async fetchUsageCost(days: number): Promise<UsageCostSummary | null> {
+    try {
+      const res = await this._request("usage.cost", { days });
+      if (!res.ok) return null;
+      const payload = res.payload as Partial<UsageCostSummary>;
+      if (!payload || !Array.isArray(payload.daily)) return null;
+      return {
+        updatedAt: payload.updatedAt ?? Date.now(),
+        days: payload.days ?? days,
+        daily: payload.daily,
+        totals: {
+          totalTokens: payload.totals?.totalTokens ?? 0,
+          totalCost: payload.totals?.totalCost ?? 0,
+        },
+      };
+    } catch (err) {
+      console.error("[Gateway] fetchUsageCost failed:", err);
+      return null;
+    }
   }
 
   async fetchCommands() {
