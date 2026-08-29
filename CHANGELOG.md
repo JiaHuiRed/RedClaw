@@ -1,5 +1,22 @@
 # 更新日志
 
+## [0.3.16] - 2026-08-29
+
+> GUI 性能三件套（流式渲染/滚动/图片解析）+ 仓库瘦身剪枝。
+
+### 优化
+
+- **流式渲染**（`App.tsx`、`ChatPanel.tsx`、`Sidebar.tsx`）：`streamingText` 从 App 级 state 下沉到 ChatPanel 本地（切会话时统一清理流式残留），ChatPanel/Sidebar 加 `memo`——token 流不再每个 chunk 重渲染整棵应用树，长会话打字卡顿的根因。
+- **滚动跟随**（`ChatPanel.tsx`）：自动滚底改 rAF 合并（同帧多次触发只 reflow 一次）+ 贴底判定（80px 阈值）——用户上翻看历史时不再被流式输出拉回底部。
+- **图片解析**（`client.ts`）：mediaTicket 按源路径缓存（利用 5 分钟 TTL，上限 200 条），final 消息与 `fetchHistory` 的候选图去重后并行解析——多图消息显示与会话切换从串行 N 次 HTTP 往返降为 1 轮。
+
+### 变更
+
+- **仓库瘦身**：qiu-owo 桌宠 webapp（419MB / 843 文件，纯静态无引用）移出 git 跟踪，磁盘保留；清理 `.git` 内 3 个中断 fetch 残留 tmp_pack（552MB）。
+- **死代码清理**：Tauri 壳移除从未调用的 `tauri-plugin-shell` 注册、`greet` 命令与 serde 依赖（`capabilities` 同步去 `shell:allow-open`）；`tui.ts` 移除未用导入；stepfun `resolveCount` 死三目（`? 1 : 1`）改常量钳制。
+
+---
+
 ## [0.3.15] - 2026-08-28
 
 > P0 修复批次：CORS 收紧、GUI 断连/重连健壮性、待办数据安全 + 测试基建修复。
