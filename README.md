@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
-[![版本](https://img.shields.io/badge/版本-v0.3.19-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.20-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -141,6 +141,7 @@ redclaw onboard   # 中文交互式向导
 
 | 版本    | 内容                                               |
 | ------- | -------------------------------------------------- |
+| v0.3.20 | 用量成本面板 + package.json 死脚本剪枝（-168）     |
 | v0.3.19 | 侧边栏项目区管理（分组/新建/编辑/删除）            |
 | v0.3.18 | 生成失败轮历史折叠为单行细条                       |
 | v0.3.17 | GUI 打磨：发图附件/图片灯箱/悬停操作/消息列居中    |
