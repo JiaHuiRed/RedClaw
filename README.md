@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
-[![版本](https://img.shields.io/badge/版本-v0.3.21-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.22-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -141,6 +141,7 @@ redclaw onboard   # 中文交互式向导
 
 | 版本    | 内容                                               |
 | ------- | -------------------------------------------------- |
+| v0.3.22 | 定时任务面板 + 设置移侧边栏 + cron 轻上下文        |
 | v0.3.21 | IDENTITY.md 废弃（认知瘦身 67→41KB）               |
 | v0.3.20 | 用量成本面板 + package.json 死脚本剪枝（-168）     |
 | v0.3.19 | 侧边栏项目区管理（分组/新建/编辑/删除）            |
