@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ChatPanel from "./components/ChatPanel";
 import CodePanel from "./components/CodePanel";
+import CronPanel from "./components/CronPanel";
 import Sidebar from "./components/Sidebar";
 import TodoPanel from "./components/TodoPanel";
 import UsagePanel from "./components/UsagePanel";
@@ -24,7 +25,7 @@ export default function App() {
   const [connecting, setConnecting] = useState(false);
   const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo" | "usage">("none");
+  const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo" | "usage" | "cron">("none");
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>(gateway.sessionInfo);
   const [commands, setCommands] = useState<CommandEntry[]>(gateway.commands);
   const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
@@ -187,6 +188,9 @@ export default function App() {
   const onToggleUsage = useCallback(() => {
     setRightPanel((p) => (p === "usage" ? "none" : "usage"));
   }, []);
+  const onToggleCron = useCallback(() => {
+    setRightPanel((p) => (p === "cron" ? "none" : "cron"));
+  }, []);
 
   return (
     <div className="flex h-screen w-screen">
@@ -216,6 +220,7 @@ export default function App() {
         onToggleCode={onToggleCode}
         onToggleTodo={onToggleTodo}
         onToggleUsage={onToggleUsage}
+        onToggleCron={onToggleCron}
         loadingHistory={loadingHistory}
       />
       {rightPanel === "code" && (
@@ -235,6 +240,13 @@ export default function App() {
       )}
       {rightPanel === "usage" && (
         <UsagePanel
+          width={rightPanelWidth}
+          onResize={setRightPanelWidth}
+          onClose={() => setRightPanel("none")}
+        />
+      )}
+      {rightPanel === "cron" && (
+        <CronPanel
           width={rightPanelWidth}
           onResize={setRightPanelWidth}
           onClose={() => setRightPanel("none")}

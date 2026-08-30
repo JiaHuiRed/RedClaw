@@ -11,6 +11,7 @@ import {
   ChevronRight,
   FolderPlus,
   Folder,
+  Settings,
 } from "lucide-react";
 import {
   useState,
@@ -25,6 +26,7 @@ import { gateway, type ChatSession, type AgentSummary } from "../gateway/client"
 import type { ConnectionState } from "../lib/connectionStatus";
 import ConnectionBadge from "./ConnectionBadge";
 import ProjectAreaModal from "./ProjectAreaModal";
+import SettingsModal from "./SettingsModal";
 
 const COLLAPSED_KEY = "redclaw:sidebarCollapsed";
 const WIDTH_KEY = "redclaw:sidebarWidth";
@@ -107,6 +109,7 @@ function Sidebar({
     mode: "create" | "edit";
     agent?: AgentSummary;
   } | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const areaConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -593,7 +596,7 @@ function Sidebar({
           </div>
         )}
 
-        {/* Footer：新建项目区 + 版本 */}
+        {/* Footer：新建项目区 + 设置 + 版本 */}
         {!collapsed && (
           <div
             className="p-3 border-t flex items-center justify-between"
@@ -609,8 +612,18 @@ function Sidebar({
               <FolderPlus size={13} />
               新建项目区
             </button>
-            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-              v{__REDCLAW_VERSION__}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-1.5 rounded-md hover:opacity-80"
+                style={{ color: "var(--text-secondary)" }}
+                title="设置（主题 / 连接）"
+              >
+                <Settings size={14} />
+              </button>
+              <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                v{__REDCLAW_VERSION__}
+              </div>
             </div>
           </div>
         )}
@@ -636,6 +649,8 @@ function Sidebar({
           onSaved={(agentId, created) => void handleAreaSaved(agentId, created)}
         />
       )}
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>
   );
 }
