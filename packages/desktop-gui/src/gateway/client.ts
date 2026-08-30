@@ -159,6 +159,26 @@ export interface UsageCostSummary {
   totals: { totalTokens: number; totalCost: number };
 }
 
+// cron.* RPC（src/gateway/protocol/schema/cron.ts CronJobSchema 子集）
+export interface CronJobSummary {
+  id: string;
+  agentId?: string;
+  name: string;
+  enabled: boolean;
+  schedule: { kind: string; expr?: string; everyMs?: number; tz?: string };
+  payload: { kind: string; message?: string; lightContext?: boolean };
+  state: { nextRunAtMs?: number; lastRunAtMs?: number; lastRunStatus?: string };
+  delivery?: { mode?: string };
+}
+
+export interface CronCreateInput {
+  name: string;
+  scheduleExpr: string;
+  message: string;
+  agentId?: string;
+  lightContext?: boolean;
+}
+
 export interface AgentCreateInput {
   name: string;
   workspace: string;
@@ -583,6 +603,47 @@ class GatewayClient {
       console.error("[Gateway] fetchUsageCost failed:", err);
       return null;
     }
+  }
+
+  // 定时任务管理（cron.*，operator admin 写）
+  async fetchCronJobs(): Promise<CronJobSummary[]> {
+    const res = await this._request("cron.list", { includeDisabled: true });
+    const payload = res.payload as { jobs?: CronJobSummary[] };
+    return Array.isArray(payload?.jobs) ? payload.jobs : [];
+  }
+
+  async cronSetEnabled(id: string, enabled: boolean) {
+    const res = await this._request("cron.update", { id, patch: { enabled } });
+    if (!res.ok) throw new Error(res.error?.message ?? "更新定时任务失败");
+  }
+
+  async cronRemove(id: string) {
+    const res = await this._request("cron.remove", { id });
+    if (!res.ok) throw new Error(res.error?.message ?? "删除定时任务失败");
+  }
+
+  async cronRunNow(id: string) {
+    const res = await this._request("cron.run", { id, mode: "force" });
+    if (!res.ok) throw new Error(res.error?.message ?? "触发运行失败");
+  }
+
+  async cronCreate(input: CronCreateInput): Promise<{ id: string }> {
+    const res = await this._request("cron.add", {
+      name: input.name,
+      schedule: { kind: "cron", expr: input.scheduleExpr, tz: "Asia/Hong_Kong" },
+      sessionTarget: "isolated",
+      wakeMode: "now",
+      payload: {
+        kind: "agentTurn",
+        message: input.message,
+        ...(input.lightContext ? { lightContext: true } : {}),
+      },
+      delivery: { mode: "none" },
+      ...(input.agentId ? { agentId: input.agentId } : {}),
+    });
+    if (!res.ok) throw new Error(res.error?.message ?? "新建定时任务失败");
+    const payload = res.payload as { id?: string };
+    return { id: payload?.id ?? "" };
   }
 
   async fetchCommands() {

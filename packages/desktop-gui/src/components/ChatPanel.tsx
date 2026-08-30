@@ -8,9 +8,9 @@ import {
   Copy,
   Check,
   Square,
-  Settings,
   ListTodo,
   Coins,
+  CalendarClock,
   Volume2,
   Bot,
   User,
@@ -38,13 +38,10 @@ import {
 } from "../gateway/client";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
 import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
-import { useTheme } from "../theme/useTheme";
 import ChatEmptyState from "./ChatEmptyState";
 import CommandPalette from "./CommandPalette";
 
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
-const GATEWAY_URL_KEY = "redclaw:gatewayUrl:v2";
-const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
 // v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
 const USER_AVATAR_KEY = "redclaw:userAvatar:v1";
 const AVATAR_SIZE = 256;
@@ -396,6 +393,7 @@ interface ChatPanelProps {
   onToggleCode: () => void;
   onToggleTodo: () => void;
   onToggleUsage: () => void;
+  onToggleCron: () => void;
   loadingHistory?: boolean;
 }
 
@@ -417,6 +415,7 @@ function ChatPanel({
   onToggleCode,
   onToggleTodo,
   onToggleUsage,
+  onToggleCron,
   loadingHistory,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -470,14 +469,7 @@ function ChatPanel({
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [availableModels, setAvailableModels] = useState<ModelEntry[]>(gateway.models);
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsUrl, setSettingsUrl] = useState(() => localStorage.getItem(GATEWAY_URL_KEY) ?? "");
-  const [settingsToken, setSettingsToken] = useState(
-    () => localStorage.getItem(GATEWAY_TOKEN_KEY) ?? "",
-  );
-  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const modelSelectorRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
   // 用户上翻看历史时不被拉回底部。
@@ -496,30 +488,6 @@ function ChatPanel({
     if (showModelSelector) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showModelSelector]);
-
-  // Close settings popover on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setShowSettings(false);
-      }
-    }
-    if (showSettings) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showSettings]);
-
-  function handleSaveSettings() {
-    const url = settingsUrl.trim();
-    const token = settingsToken.trim();
-    if (url) localStorage.setItem(GATEWAY_URL_KEY, url);
-    else localStorage.removeItem(GATEWAY_URL_KEY);
-    if (token) localStorage.setItem(GATEWAY_TOKEN_KEY, token);
-    else localStorage.removeItem(GATEWAY_TOKEN_KEY);
-    gateway.configure(url || undefined, token);
-    setShowSettings(false);
-    gateway.stop();
-    gateway.start();
-  }
 
   const paletteItems = useMemo(
     () => getVisibleItems(commands, input, cmdCategory),
@@ -1050,98 +1018,6 @@ function ChatPanel({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative" ref={settingsRef}>
-            <button
-              onClick={() => setShowSettings((v) => !v)}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-              style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
-              title="连接设置"
-            >
-              <Settings size={14} />
-            </button>
-            {showSettings && (
-              <div
-                className="absolute top-full right-0 mt-1 w-72 rounded-xl border shadow-lg z-50 p-3 space-y-2"
-                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
-              >
-                <div>
-                  <div
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    主题
-                  </div>
-                  <div className="flex gap-1">
-                    {(
-                      [
-                        ["light", "浅色"],
-                        ["dark", "深色"],
-                        ["system", "跟随系统"],
-                      ] as const
-                    ).map(([value, label]) => {
-                      const active = themePreference === value;
-                      return (
-                        <button
-                          key={value}
-                          onClick={() => setThemePreference(value)}
-                          className="flex-1 text-[10px] py-1.5 rounded-md font-medium transition-colors hover:opacity-80"
-                          style={{
-                            background: active ? "var(--accent)" : "var(--bg-tertiary)",
-                            color: active ? "var(--on-solid)" : "var(--text-secondary)",
-                          }}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div
-                  style={{ borderTop: "1px solid var(--border)", paddingTop: "0.5rem" }}
-                  className="space-y-2"
-                >
-                  <div>
-                    <div
-                      className="text-[10px] uppercase tracking-wider mb-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Gateway URL
-                    </div>
-                    <input
-                      className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
-                      style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
-                      placeholder="ws://127.0.0.1:18789"
-                      value={settingsUrl}
-                      onChange={(e) => setSettingsUrl(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div
-                      className="text-[10px] uppercase tracking-wider mb-1"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Token
-                    </div>
-                    <input
-                      type="password"
-                      className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
-                      style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
-                      placeholder="gateway.auth.token"
-                      value={settingsToken}
-                      onChange={(e) => setSettingsToken(e.target.value)}
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveSettings}
-                    className="w-full text-xs py-1.5 rounded-md font-medium hover:opacity-80"
-                    style={{ background: "var(--accent)", color: "var(--on-solid)" }}
-                  >
-                    保存并重连
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
           <button
             onClick={onToggleTodo}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
@@ -1158,6 +1034,15 @@ function ChatPanel({
           >
             <Coins size={14} />
             用量
+          </button>
+          <button
+            onClick={onToggleCron}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
+            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            title="定时任务"
+          >
+            <CalendarClock size={14} />
+            定时
           </button>
           <button
             onClick={onToggleCode}
