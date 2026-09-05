@@ -15,7 +15,7 @@ import {
   createLazyRuntimeModule,
   createLazyRuntimeSurface,
 } from "../../shared/lazy-runtime.js";
-import { VERSION } from "../../version.js";
+import { resolveCompatibilityHostVersion } from "../../version.js";
 import {
   generateVideo as generateRuntimeVideo,
   listRuntimeVideoGenerationProviders,
@@ -231,7 +231,10 @@ export function createPluginRuntime(_options: CreatePluginRuntimeOptions = {}): 
   const runtime = {
     // Sourced from the shared OpenClaw version resolver (#52899) so plugins
     // always see the same version the CLI reports, avoiding API-version drift.
-    version: VERSION,
+    // RedClaw fork keeps semver internally; plugins from the upstream ecosystem
+    // (e.g. @tencent-weixin/openclaw-weixin) gate on the date-based host
+    // version, so the plugin-facing surface reports the compatibility value.
+    version: resolveCompatibilityHostVersion(),
     config: createRuntimeConfig(),
     agent: createRuntimeAgent(),
     subagent: createLateBindingSubagent(
