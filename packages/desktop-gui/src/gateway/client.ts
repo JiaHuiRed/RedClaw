@@ -148,15 +148,25 @@ export interface UsageCostDaily {
   date: string;
   totalTokens: number;
   totalCost: number;
-  inputTokens?: number;
-  outputTokens?: number;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
 }
 
 export interface UsageCostSummary {
   updatedAt: number;
   days: number;
   daily: UsageCostDaily[];
-  totals: { totalTokens: number; totalCost: number };
+  totals: {
+    totalTokens: number;
+    totalCost: number;
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+  };
+  cacheStatus?: { status: "fresh" | "partial" | "stale" | "refreshing" };
 }
 
 // cron.* RPC（src/gateway/protocol/schema/cron.ts CronJobSchema 子集）
@@ -597,7 +607,12 @@ class GatewayClient {
         totals: {
           totalTokens: payload.totals?.totalTokens ?? 0,
           totalCost: payload.totals?.totalCost ?? 0,
+          input: payload.totals?.input ?? 0,
+          output: payload.totals?.output ?? 0,
+          cacheRead: payload.totals?.cacheRead ?? 0,
+          cacheWrite: payload.totals?.cacheWrite ?? 0,
         },
+        cacheStatus: payload.cacheStatus,
       };
     } catch (err) {
       console.error("[Gateway] fetchUsageCost failed:", err);
