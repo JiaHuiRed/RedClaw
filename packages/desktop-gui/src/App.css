@@ -24,6 +24,8 @@
   --warning: var(--amber-9);
   --danger: var(--red-9);
   --neutral: var(--gray-9);
+  --info: var(--blue-9);
+  --violet: var(--violet-9);
   --on-solid: #fff;
 
   --font-mono: "Cascadia Code", Consolas, "Courier New", monospace;

@@ -169,6 +169,23 @@ export interface UsageCostSummary {
   cacheStatus?: { status: "fresh" | "partial" | "stale" | "refreshing" };
 }
 
+// memory.overview 返回（src/gateway/server-methods/memory.ts）
+export interface MemoryFileMeta {
+  name: string;
+  size: number;
+  updatedAtMs: number;
+  chars?: number;
+  preview?: string;
+}
+
+export interface MemoryOverview {
+  agentId: string;
+  workspace: string;
+  longTerm: MemoryFileMeta | null;
+  files: MemoryFileMeta[];
+  totals: { files: number; bytes: number; lastUpdatedAtMs: number | null };
+}
+
 // cron.* RPC（src/gateway/protocol/schema/cron.ts CronJobSchema 子集）
 export interface CronJobSummary {
   id: string;
@@ -616,6 +633,31 @@ class GatewayClient {
       };
     } catch (err) {
       console.error("[Gateway] fetchUsageCost failed:", err);
+      return null;
+    }
+  }
+
+  // 记忆概览（memory.overview，operator.read）：MEMORY.md + memory/ 目录
+  async fetchMemoryOverview(agentId?: string): Promise<MemoryOverview | null> {
+    try {
+      const id = agentId ?? this._agentId;
+      const res = await this._request("memory.overview", id ? { agentId: id } : {});
+      if (!res.ok) return null;
+      const payload = res.payload as Partial<MemoryOverview>;
+      if (!payload || !Array.isArray(payload.files)) return null;
+      return {
+        agentId: payload.agentId ?? id ?? "main",
+        workspace: payload.workspace ?? "",
+        longTerm: payload.longTerm ?? null,
+        files: payload.files,
+        totals: {
+          files: payload.totals?.files ?? 0,
+          bytes: payload.totals?.bytes ?? 0,
+          lastUpdatedAtMs: payload.totals?.lastUpdatedAtMs ?? null,
+        },
+      };
+    } catch (err) {
+      console.error("[Gateway] fetchMemoryOverview failed:", err);
       return null;
     }
   }

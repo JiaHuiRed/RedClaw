@@ -90,6 +90,7 @@ export const CORE_GATEWAY_METHOD_SPECS: readonly CoreGatewayMethodSpec[] = [
   { name: "todo.add", scope: "operator.write" },
   { name: "todo.update", scope: "operator.write" },
   { name: "todo.remove", scope: "operator.write" },
+  { name: "memory.overview", scope: "operator.read" },
   { name: "models.list", scope: "operator.read", startup: true },
   { name: "models.authStatus", scope: "operator.read" },
   { name: "models.authLogout", scope: "operator.admin", controlPlaneWrite: true },
