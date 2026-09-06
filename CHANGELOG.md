@@ -1,5 +1,25 @@
 # 更新日志
 
+## [0.3.26] - 2026-09-06
+
+> 减法工程第一批落地：剪除上游遗留的笨重子系统，累计 **-90k 行、~450 文件**。核心回路（chat → agent → memory/dream → heartbeat → cron → 微信 → GUI）零改动。
+
+### 移除
+
+- **S1 捆绑 QQ 适配器**（`extensions/qqbot`，206 文件 / -33k 行）：微信经腾讯官方外部插件接入，渠道插件契约保留；QQ 适配器零配置零使用。
+- **S2 实时语音栈**（204 文件 / -33k 行）：`src/talk`、`realtime-transcription`、voicewake、webui 语音面板、openai/elevenlabs 的 realtime provider——语音对讲与唤醒词属上游多端语音产品线。保留 `src/tts` + speech-core（openai TTS 朗读）。
+- **S4 crestodian 救援助手 + TUI 终端界面**（98 文件 / -24k 行）：维护者救援对话系统与终端 UI 无消费方；保留 `src/terminal` 渲染工具（CLI 公用）。wizard 破壳流程移除 TUI 选项。
+
+### 修复
+
+- **微信插件版本门禁**（0.3.25 已述）后续：openai 扩展中残留的 proxy-capture 引用导致插件加载失败，已摘除（调试抓包工具属 S5 移除范围）。
+- **网关看门狗**：微信渠道成为唯一移动入口后，网关趴窗 = 消息无人接收。新增 `gateway-watchdog.ps1`（手动注册计划任务，5 分钟巡检自动拉起）。
+
+### 说明
+
+- S3（设备节点/配对/小米扩展）与 ACP（143 文件引用）为最深两块，随后续批次处理；S5（music/video/comfy）清单已备。
+- 教训记录：剪枝期间网关自动重启会加载半成品 dist——已将"重启后立刻健康检查"纳入流程。
+
 ## [0.3.25] - 2026-09-05
 
 > 微信渠道回归：RedClaw 改名后腾讯 weixin 插件拒绝加载的根因修复。

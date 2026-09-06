@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
-[![版本](https://img.shields.io/badge/版本-v0.3.25-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.26-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -141,6 +141,7 @@ redclaw onboard   # 中文交互式向导
 
 | 版本    | 内容                                                 |
 | ------- | ---------------------------------------------------- |
+| v0.3.26 | 减法批次一二四：qqbot/语音栈/crestodian+TUI 剪除     |
 | v0.3.24 | 记忆面板（memory.overview）+ 面板彩色卡片 + 按压浮起 |
 | v0.3.25 | 微信渠道回归（腾讯 weixin 插件兼容门禁修复）         |
 | v0.3.23 | 用量面板 v2（命中率环/活跃统计）                     |
