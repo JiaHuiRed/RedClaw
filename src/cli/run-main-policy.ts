@@ -94,11 +94,7 @@ export function rewriteUpdateFlagArgv(argv: string[]): string[] {
 
 export function shouldEnsureCliPath(argv: string[]): boolean {
   const invocation = resolveCliArgvInvocation(argv);
-  if (
-    invocation.hasHelpOrVersion ||
-    shouldStartCrestodianForBareRoot(argv) ||
-    isBareParentDefaultHelpArgv(argv)
-  ) {
+  if (invocation.hasHelpOrVersion || isBareParentDefaultHelpArgv(argv)) {
     return false;
   }
   return resolveCliCommandPathPolicy(invocation.commandPath).ensureCliPath;
@@ -189,20 +185,6 @@ export function resolvePrecomputedSubcommandHelpFastPath(
     return null;
   }
   return resolveStrictPrecomputedSubcommandHelpCommand(argv);
-}
-
-export function shouldStartCrestodianForBareRoot(argv: string[]): boolean {
-  const invocation = resolveCliArgvInvocation(argv);
-  return invocation.commandPath.length === 0 && !invocation.hasHelpOrVersion;
-}
-
-export function shouldStartCrestodianForModernOnboard(argv: string[]): boolean {
-  const invocation = resolveCliArgvInvocation(argv);
-  return (
-    invocation.commandPath[0] === "onboard" &&
-    argv.includes("--modern") &&
-    !invocation.hasHelpOrVersion
-  );
 }
 
 export function shouldStartProxyForCli(argv: string[]): boolean {
