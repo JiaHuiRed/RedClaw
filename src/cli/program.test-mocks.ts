@@ -87,8 +87,6 @@ vi.mock("./channel-auth.js", () => ({
   runChannelLogin: programMocks.runChannelLogin,
   runChannelLogout: programMocks.runChannelLogout,
 }));
-vi.mock("../tui/tui.js", () => ({ runTui: programMocks.runTui }));
-vi.mock("../crestodian/crestodian.js", () => ({ runCrestodian: programMocks.runCrestodian }));
 vi.mock("../gateway/call.js", () => ({
   callGateway: programMocks.callGateway,
   randomIdempotencyKey: () => "idem-test",

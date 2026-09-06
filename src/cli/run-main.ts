@@ -32,8 +32,6 @@ import {
   resolveMissingPluginCommandMessage as resolveMissingPluginCommandMessageFromPolicy,
   rewriteUpdateFlagArgv,
   shouldEnsureCliPath,
-  shouldStartCrestodianForBareRoot,
-  shouldStartCrestodianForModernOnboard,
   shouldStartProxyForCli,
   shouldUseBrowserHelpFastPath,
   shouldUseNodesHelpFastPath,
@@ -47,8 +45,6 @@ export {
   resolvePrecomputedSubcommandHelpFastPath,
   rewriteUpdateFlagArgv,
   shouldEnsureCliPath,
-  shouldStartCrestodianForBareRoot,
-  shouldStartCrestodianForModernOnboard,
   shouldStartProxyForCli,
   shouldUseBrowserHelpFastPath,
   shouldUseNodesHelpFastPath,
@@ -629,68 +625,6 @@ export async function runCli(argv: string[] = process.argv) {
           );
         }
       }
-    }
-
-    const shouldRunBareRootCrestodian = shouldStartCrestodianForBareRoot(normalizedArgv);
-    const shouldRunModernOnboardCrestodian = shouldStartCrestodianForModernOnboard(normalizedArgv);
-    if (shouldRunBareRootCrestodian || shouldRunModernOnboardCrestodian) {
-      await ensureCliEnvProxyDispatcher();
-    }
-
-    if (shouldRunBareRootCrestodian) {
-      if (await shouldStartOnboardingForFreshInstall(normalizedArgv)) {
-        if (!process.stdin.isTTY || !process.stdout.isTTY) {
-          console.error(
-            "Onboarding needs an interactive TTY. Use `openclaw onboard --non-interactive --accept-risk ...` for automation.",
-          );
-          process.exitCode = 1;
-          return;
-        }
-        const { setupWizardCommand } = await import("../commands/onboard.js");
-        await setupWizardCommand({});
-        return;
-      }
-      if (!process.stdin.isTTY || !process.stdout.isTTY) {
-        console.error(
-          'Crestodian needs an interactive TTY. Use `openclaw crestodian --message "status"` for one command.',
-        );
-        process.exitCode = 1;
-        return;
-      }
-      const { runCrestodian } = await import("../crestodian/crestodian.js");
-      const { createCliProgress } = await import("./progress.js");
-      const progress = createCliProgress({
-        label: "Starting Crestodian…",
-        indeterminate: true,
-        delayMs: 0,
-        fallback: "none",
-      });
-      let progressStopped = false;
-      const stopProgress = () => {
-        if (progressStopped) {
-          return;
-        }
-        progressStopped = true;
-        progress.done();
-      };
-      try {
-        await runCrestodian({ onReady: stopProgress });
-      } finally {
-        stopProgress();
-      }
-      return;
-    }
-
-    if (shouldRunModernOnboardCrestodian) {
-      const { runCrestodian } = await import("../crestodian/crestodian.js");
-      const nonInteractive = normalizedArgv.includes("--non-interactive");
-      await runCrestodian({
-        message: nonInteractive ? "overview" : undefined,
-        yes: false,
-        json: normalizedArgv.includes("--json"),
-        interactive: !nonInteractive,
-      });
-      return;
     }
 
     const shouldUseCliEnvProxy =
