@@ -5,11 +5,6 @@ export type CoreCliCommandDescriptor = NamedCommandDescriptor;
 
 const coreCliCommandCatalog = defineCommandDescriptorCatalog([
   {
-    name: "crestodian",
-    description: "Open the interactive setup and repair assistant",
-    hasSubcommands: false,
-  },
-  {
     name: "setup",
     description: "Initialize local config and an agent workspace",
     hasSubcommands: false,

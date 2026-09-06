@@ -827,7 +827,7 @@ export async function runSetupWizard(
   });
 
   const { finalizeSetupWizard } = await import("./setup.finalize.js");
-  const { launchedTui } = await finalizeSetupWizard({
+  await finalizeSetupWizard({
     flow: wizardFlow,
     opts,
     baseConfig,
@@ -837,7 +837,4 @@ export async function runSetupWizard(
     prompter,
     runtime,
   });
-  if (launchedTui) {
-    return;
-  }
 }

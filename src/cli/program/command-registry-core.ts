@@ -52,11 +52,6 @@ const coreEntrySpecs: readonly CommandGroupDescriptorSpec<
   ...withProgramOnlySpecs(
     defineImportedProgramCommandGroupSpecs([
       {
-        commandNames: ["crestodian"],
-        loadModule: () => import("./register.crestodian.js"),
-        exportName: "registerCrestodianCommand",
-      },
-      {
         commandNames: ["setup"],
         loadModule: () => import("./register.setup.js"),
         exportName: "registerSetupCommand",
