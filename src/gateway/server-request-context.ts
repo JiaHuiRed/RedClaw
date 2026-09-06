@@ -30,7 +30,6 @@ export type GatewayRequestContextParams = {
   nodeSubscribe: GatewayRequestContext["nodeSubscribe"];
   nodeUnsubscribe: GatewayRequestContext["nodeUnsubscribe"];
   nodeUnsubscribeAll: GatewayRequestContext["nodeUnsubscribeAll"];
-  hasConnectedTalkNode: GatewayRequestContext["hasConnectedTalkNode"];
   clients: Set<GatewayRequestContextClient>;
   enforceSharedGatewayAuthGenerationForConfigWrite: (nextConfig: OpenClawConfig) => void;
   nodeRegistry: GatewayRequestContext["nodeRegistry"];
@@ -62,8 +61,6 @@ export type GatewayRequestContextParams = {
   stopChannel: GatewayRequestContext["stopChannel"];
   markChannelLoggedOut: GatewayRequestContext["markChannelLoggedOut"];
   wizardRunner: GatewayRequestContext["wizardRunner"];
-  broadcastVoiceWakeChanged: GatewayRequestContext["broadcastVoiceWakeChanged"];
-  broadcastVoiceWakeRoutingChanged: GatewayRequestContext["broadcastVoiceWakeRoutingChanged"];
   unavailableGatewayMethods: ReadonlySet<string>;
 };
 
@@ -102,7 +99,6 @@ export function createGatewayRequestContext(
     nodeSubscribe: params.nodeSubscribe,
     nodeUnsubscribe: params.nodeUnsubscribe,
     nodeUnsubscribeAll: params.nodeUnsubscribeAll,
-    hasConnectedTalkNode: params.hasConnectedTalkNode,
     hasExecApprovalClients: (excludeConnId?: string) => {
       for (const gatewayClient of params.clients) {
         if (excludeConnId && gatewayClient.connId === excludeConnId) {
@@ -200,8 +196,6 @@ export function createGatewayRequestContext(
     stopChannel: params.stopChannel,
     markChannelLoggedOut: params.markChannelLoggedOut,
     wizardRunner: params.wizardRunner,
-    broadcastVoiceWakeChanged: params.broadcastVoiceWakeChanged,
-    broadcastVoiceWakeRoutingChanged: params.broadcastVoiceWakeRoutingChanged,
     unavailableGatewayMethods: params.unavailableGatewayMethods,
   };
 }

@@ -13,7 +13,6 @@ import {
   registerActiveManagedProxyUrl,
   stopActiveManagedProxyRegistration,
 } from "../infra/net/proxy/active-proxy-state.js";
-import { defaultVoiceWakeTriggers } from "../infra/voicewake.js";
 import { handleControlUiHttpRequest } from "./control-ui.js";
 import {
   DEFAULT_DANGEROUS_NODE_COMMANDS,
@@ -29,7 +28,7 @@ import type { GatewayClient as GatewayMethodClient } from "./server-methods/type
 import type { GatewayRequestContext, RespondFn } from "./server-methods/types.js";
 import { createGatewayNodeSessionRuntime } from "./server-node-session-runtime.js";
 import { createNodeSubscriptionManager } from "./server-node-subscriptions.js";
-import { formatError, normalizeVoiceWakeTriggers } from "./server-utils.js";
+import { formatError } from "./server-utils.js";
 import type { GatewayWsClient } from "./server/ws-types.js";
 
 function makeControlUiResponse() {
@@ -944,18 +943,6 @@ describe("resolveNodeCommandAllowlist", () => {
     expect(allow.has("system.run")).toBe(false);
     expect(allow.has("system.which")).toBe(false);
     expect(allow.has("device.info")).toBe(true);
-  });
-});
-
-describe("normalizeVoiceWakeTriggers", () => {
-  test("returns defaults when input is empty", () => {
-    expect(normalizeVoiceWakeTriggers([])).toEqual(defaultVoiceWakeTriggers());
-    expect(normalizeVoiceWakeTriggers(null)).toEqual(defaultVoiceWakeTriggers());
-  });
-
-  test("trims and limits entries", () => {
-    const result = normalizeVoiceWakeTriggers(["  hello  ", "", "world"]);
-    expect(result).toEqual(["hello", "world"]);
   });
 });
 

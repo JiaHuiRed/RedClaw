@@ -50,7 +50,6 @@ export type {
   ProviderAuthContext,
   ProviderAuthResult,
   ProviderPreparedRuntimeAuth,
-  RealtimeTranscriptionProviderPlugin,
   SpeechProviderPlugin,
   UnifiedModelCatalogProviderContext,
   UnifiedModelCatalogProviderPlugin,

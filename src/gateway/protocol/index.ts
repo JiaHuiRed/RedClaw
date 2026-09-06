@@ -62,58 +62,6 @@ import {
   ChannelsStopParamsSchema,
   type ChannelsLogoutParams,
   ChannelsLogoutParamsSchema,
-  type TalkEvent,
-  TalkEventSchema,
-  type TalkCatalogParams,
-  TalkCatalogParamsSchema,
-  type TalkCatalogResult,
-  TalkCatalogResultSchema,
-  type TalkClientCreateParams,
-  TalkClientCreateParamsSchema,
-  type TalkClientCreateResult,
-  TalkClientCreateResultSchema,
-  type TalkAgentControlResult,
-  TalkAgentControlResultSchema,
-  type TalkClientSteerParams,
-  TalkClientSteerParamsSchema,
-  type TalkClientToolCallParams,
-  TalkClientToolCallParamsSchema,
-  type TalkClientToolCallResult,
-  TalkClientToolCallResultSchema,
-  type TalkConfigParams,
-  TalkConfigParamsSchema,
-  type TalkConfigResult,
-  TalkConfigResultSchema,
-  type TalkSessionAppendAudioParams,
-  TalkSessionAppendAudioParamsSchema,
-  type TalkSessionCancelOutputParams,
-  TalkSessionCancelOutputParamsSchema,
-  type TalkSessionCancelTurnParams,
-  TalkSessionCancelTurnParamsSchema,
-  type TalkSessionCloseParams,
-  TalkSessionCloseParamsSchema,
-  type TalkSessionCreateParams,
-  TalkSessionCreateParamsSchema,
-  type TalkSessionCreateResult,
-  TalkSessionCreateResultSchema,
-  type TalkSessionJoinParams,
-  TalkSessionJoinParamsSchema,
-  type TalkSessionJoinResult,
-  TalkSessionJoinResultSchema,
-  type TalkSessionOkResult,
-  TalkSessionOkResultSchema,
-  type TalkSessionSteerParams,
-  TalkSessionSteerParamsSchema,
-  type TalkSessionSubmitToolResultParams,
-  TalkSessionSubmitToolResultParamsSchema,
-  type TalkSessionTurnResult,
-  TalkSessionTurnResultSchema,
-  type TalkSessionTurnParams,
-  TalkSessionTurnParamsSchema,
-  type TalkSpeakParams,
-  TalkSpeakParamsSchema,
-  type TalkSpeakResult,
-  TalkSpeakResultSchema,
   type ChannelsStatusParams,
   ChannelsStatusParamsSchema,
   type ChannelsStatusResult,
@@ -396,8 +344,6 @@ import {
   SnapshotSchema,
   type StateVersion,
   StateVersionSchema,
-  type TalkModeParams,
-  TalkModeParamsSchema,
   type TickEvent,
   TickEventSchema,
   type UpdateRunParams,
@@ -636,69 +582,6 @@ export const validateWizardStartParams = lazyCompile<WizardStartParams>(WizardSt
 export const validateWizardNextParams = lazyCompile<WizardNextParams>(WizardNextParamsSchema);
 export const validateWizardCancelParams = lazyCompile<WizardCancelParams>(WizardCancelParamsSchema);
 export const validateWizardStatusParams = lazyCompile<WizardStatusParams>(WizardStatusParamsSchema);
-export const validateTalkModeParams = lazyCompile<TalkModeParams>(TalkModeParamsSchema);
-export const validateTalkEvent = lazyCompile<TalkEvent>(TalkEventSchema);
-export const validateTalkCatalogParams = lazyCompile<TalkCatalogParams>(TalkCatalogParamsSchema);
-export const validateTalkCatalogResult = lazyCompile<TalkCatalogResult>(TalkCatalogResultSchema);
-export const validateTalkConfigParams = lazyCompile<TalkConfigParams>(TalkConfigParamsSchema);
-export const validateTalkConfigResult = lazyCompile<TalkConfigResult>(TalkConfigResultSchema);
-export const validateTalkClientCreateParams = lazyCompile<TalkClientCreateParams>(
-  TalkClientCreateParamsSchema,
-);
-export const validateTalkClientCreateResult = lazyCompile<TalkClientCreateResult>(
-  TalkClientCreateResultSchema,
-);
-export const validateTalkClientToolCallParams = lazyCompile<TalkClientToolCallParams>(
-  TalkClientToolCallParamsSchema,
-);
-export const validateTalkClientToolCallResult = lazyCompile<TalkClientToolCallResult>(
-  TalkClientToolCallResultSchema,
-);
-export const validateTalkClientSteerParams = lazyCompile<TalkClientSteerParams>(
-  TalkClientSteerParamsSchema,
-);
-export const validateTalkAgentControlResult = lazyCompile<TalkAgentControlResult>(
-  TalkAgentControlResultSchema,
-);
-export const validateTalkSessionCreateParams = lazyCompile<TalkSessionCreateParams>(
-  TalkSessionCreateParamsSchema,
-);
-export const validateTalkSessionCreateResult = lazyCompile<TalkSessionCreateResult>(
-  TalkSessionCreateResultSchema,
-);
-export const validateTalkSessionJoinParams = lazyCompile<TalkSessionJoinParams>(
-  TalkSessionJoinParamsSchema,
-);
-export const validateTalkSessionJoinResult = lazyCompile<TalkSessionJoinResult>(
-  TalkSessionJoinResultSchema,
-);
-export const validateTalkSessionAppendAudioParams = lazyCompile<TalkSessionAppendAudioParams>(
-  TalkSessionAppendAudioParamsSchema,
-);
-export const validateTalkSessionTurnParams = lazyCompile<TalkSessionTurnParams>(
-  TalkSessionTurnParamsSchema,
-);
-export const validateTalkSessionCancelTurnParams = lazyCompile<TalkSessionCancelTurnParams>(
-  TalkSessionCancelTurnParamsSchema,
-);
-export const validateTalkSessionCancelOutputParams = lazyCompile<TalkSessionCancelOutputParams>(
-  TalkSessionCancelOutputParamsSchema,
-);
-export const validateTalkSessionTurnResult = lazyCompile<TalkSessionTurnResult>(
-  TalkSessionTurnResultSchema,
-);
-export const validateTalkSessionSteerParams = lazyCompile<TalkSessionSteerParams>(
-  TalkSessionSteerParamsSchema,
-);
-export const validateTalkSessionSubmitToolResultParams =
-  lazyCompile<TalkSessionSubmitToolResultParams>(TalkSessionSubmitToolResultParamsSchema);
-export const validateTalkSessionCloseParams = lazyCompile<TalkSessionCloseParams>(
-  TalkSessionCloseParamsSchema,
-);
-export const validateTalkSessionOkResult =
-  lazyCompile<TalkSessionOkResult>(TalkSessionOkResultSchema);
-export const validateTalkSpeakParams = lazyCompile<TalkSpeakParams>(TalkSpeakParamsSchema);
-export const validateTalkSpeakResult = lazyCompile<TalkSpeakResult>(TalkSpeakResultSchema);
 export const validateChannelsStatusParams = lazyCompile<ChannelsStatusParams>(
   ChannelsStatusParamsSchema,
 );
@@ -962,32 +845,6 @@ export {
   WizardNextResultSchema,
   WizardStartResultSchema,
   WizardStatusResultSchema,
-  TalkEventSchema,
-  TalkCatalogParamsSchema,
-  TalkCatalogResultSchema,
-  TalkClientCreateParamsSchema,
-  TalkClientCreateResultSchema,
-  TalkAgentControlResultSchema,
-  TalkClientSteerParamsSchema,
-  TalkClientToolCallParamsSchema,
-  TalkClientToolCallResultSchema,
-  TalkConfigParamsSchema,
-  TalkConfigResultSchema,
-  TalkSessionAppendAudioParamsSchema,
-  TalkSessionCancelOutputParamsSchema,
-  TalkSessionCancelTurnParamsSchema,
-  TalkSessionCreateParamsSchema,
-  TalkSessionCreateResultSchema,
-  TalkSessionJoinParamsSchema,
-  TalkSessionJoinResultSchema,
-  TalkSessionTurnParamsSchema,
-  TalkSessionTurnResultSchema,
-  TalkSessionSteerParamsSchema,
-  TalkSessionSubmitToolResultParamsSchema,
-  TalkSessionCloseParamsSchema,
-  TalkSessionOkResultSchema,
-  TalkSpeakParamsSchema,
-  TalkSpeakResultSchema,
   ChannelsStatusParamsSchema,
   ChannelsStatusResultSchema,
   ChannelsStartParamsSchema,
@@ -1099,32 +956,6 @@ export type {
   WizardNextResult,
   WizardStartResult,
   WizardStatusResult,
-  TalkCatalogParams,
-  TalkCatalogResult,
-  TalkClientCreateParams,
-  TalkClientCreateResult,
-  TalkClientSteerParams,
-  TalkAgentControlResult,
-  TalkClientToolCallParams,
-  TalkClientToolCallResult,
-  TalkConfigParams,
-  TalkConfigResult,
-  TalkSessionAppendAudioParams,
-  TalkSessionCancelOutputParams,
-  TalkSessionCancelTurnParams,
-  TalkSessionCreateParams,
-  TalkSessionCreateResult,
-  TalkSessionJoinParams,
-  TalkSessionJoinResult,
-  TalkSessionTurnParams,
-  TalkSessionTurnResult,
-  TalkSessionSteerParams,
-  TalkSessionSubmitToolResultParams,
-  TalkSessionCloseParams,
-  TalkSessionOkResult,
-  TalkSpeakParams,
-  TalkSpeakResult,
-  TalkModeParams,
   ChannelsStatusParams,
   ChannelsStatusResult,
   ChannelsStartParams,

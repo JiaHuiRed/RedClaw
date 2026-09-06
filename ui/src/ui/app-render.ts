@@ -2766,13 +2766,6 @@ export function renderApp(state: AppViewState) {
                   streamStartedAt: state.chatStreamStartedAt,
                   draft: state.chatMessage,
                   queue: state.chatQueue,
-                  realtimeTalkActive: state.realtimeTalkActive,
-                  realtimeTalkStatus: state.realtimeTalkStatus,
-                  realtimeTalkDetail: state.realtimeTalkDetail,
-                  realtimeTalkTranscript: state.realtimeTalkTranscript,
-                  realtimeTalkConversation: state.realtimeTalkConversation,
-                  realtimeTalkOptionsOpen: state.realtimeTalkOptionsOpen,
-                  realtimeTalkOptions: state.realtimeTalkOptions,
                   connected: state.connected,
                   canSend: state.connected,
                   disabledReason: chatDisabledReason,
@@ -2812,11 +2805,6 @@ export function renderApp(state: AppViewState) {
                       ...createChatSessionsLoadOverrides(state),
                     });
                   },
-                  onToggleRealtimeTalk: () => state.toggleRealtimeTalk(),
-                  onToggleRealtimeTalkOptions: () => {
-                    state.realtimeTalkOptionsOpen = !state.realtimeTalkOptionsOpen;
-                  },
-                  onRealtimeTalkOptionsChange: (next) => state.updateRealtimeTalkOptions(next),
                   canAbort: hasAbortableSessionRun(state),
                   onAbort: () => void state.handleAbortChat({ preserveDraft: true }),
                   onQueueRemove: (id) => state.removeQueuedMessage(id),

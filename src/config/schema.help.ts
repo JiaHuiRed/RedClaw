@@ -1,5 +1,4 @@
 import { MEDIA_AUDIO_FIELD_HELP } from "./media-audio-field-metadata.js";
-import { describeTalkSilenceTimeoutDefaults } from "./talk-defaults.js";
 
 export const FIELD_HELP: Record<string, string> = {
   meta: "Metadata fields automatically maintained by OpenClaw to record write/version history for this config file. Keep these values system-managed and avoid manual edits unless debugging migration history.",
@@ -149,39 +148,6 @@ export const FIELD_HELP: Record<string, string> = {
   "gateway.remote.sshTarget":
     "Remote gateway over SSH (tunnels the gateway port to localhost). Format: user@host or user@host:port.",
   "gateway.remote.sshIdentity": "Optional SSH identity file path (passed to ssh -i).",
-  "talk.provider": 'Active Talk provider id (for example "acme-speech").',
-  "talk.providers":
-    "Provider-specific Talk settings keyed by provider id. During migration, prefer this over legacy talk.* keys.",
-  "talk.providers.*": "Provider-owned Talk config fields for the matching provider id.",
-  "talk.providers.*.apiKey": "Provider API key for Talk mode.", // pragma: allowlist secret
-  "talk.realtime":
-    "Realtime Talk provider, model, voice, mode, transport, and brain strategy. Keep speech/TTS provider config in talk.provider and talk.providers.",
-  "talk.realtime.provider": "Active realtime voice provider id, such as openai or google.",
-  "talk.realtime.providers": "Provider-specific realtime voice settings keyed by provider id.",
-  "talk.realtime.providers.*": "Provider-owned realtime voice config for the matching provider id.",
-  "talk.realtime.providers.*.apiKey": "Provider API key for realtime Talk.", // pragma: allowlist secret
-  "talk.realtime.model":
-    "Realtime provider model id override for browser or Gateway-owned Talk sessions.",
-  "talk.realtime.voice":
-    "Realtime provider voice id override for browser or Gateway-owned Talk sessions.",
-  "talk.realtime.instructions":
-    "Additional system instructions appended to OpenClaw's built-in realtime Talk prompt. Use this for voice style, tone, and other provider-facing realtime behavior while keeping agent-consult guidance intact.",
-  "talk.realtime.mode": "Talk execution mode: realtime, stt-tts, or transcription.",
-  "talk.realtime.transport":
-    "Talk byte/session transport: webrtc, provider-websocket, gateway-relay, or managed-room.",
-  "talk.realtime.brain":
-    "Talk reasoning strategy: agent-consult for Gateway-mediated agent help, direct-tools for local tool calls, or none.",
-  "talk.realtime.consultRouting":
-    "Gateway relay fallback for final user transcripts when the realtime provider skips openclaw_agent_consult. provider-direct preserves provider replies; force-agent-consult routes through OpenClaw.",
-  "talk.consultThinkingLevel":
-    "Use this to override the thinking level for the regular agent run behind Talk realtime consults.",
-  "talk.consultFastMode":
-    "Use this to set true or false fast mode for the regular agent run behind Talk realtime consults.",
-  "talk.speechLocale":
-    'BCP 47 locale id for Talk speech recognition on device nodes, for example "ru-RU". Leave unset to use each device default.',
-  "talk.interruptOnSpeech":
-    "If true (default), stop assistant speech when the user starts speaking in Talk mode. Keep enabled for conversational turn-taking.",
-  "talk.silenceTimeoutMs": `Milliseconds of user silence before Talk mode finalizes and sends the current transcript. Leave unset to keep the platform default pause window (${describeTalkSilenceTimeoutDefaults()}).`,
   acp: "ACP runtime controls for enabling dispatch, selecting backends, constraining allowed agent targets, and tuning streamed turn projection behavior.",
   "acp.enabled":
     "Global ACP feature gate. Keep disabled unless ACP runtime + policy are configured.",
@@ -498,7 +464,6 @@ export const FIELD_HELP: Record<string, string> = {
     "Maximum time in milliseconds Baileys waits for the WhatsApp WebSocket opening handshake. Use a higher value on slow or lossy networks that report opening handshake 408 timeouts.",
   "web.whatsapp.defaultQueryTimeoutMs":
     "Default Baileys query timeout in milliseconds for WhatsApp Web requests. Keep aligned with upstream unless a network-specific investigation shows queries need longer.",
-  talk: "Talk-mode voice synthesis settings for voice identity, model selection, output format, and interruption behavior. Use this section to tune human-facing voice UX while controlling latency and cost.",
   "gateway.auth.token":
     "Required by default for gateway access (unless using Tailscale Serve identity); required for non-loopback binds.",
   "gateway.auth.password": "Required for Tailscale funnel.",

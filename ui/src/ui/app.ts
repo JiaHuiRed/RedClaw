@@ -70,17 +70,6 @@ import {
 import type { AppViewState } from "./app-view-state.ts";
 import { normalizeAssistantIdentity } from "./assistant-identity.ts";
 import { exportChatMarkdown } from "./chat/export.ts";
-import {
-  createRealtimeTalkConversationState,
-  updateRealtimeTalkConversation,
-  type RealtimeTalkConversationEntry,
-  type RealtimeTalkConversationState,
-} from "./chat/realtime-talk-conversation.ts";
-import {
-  RealtimeTalkSession,
-  type RealtimeTalkLaunchOptions,
-  type RealtimeTalkStatus,
-} from "./chat/realtime-talk.ts";
 import type { ChatRunUiStatus } from "./chat/run-lifecycle.ts";
 import type { ChatSideResult } from "./chat/side-result.ts";
 import {
@@ -268,25 +257,6 @@ export class OpenClawApp extends LitElement {
   @state() chatQueue: ChatQueueItem[] = [];
   @state() chatQueueBySession: Record<string, ChatQueueItem[]> = {};
   @state() chatAttachments: ChatAttachment[] = [];
-  @state() realtimeTalkActive = false;
-  @state() realtimeTalkStatus: RealtimeTalkStatus = "idle";
-  @state() realtimeTalkDetail: string | null = null;
-  @state() realtimeTalkTranscript: string | null = null;
-  @state() realtimeTalkConversation: RealtimeTalkConversationEntry[] = [];
-  @state() realtimeTalkOptionsOpen = false;
-  @state() realtimeTalkOptions = {
-    provider: "",
-    model: "",
-    voice: "",
-    transport: "",
-    vadThreshold: "",
-    silenceDurationMs: "",
-    prefixPaddingMs: "",
-    reasoningEffort: "",
-  };
-  private realtimeTalkSession: RealtimeTalkSession | null = null;
-  private realtimeTalkConversationState: RealtimeTalkConversationState =
-    createRealtimeTalkConversationState();
   private nativeBridgeCleanup: (() => void) | null = null;
   @state() chatManualRefreshInFlight = false;
   @state() chatHeaderControlsHidden = false;
@@ -1061,110 +1031,6 @@ export class OpenClawApp extends LitElement {
       messageOverride,
       opts,
     );
-  }
-
-  updateRealtimeTalkOptions(next: Partial<typeof this.realtimeTalkOptions>) {
-    this.realtimeTalkOptions = { ...this.realtimeTalkOptions, ...next };
-  }
-
-  private buildRealtimeTalkLaunchOptions(): RealtimeTalkLaunchOptions {
-    const options = this.realtimeTalkOptions ?? {
-      provider: "",
-      model: "",
-      voice: "",
-      transport: "",
-      vadThreshold: "",
-      silenceDurationMs: "",
-      prefixPaddingMs: "",
-      reasoningEffort: "",
-    };
-    const text = (value: string) => value.trim() || undefined;
-    const number = (value: string) => {
-      const trimmed = value.trim();
-      if (!trimmed) {
-        return undefined;
-      }
-      const parsed = Number(trimmed);
-      return Number.isFinite(parsed) ? parsed : undefined;
-    };
-    const transport = text(options.transport) as RealtimeTalkLaunchOptions["transport"] | undefined;
-    return {
-      provider: text(options.provider),
-      model: text(options.model),
-      voice: text(options.voice),
-      transport,
-      vadThreshold: number(options.vadThreshold),
-      silenceDurationMs: number(options.silenceDurationMs),
-      prefixPaddingMs: number(options.prefixPaddingMs),
-      reasoningEffort: text(options.reasoningEffort),
-    };
-  }
-
-  async toggleRealtimeTalk() {
-    if (this.realtimeTalkSession) {
-      if (this.realtimeTalkStatus === "error") {
-        this.realtimeTalkSession.stop();
-        this.realtimeTalkSession = null;
-      } else {
-        this.realtimeTalkSession.stop();
-        this.realtimeTalkSession = null;
-        this.realtimeTalkActive = false;
-        this.realtimeTalkStatus = "idle";
-        this.realtimeTalkDetail = null;
-        this.realtimeTalkTranscript = null;
-        this.resetRealtimeTalkConversation();
-        return;
-      }
-    }
-    if (!this.client || !this.connected) {
-      this.lastError = "Gateway not connected";
-      return;
-    }
-    this.realtimeTalkActive = true;
-    this.realtimeTalkStatus = "connecting";
-    this.realtimeTalkDetail = null;
-    this.realtimeTalkTranscript = null;
-    this.resetRealtimeTalkConversation();
-    const session = new RealtimeTalkSession(
-      this.client,
-      this.sessionKey,
-      {
-        onStatus: (status, detail) => {
-          this.realtimeTalkStatus = status;
-          this.realtimeTalkDetail = detail ?? null;
-          if (status === "idle" || status === "error") {
-            this.realtimeTalkActive = status !== "idle";
-          }
-        },
-        onTranscript: (entry) => {
-          this.realtimeTalkTranscript = `${entry.role === "user" ? "You" : "OpenClaw"}: ${entry.text}`;
-          this.realtimeTalkConversationState = updateRealtimeTalkConversation(
-            this.realtimeTalkConversationState,
-            entry,
-          );
-          this.realtimeTalkConversation = this.realtimeTalkConversationState.entries;
-        },
-      },
-      this.buildRealtimeTalkLaunchOptions(),
-    );
-    this.realtimeTalkSession = session;
-    try {
-      await session.start();
-    } catch (error) {
-      session.stop();
-      if (this.realtimeTalkSession === session) {
-        this.realtimeTalkSession = null;
-      }
-      this.realtimeTalkActive = false;
-      this.realtimeTalkStatus = "error";
-      this.realtimeTalkDetail = error instanceof Error ? error.message : String(error);
-      this.lastError = this.realtimeTalkDetail;
-    }
-  }
-
-  resetRealtimeTalkConversation() {
-    this.realtimeTalkConversationState = createRealtimeTalkConversationState();
-    this.realtimeTalkConversation = [];
   }
 
   async steerQueuedChatMessage(id: string) {

@@ -28,8 +28,6 @@ import {
 import type { ChatInputHistoryKeyInput, ChatInputHistoryKeyResult } from "../chat/input-history.ts";
 import { PinnedMessages } from "../chat/pinned-messages.ts";
 import { getPinnedMessageSummary } from "../chat/pinned-summary.ts";
-import type { RealtimeTalkConversationEntry } from "../chat/realtime-talk-conversation.ts";
-import type { RealtimeTalkStatus } from "../chat/realtime-talk.ts";
 import { renderChatRunControls } from "../chat/run-controls.ts";
 import type { ChatRunUiStatus } from "../chat/run-lifecycle.ts";
 import { getOrCreateSessionCacheValue } from "../chat/session-cache.ts";
@@ -97,22 +95,6 @@ export type ChatProps = {
   assistantAvatarUrl?: string | null;
   draft: string;
   queue: ChatQueueItem[];
-  realtimeTalkActive?: boolean;
-  realtimeTalkStatus?: RealtimeTalkStatus;
-  realtimeTalkDetail?: string | null;
-  realtimeTalkTranscript?: string | null;
-  realtimeTalkConversation?: RealtimeTalkConversationEntry[];
-  realtimeTalkOptionsOpen?: boolean;
-  realtimeTalkOptions?: {
-    provider: string;
-    model: string;
-    voice: string;
-    transport: string;
-    vadThreshold: string;
-    silenceDurationMs: string;
-    prefixPaddingMs: string;
-    reasoningEffort: string;
-  };
   connected: boolean;
   canSend: boolean;
   disabledReason: string | null;
@@ -146,11 +128,6 @@ export type ChatProps = {
   onSend: () => void;
   onCompact?: () => void | Promise<void>;
   onOpenSessionCheckpoints?: () => void | Promise<void>;
-  onToggleRealtimeTalk?: () => void;
-  onToggleRealtimeTalkOptions?: () => void;
-  onRealtimeTalkOptionsChange?: (
-    next: Partial<NonNullable<ChatProps["realtimeTalkOptions"]>>,
-  ) => void;
   onDismissError?: () => void;
   onAbort?: () => void;
   onQueueRemove: (id: string) => void;
@@ -192,177 +169,6 @@ function getDeletedMessages(sessionKey: string): DeletedMessages {
     sessionKey,
     () => new DeletedMessages(sessionKey),
   );
-}
-
-function renderRealtimeTalkOptions(props: ChatProps) {
-  const options = props.realtimeTalkOptions;
-  const onChange = props.onRealtimeTalkOptionsChange;
-  if (!props.realtimeTalkOptionsOpen || !options || !onChange) {
-    return nothing;
-  }
-  const update = (key: keyof NonNullable<ChatProps["realtimeTalkOptions"]>) => (event: Event) => {
-    const value = (event.currentTarget as HTMLInputElement | HTMLSelectElement).value;
-    onChange({ [key]: value });
-  };
-  const isDefaultSensitivity = options.vadThreshold === "";
-  const isPresetSensitivity = ["0.65", "0.5", "0.35"].includes(options.vadThreshold);
-  const isCustomSensitivity = !isDefaultSensitivity && !isPresetSensitivity;
-  const sensitivityValue = isDefaultSensitivity
-    ? ""
-    : isPresetSensitivity
-      ? options.vadThreshold
-      : "__custom";
-  const updateSensitivity = (event: Event) => {
-    const value = (event.currentTarget as HTMLSelectElement).value;
-    if (value !== "__custom") {
-      onChange({ vadThreshold: value });
-    }
-  };
-  return html`
-    <div class="agent-chat__talk-options" aria-label="Talk options">
-      <div class="agent-chat__talk-options-primary">
-        <label>
-          <span>Voice</span>
-          <select .value=${options.voice} @change=${update("voice")}>
-            <option value="">Default</option>
-            ${[
-              "alloy",
-              "ash",
-              "ballad",
-              "coral",
-              "echo",
-              "sage",
-              "shimmer",
-              "verse",
-              "marin",
-              "cedar",
-            ].map((voice) => html`<option value=${voice}>${voice}</option>`)}
-          </select>
-        </label>
-        <label>
-          <span>Model</span>
-          <input
-            .value=${options.model}
-            @input=${update("model")}
-            placeholder="Auto"
-            spellcheck="false"
-          />
-        </label>
-        <label>
-          <span>Sensitivity</span>
-          <select @change=${updateSensitivity}>
-            <option value="" ?selected=${sensitivityValue === ""}>Default</option>
-            <option value="0.65" ?selected=${sensitivityValue === "0.65"}>Low</option>
-            <option value="0.5" ?selected=${sensitivityValue === "0.5"}>Medium</option>
-            <option value="0.35" ?selected=${sensitivityValue === "0.35"}>High</option>
-            ${isCustomSensitivity
-              ? html`<option value="__custom" selected>Custom</option>`
-              : nothing}
-          </select>
-        </label>
-      </div>
-      <details class="agent-chat__talk-options-advanced">
-        <summary>Advanced</summary>
-        <div class="agent-chat__talk-options-grid">
-          <label>
-            <span>Provider</span>
-            <select .value=${options.provider} @change=${update("provider")}>
-              <option value="">Auto</option>
-              <option value="openai">OpenAI</option>
-              <option value="google">Google</option>
-            </select>
-          </label>
-          <label>
-            <span>Transport</span>
-            <select .value=${options.transport} @change=${update("transport")}>
-              <option value="">Auto</option>
-              <option value="webrtc">WebRTC</option>
-              <option value="gateway-relay">Gateway relay</option>
-              <option value="provider-websocket">Provider WebSocket</option>
-            </select>
-          </label>
-          <label>
-            <span>Reasoning</span>
-            <select .value=${options.reasoningEffort} @change=${update("reasoningEffort")}>
-              <option value="">Default</option>
-              <option value="minimal">Minimal</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-          <label>
-            <span>Exact VAD</span>
-            <input
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
-              .value=${options.vadThreshold}
-              @input=${update("vadThreshold")}
-              placeholder="0.5"
-            />
-          </label>
-          <label>
-            <span>Pause before send</span>
-            <input
-              type="number"
-              min="1"
-              step="50"
-              .value=${options.silenceDurationMs}
-              @input=${update("silenceDurationMs")}
-              placeholder="500"
-            />
-          </label>
-          <label>
-            <span>Lead-in</span>
-            <input
-              type="number"
-              min="0"
-              step="50"
-              .value=${options.prefixPaddingMs}
-              @input=${update("prefixPaddingMs")}
-              placeholder="300"
-            />
-          </label>
-        </div>
-      </details>
-    </div>
-  `;
-}
-
-function renderRealtimeTalkConversation(props: ChatProps) {
-  const entries = props.realtimeTalkConversation ?? [];
-  if (entries.length === 0) {
-    return nothing;
-  }
-  return html`
-    <div class="agent-chat__voice-turns" role="log" aria-label=${t("chat.composer.talkTranscript")}>
-      ${repeat(
-        entries,
-        (entry) => entry.id,
-        (entry) => {
-          const label =
-            entry.role === "user" ? props.userName?.trim() || "You" : props.assistantName;
-          return html`
-            <div
-              class="agent-chat__voice-turn agent-chat__voice-turn--${entry.role}"
-              data-role=${entry.role}
-            >
-              <span class="agent-chat__voice-turn-speaker">${label}</span>
-              <span class="agent-chat__voice-turn-text">${entry.text}</span>
-              ${entry.isStreaming
-                ? html`<span
-                    class="agent-chat__voice-turn-stream"
-                    aria-label=${t("chat.composer.stillListening")}
-                  ></span>`
-                : nothing}
-            </div>
-          `;
-        },
-      )}
-    </div>
-  `;
 }
 
 interface ChatEphemeralState {
@@ -1125,8 +931,7 @@ export function renderChat(props: ChatProps) {
     expandedToolCards.set(toolCardId, !expandedToolCards.get(toolCardId));
     requestUpdate();
   };
-  const hasRealtimeTalkConversation = (props.realtimeTalkConversation?.length ?? 0) > 0;
-  const isEmpty = chatItems.length === 0 && !props.loading && !hasRealtimeTalkConversation;
+  const isEmpty = chatItems.length === 0 && !props.loading;
   const showLoadingSkeleton = props.loading && chatItems.length === 0;
 
   const thread = html`
@@ -1275,7 +1080,6 @@ export function renderChat(props: ChatProps) {
             return nothing;
           },
         )}
-        ${renderRealtimeTalkConversation(props)}
       </div>
     </div>
   `;
@@ -1527,23 +1331,6 @@ export function renderChat(props: ChatProps) {
           @change=${(e: Event) => handleFileSelect(e, props)}
         />
 
-        ${renderRealtimeTalkOptions(props)}
-        ${props.realtimeTalkActive || props.realtimeTalkDetail || props.realtimeTalkTranscript
-          ? html`
-              <div class="agent-chat__stt-interim agent-chat__talk-status">
-                ${props.realtimeTalkDetail ??
-                ((props.realtimeTalkConversation?.length ?? 0) === 0
-                  ? props.realtimeTalkTranscript
-                  : null) ??
-                (props.realtimeTalkStatus === "thinking"
-                  ? "Asking OpenClaw..."
-                  : props.realtimeTalkStatus === "connecting"
-                    ? "Connecting Talk..."
-                    : "Talk live")}
-              </div>
-            `
-          : nothing}
-
         <div class="agent-chat__composer-combobox">
           <textarea
             ${ref((el) => el && adjustTextareaHeight(el as HTMLTextAreaElement))}
@@ -1584,41 +1371,6 @@ export function renderChat(props: ChatProps) {
               <span class="agent-chat__control-label">${t("chat.composer.attachFile")}</span>
             </button>
 
-            ${props.onToggleRealtimeTalk
-              ? html`
-                  <button
-                    class="agent-chat__input-btn ${props.realtimeTalkActive
-                      ? "agent-chat__input-btn--talk"
-                      : ""}"
-                    @click=${props.onToggleRealtimeTalk}
-                    title=${props.realtimeTalkActive
-                      ? t("chat.composer.stopTalk")
-                      : t("chat.composer.startTalk")}
-                    aria-label=${props.realtimeTalkActive
-                      ? t("chat.composer.stopTalk")
-                      : t("chat.composer.startTalk")}
-                    ?disabled=${!props.connected}
-                  >
-                    ${props.realtimeTalkActive ? icons.volume2 : icons.radio}
-                    <span class="agent-chat__control-label"
-                      >${props.realtimeTalkActive
-                        ? t("chat.composer.stopTalk")
-                        : t("chat.composer.startTalk")}</span
-                    >
-                  </button>
-                  <button
-                    class="agent-chat__input-btn ${props.realtimeTalkOptionsOpen
-                      ? "agent-chat__input-btn--active"
-                      : ""}"
-                    @click=${props.onToggleRealtimeTalkOptions}
-                    title="Talk options"
-                    aria-label="Talk options"
-                    ?disabled=${!props.connected || props.realtimeTalkActive}
-                  >
-                    ${icons.settings}
-                  </button>
-                `
-              : nothing}
             ${tokens ? html`<span class="agent-chat__token-count">${tokens}</span>` : nothing}
             ${renderChatRunStatusIndicator(composerRunStatus)}
           </div>

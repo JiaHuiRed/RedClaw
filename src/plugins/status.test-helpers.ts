@@ -58,8 +58,6 @@ export function createPluginRecord(
     providerIds: [],
     embeddingProviderIds: [],
     speechProviderIds: [],
-    realtimeTranscriptionProviderIds: [],
-    realtimeVoiceProviderIds: [],
     mediaUnderstandingProviderIds: [],
     transcriptSourceProviderIds: [],
     imageGenerationProviderIds: [],
@@ -127,8 +125,6 @@ export function createPluginLoadResult(
     plugins,
     embeddingProviders,
     modelCatalogProviders,
-    realtimeTranscriptionProviders,
-    realtimeVoiceProviders,
     ...rest
   } = overrides;
   return {
@@ -172,7 +168,5 @@ export function createPluginLoadResult(
     ...rest,
     modelCatalogProviders: modelCatalogProviders ?? [],
     gatewayDiscoveryServices: rest.gatewayDiscoveryServices ?? [],
-    realtimeTranscriptionProviders: realtimeTranscriptionProviders ?? [],
-    realtimeVoiceProviders: realtimeVoiceProviders ?? [],
   };
 }

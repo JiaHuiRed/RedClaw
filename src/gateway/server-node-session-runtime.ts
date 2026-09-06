@@ -4,11 +4,8 @@ import {
   createSessionMessageSubscriberRegistry,
 } from "./server-chat-state.js";
 import { createNodeSubscriptionManager } from "./server-node-subscriptions.js";
-import { hasConnectedTalkNode } from "./server-talk-nodes.js";
 
-export function createGatewayNodeSessionRuntime(params: {
-  broadcast: (event: string, payload: unknown, opts?: { dropIfSlow?: boolean }) => void;
-}) {
+export function createGatewayNodeSessionRuntime() {
   const nodeRegistry = new NodeRegistry();
   const nodePresenceTimers = new Map<string, ReturnType<typeof setInterval>>();
   const nodeSubscriptions = createNodeSubscriptionManager();
@@ -25,11 +22,6 @@ export function createGatewayNodeSessionRuntime(params: {
     nodeSubscriptions.sendToSession(sessionKey, event, payload, nodeSendEvent);
   const nodeSendToAllSubscribed = (event: string, payload: unknown) =>
     nodeSubscriptions.sendToAllSubscribed(event, payload, nodeSendEvent);
-  const broadcastVoiceWakeChanged = (triggers: string[]) => {
-    params.broadcast("voicewake.changed", { triggers }, { dropIfSlow: true });
-  };
-  const hasTalkNodeConnected = () => hasConnectedTalkNode(nodeRegistry);
-
   return {
     nodeRegistry,
     nodePresenceTimers,
@@ -40,7 +32,5 @@ export function createGatewayNodeSessionRuntime(params: {
     nodeSubscribe: nodeSubscriptions.subscribe,
     nodeUnsubscribe: nodeSubscriptions.unsubscribe,
     nodeUnsubscribeAll: nodeSubscriptions.unsubscribeAll,
-    broadcastVoiceWakeChanged,
-    hasTalkNodeConnected,
   };
 }

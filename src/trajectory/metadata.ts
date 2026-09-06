@@ -116,10 +116,6 @@ function buildPluginsFromActiveRegistry() {
         cliBackendIds: toSortedUniqueStrings(plugin.cliBackendIds),
         providerIds: toSortedUniqueStrings(plugin.providerIds),
         speechProviderIds: toSortedUniqueStrings(plugin.speechProviderIds),
-        realtimeTranscriptionProviderIds: toSortedUniqueStrings(
-          plugin.realtimeTranscriptionProviderIds,
-        ),
-        realtimeVoiceProviderIds: toSortedUniqueStrings(plugin.realtimeVoiceProviderIds),
         mediaUnderstandingProviderIds: toSortedUniqueStrings(plugin.mediaUnderstandingProviderIds),
         imageGenerationProviderIds: toSortedUniqueStrings(plugin.imageGenerationProviderIds),
         videoGenerationProviderIds: toSortedUniqueStrings(plugin.videoGenerationProviderIds),

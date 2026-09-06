@@ -6,8 +6,6 @@ export type PluginCapabilityKind =
   | "text-inference"
   | "embedding"
   | "speech"
-  | "realtime-transcription"
-  | "realtime-voice"
   | "media-understanding"
   | "transcript-source"
   | "image-generation"
@@ -45,8 +43,6 @@ function buildPluginCapabilityEntries(
     { kind: "text-inference" as const, ids: plugin.providerIds },
     { kind: "embedding" as const, ids: plugin.embeddingProviderIds },
     { kind: "speech" as const, ids: plugin.speechProviderIds },
-    { kind: "realtime-transcription" as const, ids: plugin.realtimeTranscriptionProviderIds },
-    { kind: "realtime-voice" as const, ids: plugin.realtimeVoiceProviderIds },
     { kind: "media-understanding" as const, ids: plugin.mediaUnderstandingProviderIds },
     { kind: "transcript-source" as const, ids: plugin.transcriptSourceProviderIds },
     { kind: "image-generation" as const, ids: plugin.imageGenerationProviderIds },

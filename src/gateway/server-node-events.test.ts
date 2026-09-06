@@ -179,7 +179,6 @@ function buildCtx(
     nodeSendToSession: () => {},
     nodeSubscribe: () => {},
     nodeUnsubscribe: () => {},
-    broadcastVoiceWakeChanged: () => {},
     addChatRun: () => {},
     removeChatRun: () => undefined,
     chatAbortControllers: new Map(),

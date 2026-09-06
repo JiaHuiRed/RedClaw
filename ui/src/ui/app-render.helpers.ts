@@ -151,8 +151,6 @@ function resetChatStateForSessionSwitch(state: AppViewState, sessionKey: string)
   state.chatAvatarSource = null;
   state.chatAvatarStatus = null;
   state.chatAvatarReason = null;
-  state.realtimeTalkTranscript = null;
-  state.resetRealtimeTalkConversation?.();
   state.chatQueue = restoreChatQueueForSession(state, sessionKey);
   host.resetChatInputHistoryNavigation();
   host.chatStreamStartedAt = null;
@@ -673,18 +671,6 @@ export function switchChatSession(state: AppViewState, nextSessionKey: string) {
 export function dismissChatError(state: AppViewState) {
   state.lastError = null;
   state.lastErrorCode = null;
-  if (state.realtimeTalkStatus === "error") {
-    const talkHost = state as unknown as {
-      realtimeTalkSession?: { stop(): void } | null;
-    };
-    talkHost.realtimeTalkSession?.stop();
-    talkHost.realtimeTalkSession = null;
-    state.realtimeTalkActive = false;
-    state.realtimeTalkStatus = "idle";
-    state.realtimeTalkDetail = null;
-    state.realtimeTalkTranscript = null;
-    state.resetRealtimeTalkConversation?.();
-  }
 }
 
 export async function createChatSession(state: AppViewState): Promise<boolean> {

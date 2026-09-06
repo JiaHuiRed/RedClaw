@@ -264,82 +264,6 @@ const PluginEntrySchema = z
   })
   .strict();
 
-const TalkProviderEntrySchema = z
-  .object({
-    apiKey: SecretInputSchema.optional().register(sensitive),
-  })
-  .catchall(z.unknown());
-
-const TalkRealtimeSchema = z
-  .object({
-    provider: z.string().optional(),
-    providers: z.record(z.string(), TalkProviderEntrySchema).optional(),
-    model: z.string().optional(),
-    voice: z.string().optional(),
-    instructions: z.string().optional(),
-    mode: z.enum(["realtime", "stt-tts", "transcription"]).optional(),
-    transport: z.enum(["webrtc", "provider-websocket", "gateway-relay", "managed-room"]).optional(),
-    brain: z.enum(["agent-consult", "direct-tools", "none"]).optional(),
-    consultRouting: z.enum(["provider-direct", "force-agent-consult"]).optional(),
-  })
-  .strict()
-  .superRefine((realtime, ctx) => {
-    const provider = normalizeLowercaseStringOrEmpty(realtime.provider ?? "");
-    const providers = realtime.providers ? Object.keys(realtime.providers) : [];
-
-    if (provider && providers.length > 0 && !(provider in realtime.providers!)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["provider"],
-        message: `talk.realtime.provider must match a key in talk.realtime.providers (missing "${provider}")`,
-      });
-    }
-
-    if (!provider && providers.length > 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["provider"],
-        message:
-          "talk.realtime.provider is required when talk.realtime.providers defines multiple providers",
-      });
-    }
-  });
-
-const TalkSchema = z
-  .object({
-    provider: z.string().optional(),
-    providers: z.record(z.string(), TalkProviderEntrySchema).optional(),
-    realtime: TalkRealtimeSchema.optional(),
-    consultThinkingLevel: z
-      .enum(["off", "minimal", "low", "medium", "high", "xhigh", "adaptive", "max"])
-      .optional(),
-    consultFastMode: z.boolean().optional(),
-    speechLocale: z.string().optional(),
-    interruptOnSpeech: z.boolean().optional(),
-    silenceTimeoutMs: z.number().int().positive().optional(),
-  })
-  .strict()
-  .superRefine((talk, ctx) => {
-    const provider = normalizeLowercaseStringOrEmpty(talk.provider ?? "");
-    const providers = talk.providers ? Object.keys(talk.providers) : [];
-
-    if (provider && providers.length > 0 && !(provider in talk.providers!)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["provider"],
-        message: `talk.provider must match a key in talk.providers (missing "${provider}")`,
-      });
-    }
-
-    if (!provider && providers.length > 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["provider"],
-        message: "talk.provider is required when talk.providers defines multiple providers",
-      });
-    }
-  });
-
 const McpServerSchema = z
   .object({
     command: z.string().optional(),
@@ -906,7 +830,6 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
-    talk: TalkSchema.optional(),
     gateway: z
       .object({
         port: z.number().int().positive().optional(),

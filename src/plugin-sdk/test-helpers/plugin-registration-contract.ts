@@ -8,8 +8,6 @@ type PluginRegistrationContractParams = {
   webFetchProviderIds?: string[];
   webSearchProviderIds?: string[];
   speechProviderIds?: string[];
-  realtimeTranscriptionProviderIds?: string[];
-  realtimeVoiceProviderIds?: string[];
   mediaUnderstandingProviderIds?: string[];
   transcriptSourceProviderIds?: string[];
   imageGenerationProviderIds?: string[];
@@ -74,22 +72,6 @@ export function describePluginRegistrationContract(params: PluginRegistrationCon
       it("keeps bundled speech ownership explicit", () => {
         expect(findRegistration(params.pluginId).speechProviderIds).toEqual(
           params.speechProviderIds,
-        );
-      });
-    }
-
-    if (params.realtimeTranscriptionProviderIds) {
-      it("keeps bundled realtime-transcription ownership explicit", () => {
-        expect(findRegistration(params.pluginId).realtimeTranscriptionProviderIds).toEqual(
-          params.realtimeTranscriptionProviderIds,
-        );
-      });
-    }
-
-    if (params.realtimeVoiceProviderIds) {
-      it("keeps bundled realtime-voice ownership explicit", () => {
-        expect(findRegistration(params.pluginId).realtimeVoiceProviderIds).toEqual(
-          params.realtimeVoiceProviderIds,
         );
       });
     }

@@ -458,10 +458,6 @@ function renderChatView(overrides: Partial<Parameters<typeof renderChat>[0]> = {
       assistantAvatarUrl: null,
       draft: "",
       queue: [],
-      realtimeTalkActive: false,
-      realtimeTalkStatus: "idle",
-      realtimeTalkDetail: null,
-      realtimeTalkTranscript: null,
       connected: true,
       canSend: true,
       disabledReason: null,
@@ -493,7 +489,6 @@ function renderChatView(overrides: Partial<Parameters<typeof renderChat>[0]> = {
       onRequestUpdate: () => undefined,
       onSend: () => undefined,
       onCompact: () => undefined,
-      onToggleRealtimeTalk: () => undefined,
       onDismissError: () => undefined,
       onAbort: () => undefined,
       onQueueRemove: () => undefined,
@@ -551,32 +546,6 @@ afterEach(() => {
 });
 
 describe("chat loading skeleton", () => {
-  it("renders realtime Talk transcript as ordered voice turns", () => {
-    const container = renderChatView({
-      realtimeTalkActive: true,
-      realtimeTalkConversation: [
-        { id: "u1", role: "user", text: "Turn off the lights", isStreaming: false },
-        { id: "a1", role: "assistant", text: "Checking", isStreaming: true },
-        { id: "u2", role: "user", text: "Second request", isStreaming: false },
-      ],
-    });
-
-    const turns = [...container.querySelectorAll(".agent-chat__voice-turn")];
-    expect(turns.map((turn) => turn.getAttribute("data-role"))).toEqual([
-      "user",
-      "assistant",
-      "user",
-    ]);
-    expect(turns.map((turn) => turn.textContent?.replace(/\s+/g, " ").trim())).toEqual([
-      "You Turn off the lights",
-      "Val Checking",
-      "You Second request",
-    ]);
-    expect(container.querySelector(".chat-thread-inner .agent-chat__voice-turns")).not.toBeNull();
-    expect(container.querySelector(".agent-chat__input .agent-chat__voice-turns")).toBeNull();
-    expect(container.querySelector(".agent-chat__welcome")).toBeNull();
-  });
-
   it("shows the skeleton while the initial history load has no rendered content", () => {
     const container = renderChatView({ loading: true });
 
@@ -698,207 +667,6 @@ describe("chat loading skeleton", () => {
     } finally {
       nowSpy.mockRestore();
     }
-  });
-});
-
-describe("chat voice controls", () => {
-  afterEach(async () => {
-    await i18n.setLocale("en");
-  });
-
-  it("keeps Talk visible without the stale browser dictation button", () => {
-    const container = renderChatView();
-
-    requireElement(container, '[aria-label="Start Talk"]', "Start Talk button");
-    requireElement(container, '[aria-label="Talk options"]', "Talk options button");
-    expect(container.querySelector('[aria-label="Voice input"]')).toBeNull();
-  });
-
-  it("renders editable Talk launch options", () => {
-    const onRealtimeTalkOptionsChange = vi.fn();
-    const container = renderChatView({
-      realtimeTalkOptionsOpen: true,
-      realtimeTalkOptions: {
-        provider: "openai",
-        model: "gpt-realtime-2",
-        voice: "marin",
-        transport: "webrtc",
-        vadThreshold: "0.45",
-        silenceDurationMs: "650",
-        prefixPaddingMs: "250",
-        reasoningEffort: "low",
-      },
-      onRealtimeTalkOptionsChange,
-    });
-
-    const model = container.querySelector<HTMLInputElement>(
-      '.agent-chat__talk-options-primary input[placeholder="Auto"]',
-    );
-    const voice = container.querySelector<HTMLSelectElement>(
-      ".agent-chat__talk-options-primary label:nth-of-type(1) select",
-    );
-    const sensitivity = container.querySelector<HTMLSelectElement>(
-      ".agent-chat__talk-options-primary label:nth-of-type(3) select",
-    );
-    const voiceOptions = Array.from(
-      container.querySelectorAll<HTMLOptionElement>(
-        ".agent-chat__talk-options-primary label:nth-of-type(1) option",
-      ),
-    ).map((option) => option.value);
-    const reasoningOptions = Array.from(
-      container.querySelectorAll<HTMLOptionElement>(
-        ".agent-chat__talk-options-advanced label:nth-of-type(3) option",
-      ),
-    ).map((option) => option.value);
-
-    if (voice === null) {
-      throw new Error("expected Talk voice select");
-    }
-    if (sensitivity === null) {
-      throw new Error("expected Talk sensitivity select");
-    }
-    expect(voiceOptions).toEqual([
-      "",
-      "alloy",
-      "ash",
-      "ballad",
-      "coral",
-      "echo",
-      "sage",
-      "shimmer",
-      "verse",
-      "marin",
-      "cedar",
-    ]);
-    expect(sensitivity.value).toBe("__custom");
-    expect(Array.from(sensitivity.options).map((option) => option.value)).toEqual([
-      "",
-      "0.65",
-      "0.5",
-      "0.35",
-      "__custom",
-    ]);
-    expect(reasoningOptions).toEqual(["", "minimal", "low", "medium", "high"]);
-    expect(container.textContent).toContain("Sensitivity");
-    expect(container.textContent).toContain("Advanced");
-    expect(container.textContent).toContain("Pause before send");
-    expect(container.textContent).not.toContain("Silence ms");
-    expect(container.textContent).not.toContain("Prefix ms");
-    if (model === null) {
-      throw new Error("expected Talk model input");
-    }
-    model.value = "gpt-realtime-mini";
-    model.dispatchEvent(new Event("input", { bubbles: true }));
-    sensitivity.value = "0.35";
-    sensitivity.dispatchEvent(new Event("change", { bubbles: true }));
-    sensitivity.value = "";
-    sensitivity.dispatchEvent(new Event("change", { bubbles: true }));
-
-    expect(onRealtimeTalkOptionsChange).toHaveBeenCalledWith({ model: "gpt-realtime-mini" });
-    expect(onRealtimeTalkOptionsChange).toHaveBeenCalledWith({ vadThreshold: "0.35" });
-    expect(onRealtimeTalkOptionsChange).toHaveBeenCalledWith({ vadThreshold: "" });
-
-    const defaultContainer = renderChatView({
-      realtimeTalkOptionsOpen: true,
-      realtimeTalkOptions: {
-        provider: "",
-        model: "",
-        voice: "",
-        transport: "",
-        vadThreshold: "",
-        silenceDurationMs: "",
-        prefixPaddingMs: "",
-        reasoningEffort: "",
-      },
-      onRealtimeTalkOptionsChange,
-    });
-    const defaultSensitivity = defaultContainer.querySelector<HTMLSelectElement>(
-      ".agent-chat__talk-options-primary label:nth-of-type(3) select",
-    );
-    expect(defaultSensitivity?.value).toBe("");
-    expect(Array.from(defaultSensitivity?.options ?? []).map((option) => option.value)).toEqual([
-      "",
-      "0.65",
-      "0.5",
-      "0.35",
-    ]);
-  });
-
-  it("renders composer and Talk labels from the active locale", async () => {
-    await i18n.setLocale("zh-CN");
-    const container = renderChatView();
-    const startTalkLabel = t("chat.composer.startTalk");
-
-    const talkButton = requireElement(
-      container,
-      `[aria-label="${startTalkLabel}"]`,
-      "localized Start Talk button",
-    );
-    expect(talkButton.getAttribute("title")).toBe(startTalkLabel);
-    expect(talkButton.textContent?.trim()).toBe(startTalkLabel);
-    expect(container.querySelector('[aria-label="Start Talk"]')).toBeNull();
-    requireElement(
-      container,
-      `[aria-label="${t("chat.composer.attachFile")}"]`,
-      "localized attach file button",
-    );
-    expect(container.querySelector("textarea")?.getAttribute("placeholder")).toBe(
-      t("chat.composer.placeholder", { name: "Val" }),
-    );
-  });
-
-  it("focuses the composer from non-control input chrome", () => {
-    const container = renderChatView();
-    const toolbar = requireElement(container, ".agent-chat__toolbar", "composer toolbar");
-    const textarea = requireElement(
-      container,
-      ".agent-chat__composer-combobox > textarea",
-      "composer textarea",
-    ) as HTMLTextAreaElement;
-    const focusSpy = vi.spyOn(textarea, "focus");
-
-    toolbar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
-  });
-
-  it("keeps composer control clicks on the clicked control", () => {
-    const container = renderChatView();
-    const attachButton = requireElement(
-      container,
-      `[aria-label="${t("chat.composer.attachFile")}"]`,
-      "attach button",
-    );
-    const textarea = requireElement(
-      container,
-      ".agent-chat__composer-combobox > textarea",
-      "composer textarea",
-    ) as HTMLTextAreaElement;
-    const focusSpy = vi.spyOn(textarea, "focus");
-
-    attachButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    expect(focusSpy).not.toHaveBeenCalled();
-  });
-
-  it("lets users dismiss Talk start errors", () => {
-    const onDismissError = vi.fn();
-    const container = renderChatView({
-      error: 'Realtime voice provider "openai" is not configured',
-      realtimeTalkStatus: "error",
-      realtimeTalkDetail: 'Realtime voice provider "openai" is not configured',
-      onDismissError,
-    });
-
-    expect(container.querySelector('[role="alert"] .callout__content')?.textContent).toBe(
-      'Realtime voice provider "openai" is not configured',
-    );
-
-    const dismiss = container.querySelector<HTMLButtonElement>('[aria-label="Dismiss error"]');
-    expect(dismiss).toBeInstanceOf(HTMLButtonElement);
-    dismiss!.click();
-
-    expect(onDismissError).toHaveBeenCalledTimes(1);
   });
 });
 

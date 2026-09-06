@@ -155,8 +155,6 @@ function createCapabilityPluginRecord(params: {
     providerIds: [],
     embeddingProviderIds: [],
     speechProviderIds: [],
-    realtimeTranscriptionProviderIds: [],
-    realtimeVoiceProviderIds: [],
     mediaUnderstandingProviderIds: [],
     transcriptSourceProviderIds: [],
     imageGenerationProviderIds: [],
@@ -320,12 +318,6 @@ export function loadBundledCapabilityRuntimeRegistry(params: {
       record.providerIds.push(...captured.providers.map((entry) => entry.id));
       record.embeddingProviderIds.push(...captured.embeddingProviders.map((entry) => entry.id));
       record.speechProviderIds.push(...captured.speechProviders.map((entry) => entry.id));
-      record.realtimeTranscriptionProviderIds.push(
-        ...captured.realtimeTranscriptionProviders.map((entry) => entry.id),
-      );
-      record.realtimeVoiceProviderIds.push(
-        ...captured.realtimeVoiceProviders.map((entry) => entry.id),
-      );
       record.mediaUnderstandingProviderIds.push(
         ...captured.mediaUnderstandingProviders.map((entry) => entry.id),
       );
@@ -388,24 +380,6 @@ export function loadBundledCapabilityRuntimeRegistry(params: {
       );
       registry.speechProviders.push(
         ...captured.speechProviders.map((provider) => ({
-          pluginId: record.id,
-          pluginName: record.name,
-          provider,
-          source: record.source,
-          rootDir: record.rootDir,
-        })),
-      );
-      registry.realtimeTranscriptionProviders.push(
-        ...captured.realtimeTranscriptionProviders.map((provider) => ({
-          pluginId: record.id,
-          pluginName: record.name,
-          provider,
-          source: record.source,
-          rootDir: record.rootDir,
-        })),
-      );
-      registry.realtimeVoiceProviders.push(
-        ...captured.realtimeVoiceProviders.map((provider) => ({
           pluginId: record.id,
           pluginName: record.name,
           provider,

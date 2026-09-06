@@ -68,7 +68,6 @@ export function createLocalGatewayRequestContext(
     nodeSubscribe: () => {},
     nodeUnsubscribe: () => {},
     nodeUnsubscribeAll: () => {},
-    hasConnectedTalkNode: () => false,
     nodeRegistry: new NodeRegistry(),
     agentRunSeq: new Map(),
     chatAbortControllers: new Map(),
@@ -121,8 +120,6 @@ export function createLocalGatewayRequestContext(
     wizardRunner: async () => {
       throw new Error("Onboarding wizard is unavailable in local embedded agent gateway context.");
     },
-    broadcastVoiceWakeChanged: () => {},
-    broadcastVoiceWakeRoutingChanged: () => {},
     unavailableGatewayMethods: new Set(),
   };
 }

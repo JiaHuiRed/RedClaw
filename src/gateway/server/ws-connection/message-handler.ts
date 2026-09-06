@@ -41,8 +41,6 @@ import {
 } from "../../../infra/node-pairing.js";
 import { recordRemoteNodeInfo, refreshRemoteNodeBins } from "../../../infra/skills-remote.js";
 import { upsertPresence } from "../../../infra/system-presence.js";
-import { loadVoiceWakeRoutingConfig } from "../../../infra/voicewake-routing.js";
-import { loadVoiceWakeConfig } from "../../../infra/voicewake.js";
 import { rawDataToString } from "../../../infra/ws.js";
 import { logRejectedLargePayload } from "../../../logging/diagnostic-payload.js";
 import type { createSubsystemLogger } from "../../../logging/subsystem.js";
@@ -1742,28 +1740,6 @@ export function attachGatewayWsMessageHandler(params: GatewayWsMessageHandlerPar
               `remote bin probe failed for ${nodeSession.nodeId}: ${formatForLog(err)}`,
             ),
           );
-          void loadVoiceWakeConfig()
-            .then((cfg) => {
-              context.nodeRegistry.sendEvent(nodeSession.nodeId, "voicewake.changed", {
-                triggers: cfg.triggers,
-              });
-            })
-            .catch((err) =>
-              logGateway.warn(
-                `voicewake snapshot failed for ${nodeSession.nodeId}: ${formatForLog(err)}`,
-              ),
-            );
-          void loadVoiceWakeRoutingConfig()
-            .then((routing) => {
-              context.nodeRegistry.sendEvent(nodeSession.nodeId, "voicewake.routing.changed", {
-                config: routing,
-              });
-            })
-            .catch((err) =>
-              logGateway.warn(
-                `voicewake routing snapshot failed for ${nodeSession.nodeId}: ${formatForLog(err)}`,
-              ),
-            );
         }
 
         const snapshot = buildGatewaySnapshot({

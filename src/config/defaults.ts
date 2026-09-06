@@ -14,7 +14,6 @@ import {
   applyProviderConfigDefaultsForConfig,
   normalizeProviderConfigForConfigDefaults,
 } from "./provider-policy.js";
-import { normalizeTalkConfig } from "./talk.js";
 import type { ModelDefinitionConfig } from "./types.models.js";
 import type { OpenClawConfig } from "./types.openclaw.js";
 
@@ -140,10 +139,6 @@ export function applySessionDefaults(
   }
 
   return next;
-}
-
-export function applyTalkConfigNormalization(config: OpenClawConfig): OpenClawConfig {
-  return normalizeTalkConfig(config);
 }
 
 export function applyModelDefaults(

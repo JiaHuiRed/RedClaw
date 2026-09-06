@@ -5,7 +5,6 @@ import type {
   MusicGenerationProviderPlugin,
   OpenClawPluginApi,
   ProviderPlugin,
-  RealtimeTranscriptionProviderPlugin,
   SpeechProviderPlugin,
   UnifiedModelCatalogProviderPlugin,
   VideoGenerationProviderPlugin,
@@ -19,7 +18,6 @@ type RegistrablePlugin = {
 
 export type RegisteredProviderCollections = {
   providers: ProviderPlugin[];
-  realtimeTranscriptionProviders: RealtimeTranscriptionProviderPlugin[];
   speechProviders: SpeechProviderPlugin[];
   mediaProviders: MediaUnderstandingProviderPlugin[];
   imageProviders: ImageGenerationProviderPlugin[];
@@ -53,7 +51,6 @@ export async function registerProviderPlugin(params: {
   params.plugin.register(captured.api);
   return {
     providers: captured.providers,
-    realtimeTranscriptionProviders: captured.realtimeTranscriptionProviders,
     speechProviders: captured.speechProviders,
     mediaProviders: captured.mediaUnderstandingProviders,
     imageProviders: captured.imageGenerationProviders,

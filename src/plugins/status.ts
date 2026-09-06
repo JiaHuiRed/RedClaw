@@ -194,10 +194,6 @@ function buildPluginRecordFromInstalledIndex(
     providerIds: [...(manifest?.providers ?? [])],
     embeddingProviderIds: [...(manifest?.contracts?.embeddingProviders ?? [])],
     speechProviderIds: [...(manifest?.contracts?.speechProviders ?? [])],
-    realtimeTranscriptionProviderIds: [
-      ...(manifest?.contracts?.realtimeTranscriptionProviders ?? []),
-    ],
-    realtimeVoiceProviderIds: [...(manifest?.contracts?.realtimeVoiceProviders ?? [])],
     mediaUnderstandingProviderIds: [...(manifest?.contracts?.mediaUnderstandingProviders ?? [])],
     transcriptSourceProviderIds: [...(manifest?.contracts?.transcriptSourceProviders ?? [])],
     imageGenerationProviderIds: [...(manifest?.contracts?.imageGenerationProviders ?? [])],

@@ -149,16 +149,4 @@ describe("handleConnected", () => {
     handleConnected(nodesHost as never);
     expect(startNodesPollingMock).toHaveBeenCalledWith(nodesHost);
   });
-
-  it("keeps realtime Talk turns pinned in the chat flow", () => {
-    const host = createHost();
-    host.chatStream = null;
-
-    handleUpdated(
-      host as unknown as Parameters<typeof handleUpdated>[0],
-      new Map<PropertyKey, unknown>([["realtimeTalkConversation", []]]),
-    );
-
-    expect(scheduleChatScrollMock).toHaveBeenCalledWith(host, true);
-  });
 });

@@ -291,7 +291,6 @@ export const cliCommandCatalog: readonly CliCommandCatalogEntry[] = [
   },
   { commandPath: ["nodes"], policy: { networkProxy: "bypass" } },
   { commandPath: ["pairing"], policy: { networkProxy: "bypass" } },
-  { commandPath: ["proxy"], policy: { networkProxy: "bypass" } },
   { commandPath: ["qr"], policy: { networkProxy: "bypass" } },
   { commandPath: ["reset"], policy: { networkProxy: "bypass" } },
   {

@@ -186,8 +186,6 @@ import type {
   PluginLogger,
   PluginRegistrationMode,
   ProviderPlugin,
-  RealtimeTranscriptionProviderPlugin,
-  RealtimeVoiceProviderPlugin,
   SpeechProviderPlugin,
   VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
@@ -240,8 +238,6 @@ export type {
   PluginTrustedToolPolicyRegistryRegistration,
   PluginToolRegistration,
   PluginSpeechProviderRegistration,
-  PluginRealtimeTranscriptionProviderRegistration,
-  PluginRealtimeVoiceProviderRegistration,
   PluginMediaUnderstandingProviderRegistration,
   PluginImageGenerationProviderRegistration,
   PluginVideoGenerationProviderRegistration,
@@ -1245,32 +1241,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       kindLabel: "speech provider",
       registrations: registry.speechProviders,
       ownedIds: record.speechProviderIds,
-    });
-  };
-
-  const registerRealtimeTranscriptionProvider = (
-    record: PluginRecord,
-    provider: RealtimeTranscriptionProviderPlugin,
-  ) => {
-    registerUniqueProviderLike({
-      record,
-      provider,
-      kindLabel: "realtime transcription provider",
-      registrations: registry.realtimeTranscriptionProviders,
-      ownedIds: record.realtimeTranscriptionProviderIds,
-    });
-  };
-
-  const registerRealtimeVoiceProvider = (
-    record: PluginRecord,
-    provider: RealtimeVoiceProviderPlugin,
-  ) => {
-    registerUniqueProviderLike({
-      record,
-      provider,
-      kindLabel: "realtime voice provider",
-      registrations: registry.realtimeVoiceProviders,
-      ownedIds: record.realtimeVoiceProviderIds,
     });
   };
 
@@ -2666,10 +2636,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
                 registerDetachedTaskLifecycleRuntime(record.id, runtime);
               },
               registerSpeechProvider: (provider) => registerSpeechProvider(record, provider),
-              registerRealtimeTranscriptionProvider: (provider) =>
-                registerRealtimeTranscriptionProvider(record, provider),
-              registerRealtimeVoiceProvider: (provider) =>
-                registerRealtimeVoiceProvider(record, provider),
               registerMediaUnderstandingProvider: (provider) =>
                 registerMediaUnderstandingProvider(record, provider),
               registerTranscriptSourceProvider: (provider) =>
@@ -3134,8 +3100,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     registerTextTransforms,
     registerEmbeddingProvider: registerEmbeddingProviderForPlugin,
     registerSpeechProvider,
-    registerRealtimeTranscriptionProvider,
-    registerRealtimeVoiceProvider,
     registerMediaUnderstandingProvider,
     registerTranscriptSourceProvider,
     registerImageGenerationProvider,

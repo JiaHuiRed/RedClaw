@@ -62,10 +62,6 @@ import {
 import { shouldDowngradeDeliveryToSessionOnly } from "../../infra/outbound/best-effort-delivery.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
 import { isAbortError } from "../../infra/unhandled-rejections.js";
-import {
-  loadVoiceWakeRoutingConfig,
-  resolveVoiceWakeRouteByTrigger,
-} from "../../infra/voicewake-routing.js";
 import type { PromptImageOrderEntry } from "../../media/prompt-image-order.js";
 import type { PluginHookSessionEndReason } from "../../plugins/hook-types.js";
 import {
@@ -849,7 +845,6 @@ export const agentHandlers: GatewayRequestHandlers = {
       label?: string;
       inputProvenance?: InputProvenance;
       workspaceDir?: string;
-      voiceWakeTrigger?: string;
     };
     const allowModelOverride = resolveAllowModelOverrideFromClient(client);
     const canResetSession = resolveCanResetSessionFromClient(client);
@@ -1158,76 +1153,8 @@ export const agentHandlers: GatewayRequestHandlers = {
         }
       }
 
-      const voiceWakeTrigger = normalizeOptionalString(request.voiceWakeTrigger) ?? "";
       const replyTo = normalizeOptionalString(request.replyTo) ?? "";
       const to = normalizeOptionalString(request.to) ?? "";
-      const explicitVoiceWakeSessionTarget =
-        !agentId && requestedSessionKeyRaw
-          ? (() => {
-              const { cfg: sessionCfg, canonicalKey } = loadSessionEntry(requestedSessionKeyRaw, {
-                clone: false,
-              });
-              const routedAgentId = resolveAgentIdFromSessionKey(canonicalKey);
-              const defaultAgentId = normalizeAgentId(resolveDefaultAgentId(sessionCfg));
-              if (routedAgentId !== defaultAgentId) {
-                return true;
-              }
-              const mainSessionKey = resolveAgentMainSessionKey({
-                cfg: sessionCfg,
-                agentId: routedAgentId,
-              });
-              return canonicalKey !== mainSessionKey;
-            })()
-          : false;
-      const canAutoRouteVoiceWake =
-        !agentId && !explicitVoiceWakeSessionTarget && !requestedSessionId && !replyTo && !to;
-      const hasVoiceWakeTriggerField = Object.prototype.hasOwnProperty.call(
-        request,
-        "voiceWakeTrigger",
-      );
-      if (hasVoiceWakeTriggerField && canAutoRouteVoiceWake) {
-        try {
-          const routingConfig = await loadVoiceWakeRoutingConfig();
-          const route = resolveVoiceWakeRouteByTrigger({
-            trigger: voiceWakeTrigger || undefined,
-            config: routingConfig,
-          });
-          if ("agentId" in route) {
-            if (knownAgents.includes(route.agentId)) {
-              agentId = route.agentId;
-              requestedSessionKey = resolveExplicitAgentSessionKey({
-                cfg,
-                agentId,
-              });
-            } else {
-              context.logGateway.warn(
-                `voicewake routing ignored unknown agentId="${route.agentId}" trigger="${voiceWakeTrigger}"`,
-              );
-            }
-          } else if ("sessionKey" in route) {
-            if (classifySessionKeyShape(route.sessionKey) !== "malformed_agent") {
-              const canonicalRouteSession = loadSessionEntry(route.sessionKey, {
-                clone: false,
-              }).canonicalKey;
-              const routedAgentId = resolveAgentIdFromSessionKey(canonicalRouteSession);
-              if (knownAgents.includes(routedAgentId)) {
-                requestedSessionKey = canonicalRouteSession;
-                agentId = routedAgentId;
-              } else {
-                context.logGateway.warn(
-                  `voicewake routing ignored unknown session agent="${routedAgentId}" sessionKey="${canonicalRouteSession}" trigger="${voiceWakeTrigger}"`,
-                );
-              }
-            } else {
-              context.logGateway.warn(
-                `voicewake routing ignored malformed sessionKey="${route.sessionKey}" trigger="${voiceWakeTrigger}"`,
-              );
-            }
-          }
-        } catch (err) {
-          context.logGateway.warn(`voicewake routing load failed: ${formatForLog(err)}`);
-        }
-      }
       let resolvedSessionId = requestedSessionId;
       let sessionEntry: SessionEntry | undefined;
       let bestEffortDeliver = requestedBestEffortDeliver ?? false;
