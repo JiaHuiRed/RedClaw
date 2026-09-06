@@ -48,7 +48,6 @@ const channelIds = [
   "msteams",
   "nextcloud-talk",
   "nostr",
-  "qqbot",
   "signal",
   "slack",
   "synology-chat",

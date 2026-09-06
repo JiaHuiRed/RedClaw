@@ -127,7 +127,6 @@ const CHANNEL_SUBSYSTEM_PREFIXES = new Set([
   "nextcloud-talk",
   "nostr",
   "openclaw-weixin",
-  "qqbot",
   "signal",
   "slack",
   "synology-chat",

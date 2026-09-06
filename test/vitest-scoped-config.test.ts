@@ -22,27 +22,13 @@ import { createExtensionAcpxVitestConfig } from "./vitest/vitest.extension-acpx.
 import { createExtensionBrowserVitestConfig } from "./vitest/vitest.extension-browser.config.ts";
 import { createExtensionChannelsVitestConfig } from "./vitest/vitest.extension-channels.config.ts";
 import { createExtensionDiffsVitestConfig } from "./vitest/vitest.extension-diffs.config.ts";
-import { createExtensionDiscordVitestConfig } from "./vitest/vitest.extension-discord.config.ts";
-import { createExtensionFeishuVitestConfig } from "./vitest/vitest.extension-feishu.config.ts";
-import { createExtensionImessageVitestConfig } from "./vitest/vitest.extension-imessage.config.ts";
-import { createExtensionIrcVitestConfig } from "./vitest/vitest.extension-irc.config.ts";
-import { createExtensionLineVitestConfig } from "./vitest/vitest.extension-line.config.ts";
-import { createExtensionMatrixVitestConfig } from "./vitest/vitest.extension-matrix.config.ts";
-import { createExtensionMattermostVitestConfig } from "./vitest/vitest.extension-mattermost.config.ts";
 import { createExtensionMediaVitestConfig } from "./vitest/vitest.extension-media.config.ts";
 import { createExtensionMemoryVitestConfig } from "./vitest/vitest.extension-memory.config.ts";
 import { createExtensionMessagingVitestConfig } from "./vitest/vitest.extension-messaging.config.ts";
 import { createExtensionMiscVitestConfig } from "./vitest/vitest.extension-misc.config.ts";
-import { createExtensionMsTeamsVitestConfig } from "./vitest/vitest.extension-msteams.config.ts";
 import { createExtensionProviderOpenAiVitestConfig } from "./vitest/vitest.extension-provider-openai.config.ts";
 import { createExtensionProvidersVitestConfig } from "./vitest/vitest.extension-providers.config.ts";
 import { createExtensionQaVitestConfig } from "./vitest/vitest.extension-qa.config.ts";
-import { createExtensionSignalVitestConfig } from "./vitest/vitest.extension-signal.config.ts";
-import { createExtensionSlackVitestConfig } from "./vitest/vitest.extension-slack.config.ts";
-import { createExtensionTelegramVitestConfig } from "./vitest/vitest.extension-telegram.config.ts";
-import { createExtensionVoiceCallVitestConfig } from "./vitest/vitest.extension-voice-call.config.ts";
-import { createExtensionWhatsAppVitestConfig } from "./vitest/vitest.extension-whatsapp.config.ts";
-import { createExtensionZaloVitestConfig } from "./vitest/vitest.extension-zalo.config.ts";
 import { createExtensionsVitestConfig } from "./vitest/vitest.extensions.config.ts";
 import { createGatewayVitestConfig } from "./vitest/vitest.gateway.config.ts";
 import { createHooksVitestConfig } from "./vitest/vitest.hooks.config.ts";
@@ -142,15 +128,6 @@ describe("resolveVitestIsolation", () => {
     expect(resolveVitestIsolation({ OPENCLAW_TEST_ISOLATE: "1" })).toBe(false);
     expect(resolveVitestIsolation({ OPENCLAW_TEST_NO_ISOLATE: "0" })).toBe(false);
     expect(resolveVitestIsolation({ OPENCLAW_TEST_NO_ISOLATE: "false" })).toBe(false);
-  });
-
-  it("resolves scoped discovery dirs from the repo root after config relocation", () => {
-    const config = createExtensionMatrixVitestConfig({});
-    const testConfig = requireTestConfig(config);
-
-    expect(config.root).toBe(process.cwd());
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toContain("matrix/**/*.test.ts");
   });
 });
 
@@ -298,27 +275,13 @@ describe("scoped vitest configs", () => {
   const defaultExtensionChannelsConfig = createExtensionChannelsVitestConfig({});
   const defaultExtensionBrowserConfig = createExtensionBrowserVitestConfig({});
   const defaultExtensionDiffsConfig = createExtensionDiffsVitestConfig({});
-  const defaultExtensionDiscordConfig = createExtensionDiscordVitestConfig({});
-  const defaultExtensionFeishuConfig = createExtensionFeishuVitestConfig({});
-  const defaultExtensionImessageConfig = createExtensionImessageVitestConfig({});
-  const defaultExtensionIrcConfig = createExtensionIrcVitestConfig({});
-  const defaultExtensionLineConfig = createExtensionLineVitestConfig({});
-  const defaultExtensionMatrixConfig = createExtensionMatrixVitestConfig({});
-  const defaultExtensionMattermostConfig = createExtensionMattermostVitestConfig({});
   const defaultExtensionMediaConfig = createExtensionMediaVitestConfig({});
   const defaultExtensionMemoryConfig = createExtensionMemoryVitestConfig({});
   const defaultExtensionMiscConfig = createExtensionMiscVitestConfig({});
-  const defaultExtensionMsTeamsConfig = createExtensionMsTeamsVitestConfig({});
   const defaultExtensionMessagingConfig = createExtensionMessagingVitestConfig({});
   const defaultExtensionProviderOpenAiConfig = createExtensionProviderOpenAiVitestConfig({});
   const defaultExtensionProvidersConfig = createExtensionProvidersVitestConfig({});
   const defaultExtensionQaConfig = createExtensionQaVitestConfig({});
-  const defaultExtensionSignalConfig = createExtensionSignalVitestConfig({});
-  const defaultExtensionSlackConfig = createExtensionSlackVitestConfig({});
-  const defaultExtensionTelegramConfig = createExtensionTelegramVitestConfig({});
-  const defaultExtensionVoiceCallConfig = createExtensionVoiceCallVitestConfig({});
-  const defaultExtensionWhatsAppConfig = createExtensionWhatsAppVitestConfig({});
-  const defaultExtensionZaloConfig = createExtensionZaloVitestConfig({});
   const defaultGatewayConfig = createGatewayVitestConfig({});
   const defaultHooksConfig = createHooksVitestConfig({});
   const defaultInfraConfig = createInfraVitestConfig({});
@@ -354,13 +317,8 @@ describe("scoped vitest configs", () => {
       defaultAcpConfig,
       defaultExtensionsConfig,
       defaultExtensionChannelsConfig,
-      defaultExtensionDiscordConfig,
-      defaultExtensionImessageConfig,
-      defaultExtensionLineConfig,
       defaultExtensionProviderOpenAiConfig,
       defaultExtensionProvidersConfig,
-      defaultExtensionSignalConfig,
-      defaultExtensionSlackConfig,
       defaultInfraConfig,
       defaultAutoReplyConfig,
       defaultAutoReplyCoreConfig,
@@ -440,12 +398,7 @@ describe("scoped vitest configs", () => {
       const includeFile = path.join(tempDir, "include.json");
       fs.writeFileSync(
         includeFile,
-        JSON.stringify([
-          bundledPluginFile(
-            "discord",
-            "src/monitor/message-handler.preflight.acp-bindings.test.ts",
-          ),
-        ]),
+        JSON.stringify([bundledPluginFile("browser", "src/browser/pw.test.ts")]),
         "utf8",
       );
 
@@ -454,7 +407,7 @@ describe("scoped vitest configs", () => {
       });
 
       expect(requireTestConfig(config).include).toEqual([
-        bundledPluginFile("discord", "src/monitor/message-handler.preflight.acp-bindings.test.ts"),
+        bundledPluginFile("browser", "src/browser/pw.test.ts"),
       ]);
     } finally {
       cleanupTempDirs(tempDirs);
@@ -463,20 +416,6 @@ describe("scoped vitest configs", () => {
 
   it("defaults extension tests to threads with the non-isolated runner", () => {
     expectThreadedNonIsolatedRunner(defaultExtensionsConfig);
-  });
-
-  it("normalizes split extension channel include patterns relative to the scoped dir", () => {
-    for (const [config, include] of [
-      [defaultExtensionDiscordConfig, "discord/**/*.test.ts"],
-      [defaultExtensionLineConfig, "line/**/*.test.ts"],
-      [defaultExtensionSlackConfig, "slack/**/*.test.ts"],
-      [defaultExtensionSignalConfig, "signal/**/*.test.ts"],
-      [defaultExtensionImessageConfig, "imessage/**/*.test.ts"],
-    ] as const) {
-      const testConfig = requireTestConfig(config);
-      expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-      expect(testConfig.include).toEqual([include]);
-    }
   });
 
   it("normalizes acpx extension include patterns relative to the scoped dir", () => {
@@ -489,18 +428,6 @@ describe("scoped vitest configs", () => {
     const testConfig = requireTestConfig(defaultExtensionDiffsConfig);
     expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
     expect(testConfig.include).toEqual(["diffs/**/*.test.ts"]);
-  });
-
-  it("normalizes feishu extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionFeishuConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["feishu/**/*.test.ts"]);
-  });
-
-  it("normalizes irc extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionIrcConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["irc/**/*.test.ts"]);
   });
 
   it("normalizes extension include patterns relative to the scoped dir", () => {
@@ -556,53 +483,10 @@ describe("scoped vitest configs", () => {
       "googlechat/**/*.test.ts",
       "nextcloud-talk/**/*.test.ts",
       "nostr/**/*.test.ts",
-      "qqbot/**/*.test.ts",
       "synology-chat/**/*.test.ts",
       "tlon/**/*.test.ts",
       "twitch/**/*.test.ts",
     ]);
-  });
-
-  it("normalizes matrix extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionMatrixConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["matrix/**/*.test.ts"]);
-  });
-
-  it("normalizes mattermost extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionMattermostConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["mattermost/**/*.test.ts"]);
-  });
-
-  it("normalizes msteams extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionMsTeamsConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["msteams/**/*.test.ts"]);
-  });
-
-  it("normalizes telegram extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionTelegramConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["telegram/**/*.test.ts"]);
-  });
-
-  it("normalizes whatsapp extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionWhatsAppConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["whatsapp/**/*.test.ts"]);
-  });
-
-  it("normalizes zalo extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionZaloConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["zalo/**/*.test.ts", "zalouser/**/*.test.ts"]);
-  });
-
-  it("normalizes voice-call extension include patterns relative to the scoped dir", () => {
-    const testConfig = requireTestConfig(defaultExtensionVoiceCallConfig);
-    expect(testConfig.dir).toBe(path.join(process.cwd(), "extensions"));
-    expect(testConfig.include).toEqual(["voice-call/**/*.test.ts"]);
   });
 
   it("normalizes memory extension include patterns relative to the scoped dir", () => {
@@ -615,84 +499,11 @@ describe("scoped vitest configs", () => {
     ]);
   });
 
-  it("keeps telegram plugin tests out of the shared extensions lane", () => {
-    const extensionsTestConfig = requireTestConfig(defaultExtensionsConfig);
-    const channelsTestConfig = requireTestConfig(defaultChannelsConfig);
-    const telegramTestConfig = requireTestConfig(defaultExtensionTelegramConfig);
-    const extensionExcludes = extensionsTestConfig.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) => path.matchesGlob("telegram/src/fetch.test.ts", pattern)),
-    ).toBe(true);
-    expect(
-      extensionExcludes.some((pattern) =>
-        path.matchesGlob("telegram/src/bot/delivery.resolve-media-retry.test.ts", pattern),
-      ),
-    ).toBe(true);
-    expect(channelsTestConfig.include).not.toContain("extensions/telegram/**/*.test.ts");
-    expect(channelsTestConfig.exclude).not.toContain(
-      bundledPluginFile("telegram", "src/fetch.test.ts"),
-    );
-    expect(normalizeConfigPaths(extensionsTestConfig.setupFiles)).toEqual([
-      "test/setup.ts",
-      "test/setup.extensions.ts",
-      "test/setup-openclaw-runtime.ts",
-    ]);
-    expect(normalizeConfigPaths(telegramTestConfig.setupFiles)).toEqual([
-      "test/setup.ts",
-      "test/setup.extensions.ts",
-      "test/setup-openclaw-runtime.ts",
-    ]);
-  });
-
-  it("keeps whatsapp tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) => path.matchesGlob("whatsapp/src/send.test.ts", pattern)),
-    ).toBe(true);
-  });
-
-  it("keeps voice-call tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) =>
-        path.matchesGlob("voice-call/src/runtime.test.ts", pattern),
-      ),
-    ).toBe(true);
-  });
-
-  it("keeps zalo tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) => path.matchesGlob("zalo/src/channel.test.ts", pattern)),
-    ).toBe(true);
-    expect(
-      extensionExcludes.some((pattern) =>
-        path.matchesGlob("zalouser/src/channel.test.ts", pattern),
-      ),
-    ).toBe(true);
-  });
-
   it("keeps provider plugin tests out of the shared extensions lane", () => {
     const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
     expect(
       extensionExcludes.some((pattern) =>
         path.matchesGlob("openai/openai-codex-provider.test.ts", pattern),
-      ),
-    ).toBe(true);
-  });
-
-  it("keeps messaging plugin tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) => path.matchesGlob("matrix/src/channel.test.ts", pattern)),
-    ).toBe(true);
-  });
-
-  it("keeps mattermost tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) =>
-        path.matchesGlob("mattermost/src/channel.test.ts", pattern),
       ),
     ).toBe(true);
   });
@@ -715,20 +526,6 @@ describe("scoped vitest configs", () => {
       extensionExcludes.some((pattern) =>
         path.matchesGlob("memory-core/src/memory/test-runtime-mocks.ts", pattern),
       ),
-    ).toBe(true);
-  });
-
-  it("keeps feishu tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) => path.matchesGlob("feishu/src/channel.test.ts", pattern)),
-    ).toBe(true);
-  });
-
-  it("keeps irc tests out of the shared extensions lane", () => {
-    const extensionExcludes = defaultExtensionsConfig.test?.exclude ?? [];
-    expect(
-      extensionExcludes.some((pattern) => path.matchesGlob("irc/src/channel.test.ts", pattern)),
     ).toBe(true);
   });
 
