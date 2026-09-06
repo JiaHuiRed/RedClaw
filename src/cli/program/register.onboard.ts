@@ -178,16 +178,6 @@ export function registerOnboardCommand(program: Command): void {
   command.action(async (opts, commandRuntime) => {
     const { defaultRuntime } = await import("../../runtime.js");
     await runCommandWithRuntime(defaultRuntime, async () => {
-      if (opts.modern) {
-        const { runCrestodian } = await import("../../crestodian/crestodian.js");
-        await runCrestodian({
-          message: opts.nonInteractive ? "overview" : undefined,
-          yes: false,
-          json: Boolean(opts.json),
-          interactive: !opts.nonInteractive,
-        });
-        return;
-      }
       const installDaemon = resolveInstallDaemonFlag(commandRuntime, {
         installDaemon: Boolean(opts.installDaemon),
       });

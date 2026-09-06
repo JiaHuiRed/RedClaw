@@ -32,7 +32,6 @@ import { ensureControlUiAssetsBuilt } from "../infra/control-ui-assets.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { restoreTerminalState } from "../terminal/restore.js";
-import { launchTuiCli } from "../tui/tui-launch.js";
 import { resolveUserPath } from "../utils.js";
 import { listConfiguredWebSearchProviders } from "../web-search/runtime.js";
 import { t } from "./i18n/index.js";
@@ -55,7 +54,6 @@ type FinalizeOnboardingOptions = {
 type OnboardSearchModule = typeof import("../commands/onboard-search.js");
 
 let onboardSearchModulePromise: Promise<OnboardSearchModule> | undefined;
-const HATCH_TUI_TIMEOUT_MS = 5 * 60 * 1000;
 
 function getLocalizedGatewayDaemonRuntimeOptions() {
   return GATEWAY_DAEMON_RUNTIME_OPTIONS.map((option) => ({
@@ -73,9 +71,7 @@ function loadOnboardSearchModule(): Promise<OnboardSearchModule> {
   return onboardSearchModulePromise;
 }
 
-export async function finalizeSetupWizard(
-  options: FinalizeOnboardingOptions,
-): Promise<{ launchedTui: boolean }> {
+export async function finalizeSetupWizard(options: FinalizeOnboardingOptions): Promise<void> {
   const { flow, opts, baseConfig, nextConfig, settings, prompter, runtime } = options;
   const suppressGatewayTokenOutput = opts.suppressGatewayTokenOutput === true;
   let gatewayProbe: { ok: boolean; detail?: string } = { ok: true };
@@ -435,8 +431,7 @@ export async function finalizeSetupWizard(
   let controlUiOpened = false;
   let controlUiOpenHint: string | undefined;
   let seededInBackground = false;
-  let hatchChoice: "tui" | "web" | "later" | null = null;
-  let launchedTui = false;
+  let hatchChoice: "web" | "later" | null = null;
 
   if (!opts.skipUi) {
     if (hasBootstrap) {
@@ -469,8 +464,7 @@ export async function finalizeSetupWizard(
       await prompter.note(tokenNotes.join("\n"), "Token");
     }
 
-    const hatchOptions: { value: "tui" | "web" | "later"; label: string }[] = [
-      { value: "tui", label: t("wizard.finalize.terminalHatch") },
+    const hatchOptions: { value: "web" | "later"; label: string }[] = [
       ...(gatewayProbe.ok
         ? [{ value: "web" as const, label: t("wizard.finalize.browserHatch") }]
         : []),
@@ -480,23 +474,10 @@ export async function finalizeSetupWizard(
     hatchChoice = await prompter.select({
       message: t("wizard.finalize.hatchPrompt"),
       options: hatchOptions,
-      initialValue: "tui",
+      initialValue: gatewayProbe.ok ? "web" : "later",
     });
 
-    if (hatchChoice === "tui") {
-      restoreTerminalState("pre-setup tui", { resumeStdinIfPaused: true });
-      try {
-        await launchTuiCli({
-          local: true,
-          deliver: false,
-          message: hasBootstrap ? t("wizard.finalize.bootstrapHatchMessage") : undefined,
-          timeoutMs: HATCH_TUI_TIMEOUT_MS,
-        });
-      } finally {
-        restoreTerminalState("post-setup tui", { resumeStdinIfPaused: true });
-      }
-      launchedTui = true;
-    } else if (hatchChoice === "web") {
+    if (hatchChoice === "web") {
       const browserSupport = await detectBrowserOpenSupport();
       if (browserSupport.ok) {
         controlUiOpened = await openUrl(authedUrl);
@@ -741,5 +722,5 @@ export async function finalizeSetupWizard(
         : t("wizard.finalize.outroDashboardLink"),
   );
 
-  return { launchedTui };
+  return;
 }
