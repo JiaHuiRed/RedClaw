@@ -116,7 +116,6 @@ function humanizeId(value) {
     ["otel", "OpenTelemetry"],
     ["pixverse", "PixVerse"],
     ["qa", "QA"],
-    ["qqbot", "QQ Bot"],
     ["qwen", "Qwen"],
     ["qwencloud", "Qwen Cloud"],
     ["searxng", "SearXNG"],

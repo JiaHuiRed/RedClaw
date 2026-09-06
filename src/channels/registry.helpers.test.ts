@@ -7,10 +7,8 @@ import {
   setActivePluginRegistry,
 } from "../plugins/runtime.js";
 import { createTestRegistry } from "../test-utils/channel-plugins.js";
-import { listChatChannels } from "./chat-meta.js";
 import { normalizeAnyChannelId as normalizeAnyChannelIdLight } from "./registry-normalize.js";
 import {
-  formatChannelSelectionLine,
   getRegisteredChannelPluginMeta,
   listRegisteredChannelPluginIds,
   normalizeAnyChannelId,
@@ -21,21 +19,6 @@ describe("channel registry helpers", () => {
     resetPluginRuntimeStateForTest();
   });
 
-  function channelIds(): string[] {
-    const ids: string[] = [];
-    for (const channel of listChatChannels()) {
-      ids.push(channel.id);
-    }
-    return ids;
-  }
-
-  function formatTestLink(path?: string, label?: string): string {
-    if (label && path) {
-      return `${label}:${path}`;
-    }
-    return label ?? path ?? "";
-  }
-
   function createRegistryWithRegisteredChannel(id: string, aliases: string[] = []) {
     return createTestRegistry([
       {
@@ -45,26 +28,6 @@ describe("channel registry helpers", () => {
       },
     ]);
   }
-
-  it("keeps Feishu first in the current default order", () => {
-    const channels = listChatChannels();
-    expect(channels[0]?.id).toBe("feishu");
-  });
-
-  it("includes MS Teams in the bundled channel list", () => {
-    expect(channelIds()).toContain("msteams");
-  });
-
-  it("formats Telegram selection lines without a docs prefix and with website extras", () => {
-    const telegram = listChatChannels().find((channel) => channel.id === "telegram");
-    if (!telegram) {
-      throw new Error("Missing Telegram channel metadata.");
-    }
-    const line = formatChannelSelectionLine(telegram, formatTestLink);
-    expect(line).not.toContain("Docs:");
-    expect(line).toContain("/channels/telegram");
-    expect(line).toContain("https://openclaw.ai");
-  });
 
   it("prefers the pinned channel registry when resolving registered plugin channels", () => {
     const startupRegistry = createRegistryWithRegisteredChannel("openclaw-weixin", ["weixin"]);

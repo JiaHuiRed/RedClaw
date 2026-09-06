@@ -875,7 +875,6 @@ export const en = {
         msteams: "Teams SDK; enterprise support.",
         nextcloudTalk: "Self-hosted chat via Nextcloud Talk webhook bots.",
         nostr: "Decentralized protocol; encrypted DMs via NIP-04.",
-        qqbot: "Connect to QQ via official QQ Bot API",
         signal: 'signal-cli linked device; more setup (David Reagans: "Hop on Discord.").',
         slack: "supported (Socket Mode).",
         synologyChat: "Connect your Synology NAS Chat to OpenClaw with full agent capabilities.",

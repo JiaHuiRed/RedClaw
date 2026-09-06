@@ -847,7 +847,6 @@ export const zh_TW = {
         msteams: "Teams SDK；企業支援。",
         nextcloudTalk: "透過 Nextcloud Talk webhook bot 接入自託管聊天。",
         nostr: "去中心化協定；透過 NIP-04 傳送加密 DM。",
-        qqbot: "透過官方 QQ Bot API 連接 QQ。",
         signal: 'signal-cli 綁定裝置；需要更多設定（David Reagans："Hop on Discord."）。',
         slack: "支援 Socket Mode。",
         synologyChat: "將 Synology NAS Chat 連接到 RedClaw，並啟用完整 agent 能力。",

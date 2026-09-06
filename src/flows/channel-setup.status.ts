@@ -68,7 +68,6 @@ const CHANNEL_PRIMER_BLURB_KEYS: Record<string, string> = {
   msteams: "wizard.channelsPrimer.blurbs.msteams",
   "nextcloud-talk": "wizard.channelsPrimer.blurbs.nextcloudTalk",
   nostr: "wizard.channelsPrimer.blurbs.nostr",
-  qqbot: "wizard.channelsPrimer.blurbs.qqbot",
   signal: "wizard.channelsPrimer.blurbs.signal",
   slack: "wizard.channelsPrimer.blurbs.slack",
   "synology-chat": "wizard.channelsPrimer.blurbs.synologyChat",
