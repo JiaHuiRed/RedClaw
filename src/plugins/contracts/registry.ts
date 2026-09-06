@@ -11,8 +11,6 @@ import type {
   TranscriptSourceProvider,
   MusicGenerationProviderPlugin,
   ProviderPlugin,
-  RealtimeTranscriptionProviderPlugin,
-  RealtimeVoiceProviderPlugin,
   SpeechProviderPlugin,
   VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
@@ -29,8 +27,6 @@ import {
   loadVitestMediaUnderstandingProviderContractRegistry,
   loadVitestTranscriptsSourceProviderContractRegistry,
   loadVitestMusicGenerationProviderContractRegistry,
-  loadVitestRealtimeTranscriptionProviderContractRegistry,
-  loadVitestRealtimeVoiceProviderContractRegistry,
   loadVitestSpeechProviderContractRegistry,
   loadVitestVideoGenerationProviderContractRegistry,
 } from "./speech-vitest-registry.js";
@@ -49,9 +45,6 @@ type WebFetchProviderContractEntry = CapabilityContractEntry<WebFetchProviderPlu
   credentialValue: unknown;
 };
 type SpeechProviderContractEntry = CapabilityContractEntry<SpeechProviderPlugin>;
-type RealtimeTranscriptionProviderContractEntry =
-  CapabilityContractEntry<RealtimeTranscriptionProviderPlugin>;
-type RealtimeVoiceProviderContractEntry = CapabilityContractEntry<RealtimeVoiceProviderPlugin>;
 type MediaUnderstandingProviderContractEntry =
   CapabilityContractEntry<MediaUnderstandingProviderPlugin>;
 type TranscriptsSourceProviderContractEntry = CapabilityContractEntry<TranscriptSourceProvider>;
@@ -523,30 +516,6 @@ function loadSpeechProviderContractRegistry(): SpeechProviderContractEntry[] {
       }));
 }
 
-function loadRealtimeVoiceProviderContractRegistry(): RealtimeVoiceProviderContractEntry[] {
-  return process.env.VITEST
-    ? loadVitestRealtimeVoiceProviderContractRegistry()
-    : loadBundledCapabilityRuntimeRegistry({
-        pluginIds: resolveBundledManifestPluginIdsForContract("realtimeVoiceProviders"),
-        pluginSdkResolution: "dist",
-      }).realtimeVoiceProviders.map((entry) => ({
-        pluginId: entry.pluginId,
-        provider: entry.provider,
-      }));
-}
-
-function loadRealtimeTranscriptionProviderContractRegistry(): RealtimeTranscriptionProviderContractEntry[] {
-  return process.env.VITEST
-    ? loadVitestRealtimeTranscriptionProviderContractRegistry()
-    : loadBundledCapabilityRuntimeRegistry({
-        pluginIds: resolveBundledManifestPluginIdsForContract("realtimeTranscriptionProviders"),
-        pluginSdkResolution: "dist",
-      }).realtimeTranscriptionProviders.map((entry) => ({
-        pluginId: entry.pluginId,
-        provider: entry.provider,
-      }));
-}
-
 function loadMediaUnderstandingProviderContractRegistry(): MediaUnderstandingProviderContractEntry[] {
   return process.env.VITEST
     ? loadVitestMediaUnderstandingProviderContractRegistry()
@@ -724,10 +693,6 @@ export const webFetchProviderContractRegistry: WebFetchProviderContractEntry[] =
 export const speechProviderContractRegistry: SpeechProviderContractEntry[] = createLazyArrayView(
   loadSpeechProviderContractRegistry,
 );
-export const realtimeTranscriptionProviderContractRegistry: RealtimeTranscriptionProviderContractEntry[] =
-  createLazyArrayView(loadRealtimeTranscriptionProviderContractRegistry);
-export const realtimeVoiceProviderContractRegistry: RealtimeVoiceProviderContractEntry[] =
-  createLazyArrayView(loadRealtimeVoiceProviderContractRegistry);
 export const mediaUnderstandingProviderContractRegistry: MediaUnderstandingProviderContractEntry[] =
   createLazyArrayView(loadMediaUnderstandingProviderContractRegistry);
 export const transcriptsSourceProviderContractRegistry: TranscriptsSourceProviderContractEntry[] =

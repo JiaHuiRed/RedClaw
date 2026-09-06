@@ -35,7 +35,6 @@ import { ensureOpenClawCliOnPath } from "../infra/path-env.js";
 import { readGatewayRestartHandoffSync } from "../infra/restart-handoff.js";
 import { setGatewaySigusr1RestartPolicy, setPreRestartDeferralCheck } from "../infra/restart.js";
 import { enqueueSystemEvent } from "../infra/system-events.js";
-import type { VoiceWakeRoutingConfig } from "../infra/voicewake-routing.js";
 import { withDiagnosticPhase } from "../logging/diagnostic-phase.js";
 import { startDiagnosticHeartbeat, stopDiagnosticHeartbeat } from "../logging/diagnostic.js";
 import { createSubsystemLogger, runtimeForLogger } from "../logging/subsystem.js";
@@ -937,9 +936,7 @@ export async function startGatewayServer(
     nodeSubscribe,
     nodeUnsubscribe,
     nodeUnsubscribeAll,
-    broadcastVoiceWakeChanged,
-    hasTalkNodeConnected,
-  } = createGatewayNodeSessionRuntime({ broadcast });
+  } = createGatewayNodeSessionRuntime();
   applyGatewayLaneConcurrency(cfgAtStart);
 
   runtimeState = createGatewayServerLiveState({
@@ -1068,10 +1065,6 @@ export async function startGatewayServer(
       clearFallbackGatewayContextForServer();
     }
   };
-  const broadcastVoiceWakeRoutingChanged = (config: VoiceWakeRoutingConfig) => {
-    broadcast("voicewake.routing.changed", { config }, { dropIfSlow: true });
-  };
-
   try {
     const earlyRuntime = await startupTrace.measure("runtime.early", () =>
       loadGatewayStartupEarlyModule().then(({ startGatewayEarlyRuntime }) =>
@@ -1395,7 +1388,6 @@ export async function startGatewayServer(
           nodeSubscribe,
           nodeUnsubscribe,
           nodeUnsubscribeAll,
-          hasConnectedTalkNode: hasTalkNodeConnected,
           clients,
           enforceSharedGatewayAuthGenerationForConfigWrite: (nextConfig: OpenClawConfig) => {
             enforceSharedGatewaySessionGenerationForConfigWrite({
@@ -1438,9 +1430,7 @@ export async function startGatewayServer(
           stopChannel,
           markChannelLoggedOut,
           wizardRunner,
-          broadcastVoiceWakeChanged,
           unavailableGatewayMethods,
-          broadcastVoiceWakeRoutingChanged,
         });
       },
     );

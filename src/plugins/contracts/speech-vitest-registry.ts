@@ -4,8 +4,6 @@ import type {
   MediaUnderstandingProviderPlugin,
   TranscriptSourceProvider,
   MusicGenerationProviderPlugin,
-  RealtimeTranscriptionProviderPlugin,
-  RealtimeVoiceProviderPlugin,
   SpeechProviderPlugin,
   VideoGenerationProviderPlugin,
 } from "../types.js";
@@ -24,16 +22,6 @@ export type MediaUnderstandingProviderContractEntry = {
 export type TranscriptsSourceProviderContractEntry = {
   pluginId: string;
   provider: TranscriptSourceProvider;
-};
-
-export type RealtimeVoiceProviderContractEntry = {
-  pluginId: string;
-  provider: RealtimeVoiceProviderPlugin;
-};
-
-export type RealtimeTranscriptionProviderContractEntry = {
-  pluginId: string;
-  provider: RealtimeTranscriptionProviderPlugin;
 };
 
 export type ImageGenerationProviderContractEntry = {
@@ -56,8 +44,6 @@ type ManifestContractKey =
   | "speechProviders"
   | "mediaUnderstandingProviders"
   | "transcriptSourceProviders"
-  | "realtimeVoiceProviders"
-  | "realtimeTranscriptionProviders"
   | "videoGenerationProviders"
   | "musicGenerationProviders";
 
@@ -73,12 +59,6 @@ const VITEST_CONTRACT_PLUGIN_IDS = {
   ).map((entry) => entry.pluginId),
   transcriptSourceProviders: BUNDLED_PLUGIN_CONTRACT_SNAPSHOTS.filter(
     (entry) => entry.transcriptSourceProviderIds.length > 0,
-  ).map((entry) => entry.pluginId),
-  realtimeVoiceProviders: BUNDLED_PLUGIN_CONTRACT_SNAPSHOTS.filter(
-    (entry) => entry.realtimeVoiceProviderIds.length > 0,
-  ).map((entry) => entry.pluginId),
-  realtimeTranscriptionProviders: BUNDLED_PLUGIN_CONTRACT_SNAPSHOTS.filter(
-    (entry) => entry.realtimeTranscriptionProviderIds.length > 0,
   ).map((entry) => entry.pluginId),
   videoGenerationProviders: BUNDLED_PLUGIN_CONTRACT_SNAPSHOTS.filter(
     (entry) => entry.videoGenerationProviderIds.length > 0,
@@ -221,28 +201,6 @@ export function loadVitestTranscriptsSourceProviderContractRegistry(): Transcrip
     pluginSdkResolution: "src",
     pickEntries: (registry) =>
       registry.transcriptSourceProviders.map((entry) => ({
-        pluginId: entry.pluginId,
-        provider: entry.provider,
-      })),
-  });
-}
-
-export function loadVitestRealtimeVoiceProviderContractRegistry(): RealtimeVoiceProviderContractEntry[] {
-  return loadVitestCapabilityContractEntries({
-    contract: "realtimeVoiceProviders",
-    pickEntries: (registry) =>
-      registry.realtimeVoiceProviders.map((entry) => ({
-        pluginId: entry.pluginId,
-        provider: entry.provider,
-      })),
-  });
-}
-
-export function loadVitestRealtimeTranscriptionProviderContractRegistry(): RealtimeTranscriptionProviderContractEntry[] {
-  return loadVitestCapabilityContractEntries({
-    contract: "realtimeTranscriptionProviders",
-    pickEntries: (registry) =>
-      registry.realtimeTranscriptionProviders.map((entry) => ({
         pluginId: entry.pluginId,
         provider: entry.provider,
       })),

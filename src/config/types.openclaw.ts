@@ -12,7 +12,7 @@ import type { CliConfig } from "./types.cli.js";
 import type { CommitmentsConfig } from "./types.commitments.js";
 import type { CrestodianConfig } from "./types.crestodian.js";
 import type { CronConfig } from "./types.cron.js";
-import type { DiscoveryConfig, GatewayConfig, TalkConfig } from "./types.gateway.js";
+import type { DiscoveryConfig, GatewayConfig } from "./types.gateway.js";
 import type { HooksConfig } from "./types.hooks.js";
 import type { McpConfig } from "./types.mcp.js";
 import type { MemoryConfig } from "./types.memory.js";
@@ -147,7 +147,6 @@ export type OpenClawConfig = {
   commitments?: CommitmentsConfig;
   hooks?: HooksConfig;
   discovery?: DiscoveryConfig;
-  talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
   mcp?: McpConfig;

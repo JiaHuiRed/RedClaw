@@ -29,8 +29,6 @@ type CapabilityProviderRegistryKey =
   | "embeddingProviders"
   | "memoryEmbeddingProviders"
   | "speechProviders"
-  | "realtimeTranscriptionProviders"
-  | "realtimeVoiceProviders"
   | "mediaUnderstandingProviders"
   | "transcriptSourceProviders"
   | "imageGenerationProviders"
@@ -41,8 +39,6 @@ type CapabilityContractKey =
   | "embeddingProviders"
   | "memoryEmbeddingProviders"
   | "speechProviders"
-  | "realtimeTranscriptionProviders"
-  | "realtimeVoiceProviders"
   | "mediaUnderstandingProviders"
   | "transcriptSourceProviders"
   | "imageGenerationProviders"
@@ -64,8 +60,6 @@ const CAPABILITY_CONTRACT_KEY: Record<CapabilityProviderRegistryKey, CapabilityC
   embeddingProviders: "embeddingProviders",
   memoryEmbeddingProviders: "memoryEmbeddingProviders",
   speechProviders: "speechProviders",
-  realtimeTranscriptionProviders: "realtimeTranscriptionProviders",
-  realtimeVoiceProviders: "realtimeVoiceProviders",
   mediaUnderstandingProviders: "mediaUnderstandingProviders",
   transcriptSourceProviders: "transcriptSourceProviders",
   imageGenerationProviders: "imageGenerationProviders",
@@ -378,8 +372,6 @@ function filterLoadedProvidersForRequestedConfig<K extends CapabilityProviderReg
 }): PluginRegistry[K] {
   if (
     params.key !== "speechProviders" &&
-    params.key !== "realtimeTranscriptionProviders" &&
-    params.key !== "realtimeVoiceProviders" &&
     params.key !== "mediaUnderstandingProviders"
   ) {
     return [] as unknown as PluginRegistry[K];

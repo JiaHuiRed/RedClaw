@@ -32,11 +32,7 @@ const EVENT_SCOPE_GUARDS: Record<string, string[]> = {
   presence: [],
   shutdown: [],
   tick: [],
-  "talk.event": [READ_SCOPE],
-  "talk.mode": [WRITE_SCOPE],
   "update.available": [],
-  "voicewake.changed": [READ_SCOPE],
-  "voicewake.routing.changed": [READ_SCOPE],
   "device.pair.requested": [PAIRING_SCOPE],
   "device.pair.resolved": [PAIRING_SCOPE],
   "node.pair.requested": [PAIRING_SCOPE],
@@ -46,11 +42,6 @@ const EVENT_SCOPE_GUARDS: Record<string, string[]> = {
   "session.operation": [READ_SCOPE],
   "session.tool": [READ_SCOPE],
 };
-
-// Events that node-role sessions must receive even when the event's operator
-// scope would otherwise reject non-operator roles. Nodes act on these updates
-// (e.g. reconfiguring wake-word triggers).
-const NODE_ALLOWED_EVENTS = new Set<string>(["voicewake.changed", "voicewake.routing.changed"]);
 
 function serializeFrameField(name: "payload" | "stateVersion", value: unknown): string {
   const fieldJSON = JSON.stringify({ [name]: value });
@@ -80,7 +71,7 @@ function hasEventScope(client: GatewayWsClient, event: string): boolean {
   }
   const role = client.connect.role ?? "operator";
   if (role !== "operator") {
-    return role === "node" && NODE_ALLOWED_EVENTS.has(event);
+    return false;
   }
   const scopes = Array.isArray(client.connect.scopes) ? client.connect.scopes : [];
   if (scopes.includes(ADMIN_SCOPE)) {

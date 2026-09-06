@@ -111,12 +111,6 @@ type GuardedFetchPresetOptions = Omit<
 >;
 
 const DEFAULT_MAX_REDIRECTS = 3;
-const OPENCLAW_DEBUG_PROXY_ENABLED = "OPENCLAW_DEBUG_PROXY_ENABLED";
-
-function isTruthyEnvValue(value: string | undefined): boolean {
-  return value === "1" || value === "true" || value === "yes" || value === "on";
-}
-
 export function withStrictGuardedFetchMode(params: GuardedFetchPresetOptions): GuardedFetchOptions {
   return { ...params, mode: GUARDED_FETCH_MODE.STRICT };
 }
@@ -232,10 +226,6 @@ async function assertExplicitProxyAllowed(
   });
 }
 
-function isRedirectStatus(status: number): boolean {
-  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
-}
-
 function isAmbientGlobalFetch(params: {
   fetchImpl: FetchLike | undefined;
   globalFetch: FetchLike | undefined;
@@ -247,45 +237,14 @@ function isAmbientGlobalFetch(params: {
   );
 }
 
+function isRedirectStatus(status: number): boolean {
+  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+}
+
 export function retainSafeHeadersForCrossOriginRedirectHeaders(
   headers?: HeadersInit,
 ): Record<string, string> | undefined {
   return retainSafeRedirectHeaders(headers);
-}
-
-async function captureGuardedFetchExchange(params: {
-  url: string;
-  method: string;
-  requestHeaders?: Headers | Record<string, string> | undefined;
-  requestBody?: BodyInit | Buffer | string | null;
-  response: Response;
-  transport?: "http" | "sse";
-  capture: GuardedFetchOptions["capture"];
-  auditContext?: string;
-  capturedByGlobalFetchPatch?: boolean;
-}): Promise<void> {
-  if (params.capture === false || !isTruthyEnvValue(process.env[OPENCLAW_DEBUG_PROXY_ENABLED])) {
-    return;
-  }
-  const { captureHttpExchange, isDebugProxyGlobalFetchPatchInstalled } =
-    await import("../../proxy-capture/runtime.js");
-  if (params.capturedByGlobalFetchPatch && isDebugProxyGlobalFetchPatchInstalled()) {
-    return;
-  }
-  captureHttpExchange({
-    url: params.url,
-    method: params.method,
-    requestHeaders: params.requestHeaders,
-    requestBody: params.requestBody,
-    response: params.response,
-    transport: params.transport,
-    flowId: params.capture?.flowId,
-    meta: {
-      captureOrigin: "guarded-fetch",
-      ...(params.auditContext ? { auditContext: params.auditContext } : {}),
-      ...params.capture?.meta,
-    },
-  });
 }
 
 function retainSafeHeadersForCrossOriginRedirect(init?: RequestInit): RequestInit | undefined {
@@ -533,26 +492,6 @@ async function fetchWithSsrFGuardInternal(
       const response = shouldUseRuntimeFetch
         ? await fetchWithRuntimeDispatcher(parsedUrl.toString(), init)
         : await defaultFetch(parsedUrl.toString(), init);
-      const capturedByGlobalFetchPatch =
-        !shouldUseRuntimeFetch &&
-        isAmbientGlobalFetch({
-          fetchImpl: defaultFetch,
-          globalFetch: globalThis.fetch,
-        });
-
-      await captureGuardedFetchExchange({
-        url: parsedUrl.toString(),
-        method: currentInit?.method ?? "GET",
-        requestHeaders: currentInit?.headers as Headers | Record<string, string> | undefined,
-        requestBody:
-          (currentInit as (RequestInit & { body?: BodyInit | null }) | undefined)?.body ?? null,
-        response,
-        transport: "http",
-        capture: params.capture,
-        auditContext: params.auditContext,
-        capturedByGlobalFetchPatch,
-      });
-
       if (isRedirectStatus(response.status)) {
         const location = response.headers.get("location");
         if (!location) {

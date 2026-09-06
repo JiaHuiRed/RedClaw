@@ -11,7 +11,6 @@ import {
   type SsrFPolicy,
 } from "../infra/net/ssrf.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
-import { resolveDebugProxySettings } from "../proxy-capture/env.js";
 import {
   isCloudMetadataIpAddress,
   isLinkLocalIpAddress,
@@ -358,25 +357,7 @@ function buildManagedResponse(
 }
 
 function resolveModelRequestPolicy(model: Model<Api>) {
-  const debugProxy = resolveDebugProxySettings();
-  let explicitDebugProxyUrl: string | undefined;
-  if (debugProxy.enabled && debugProxy.proxyUrl) {
-    try {
-      if (new URL(model.baseUrl).protocol === "https:") {
-        explicitDebugProxyUrl = debugProxy.proxyUrl;
-      }
-    } catch {
-      // Non-URL provider base URLs cannot use the debug proxy override safely.
-    }
-  }
-  const request = mergeModelProviderRequestOverrides(getModelProviderRequestTransport(model), {
-    proxy: explicitDebugProxyUrl
-      ? {
-          mode: "explicit-proxy",
-          url: explicitDebugProxyUrl,
-        }
-      : undefined,
-  });
+  const request = mergeModelProviderRequestOverrides(getModelProviderRequestTransport(model), {});
   return resolveProviderRequestPolicyConfig({
     provider: model.provider,
     api: model.api,

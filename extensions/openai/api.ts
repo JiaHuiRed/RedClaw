@@ -12,5 +12,3 @@ export {
 export { buildOpenAICodexProvider } from "./openai-codex-catalog.js";
 export { buildOpenAICodexProviderPlugin } from "./openai-codex-provider.js";
 export { buildOpenAIProvider } from "./openai-provider.js";
-export { buildOpenAIRealtimeTranscriptionProvider } from "./realtime-transcription-provider.js";
-export { buildOpenAIRealtimeVoiceProvider } from "./realtime-voice-provider.js";

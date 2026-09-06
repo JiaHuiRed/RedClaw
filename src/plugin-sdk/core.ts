@@ -114,7 +114,6 @@ export type {
   ProviderResolveTransportTurnStateContext,
   ProviderResolveWebSocketSessionPolicyContext,
   ProviderResolvedUsageAuth,
-  RealtimeTranscriptionProviderPlugin,
   ProviderSanitizeReplayHistoryContext,
   ProviderTransportTurnState,
   ProviderToolSchemaDiagnostic,

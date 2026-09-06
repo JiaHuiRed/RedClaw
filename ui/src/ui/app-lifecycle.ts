@@ -42,13 +42,6 @@ type LifecycleHost = {
   allowExternalEmbedUrls: boolean;
   chatHasAutoScrolled: boolean;
   chatManualRefreshInFlight: boolean;
-  realtimeTalkSession?: { stop: () => void } | null;
-  realtimeTalkActive?: boolean;
-  realtimeTalkStatus?: string;
-  realtimeTalkDetail?: string | null;
-  realtimeTalkTranscript?: string | null;
-  realtimeTalkConversation?: unknown[];
-  resetRealtimeTalkConversation?: () => void;
   chatLoading: boolean;
   chatMessages: unknown[];
   chatToolMessages: unknown[];
@@ -139,13 +132,6 @@ export function handleDisconnected(host: LifecycleHost) {
   host.chatScrollTimeout = null;
   clearHostGlobalTimeout(host.sessionsChangedReloadTimer);
   host.sessionsChangedReloadTimer = null;
-  host.realtimeTalkSession?.stop();
-  host.realtimeTalkSession = null;
-  host.realtimeTalkActive = false;
-  host.realtimeTalkStatus = "idle";
-  host.realtimeTalkDetail = null;
-  host.realtimeTalkTranscript = null;
-  host.resetRealtimeTalkConversation?.();
   host.client?.stop();
   host.client = null;
   host.connected = false;
@@ -166,7 +152,6 @@ export function handleUpdated(host: LifecycleHost, changed: Map<PropertyKey, unk
       changed.has("chatToolMessages") ||
       changed.has("chatStream") ||
       changed.has("chatLoading") ||
-      changed.has("realtimeTalkConversation") ||
       changed.has("tab"))
   ) {
     const forcedByTab = changed.has("tab");

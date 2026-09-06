@@ -29,8 +29,6 @@ export const createTestRegistry = (channels: TestChannelRegistration[] = []): Pl
   modelCatalogProviders: [],
   embeddingProviders: [],
   speechProviders: [],
-  realtimeTranscriptionProviders: [],
-  realtimeVoiceProviders: [],
   mediaUnderstandingProviders: [],
   transcriptSourceProviders: [],
   imageGenerationProviders: [],

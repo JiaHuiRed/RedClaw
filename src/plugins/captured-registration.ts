@@ -35,8 +35,6 @@ import type {
   OpenClawPluginCliRegistrar,
   PluginTextTransformRegistration,
   ProviderPlugin,
-  RealtimeTranscriptionProviderPlugin,
-  RealtimeVoiceProviderPlugin,
   SpeechProviderPlugin,
   UnifiedModelCatalogProviderPlugin,
   VideoGenerationProviderPlugin,
@@ -62,8 +60,6 @@ export type CapturedPluginRegistration = {
   agentToolResultMiddlewares: PluginAgentToolResultMiddlewareRegistration[];
   embeddingProviders: EmbeddingProviderAdapter[];
   speechProviders: SpeechProviderPlugin[];
-  realtimeTranscriptionProviders: RealtimeTranscriptionProviderPlugin[];
-  realtimeVoiceProviders: RealtimeVoiceProviderPlugin[];
   mediaUnderstandingProviders: MediaUnderstandingProviderPlugin[];
   transcriptSourceProviders: TranscriptSourceProvider[];
   imageGenerationProviders: ImageGenerationProviderPlugin[];
@@ -101,8 +97,6 @@ export function createCapturedPluginRegistration(params?: {
   const agentToolResultMiddlewares: PluginAgentToolResultMiddlewareRegistration[] = [];
   const embeddingProviders: EmbeddingProviderAdapter[] = [];
   const speechProviders: SpeechProviderPlugin[] = [];
-  const realtimeTranscriptionProviders: RealtimeTranscriptionProviderPlugin[] = [];
-  const realtimeVoiceProviders: RealtimeVoiceProviderPlugin[] = [];
   const mediaUnderstandingProviders: MediaUnderstandingProviderPlugin[] = [];
   const transcriptSourceProviders: TranscriptSourceProvider[] = [];
   const imageGenerationProviders: ImageGenerationProviderPlugin[] = [];
@@ -143,8 +137,6 @@ export function createCapturedPluginRegistration(params?: {
     agentToolResultMiddlewares,
     embeddingProviders,
     speechProviders,
-    realtimeTranscriptionProviders,
-    realtimeVoiceProviders,
     mediaUnderstandingProviders,
     transcriptSourceProviders,
     imageGenerationProviders,
@@ -234,12 +226,6 @@ export function createCapturedPluginRegistration(params?: {
         },
         registerSpeechProvider(provider: SpeechProviderPlugin) {
           speechProviders.push(provider);
-        },
-        registerRealtimeTranscriptionProvider(provider: RealtimeTranscriptionProviderPlugin) {
-          realtimeTranscriptionProviders.push(provider);
-        },
-        registerRealtimeVoiceProvider(provider: RealtimeVoiceProviderPlugin) {
-          realtimeVoiceProviders.push(provider);
         },
         registerMediaUnderstandingProvider(provider: MediaUnderstandingProviderPlugin) {
           mediaUnderstandingProviders.push(provider);

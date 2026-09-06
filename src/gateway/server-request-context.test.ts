@@ -35,7 +35,6 @@ function makeContextParams(
     nodeSubscribe: vi.fn(),
     nodeUnsubscribe: vi.fn(),
     nodeUnsubscribeAll: vi.fn(),
-    hasConnectedTalkNode: vi.fn(() => false),
     clients: new Set(),
     enforceSharedGatewayAuthGenerationForConfigWrite: vi.fn(),
     nodeRegistry: {} as never,
@@ -66,8 +65,6 @@ function makeContextParams(
     stopChannel: vi.fn(async () => undefined),
     markChannelLoggedOut: vi.fn(),
     wizardRunner: vi.fn(async () => undefined),
-    broadcastVoiceWakeChanged: vi.fn(),
-    broadcastVoiceWakeRoutingChanged: vi.fn(),
     unavailableGatewayMethods: new Set(),
     ...overrides,
   };
@@ -104,7 +101,6 @@ describe("createGatewayRequestContext", () => {
       nodeSubscribe: vi.fn(),
       nodeUnsubscribe: vi.fn(),
       nodeUnsubscribeAll: vi.fn(),
-      hasConnectedTalkNode: vi.fn(() => false),
       clients: new Set(),
       enforceSharedGatewayAuthGenerationForConfigWrite: vi.fn(),
       nodeRegistry: {} as never,
@@ -136,8 +132,6 @@ describe("createGatewayRequestContext", () => {
       stopChannel: vi.fn(async () => undefined),
       markChannelLoggedOut: vi.fn(),
       wizardRunner: vi.fn(async () => undefined),
-      broadcastVoiceWakeChanged: vi.fn(),
-      broadcastVoiceWakeRoutingChanged: vi.fn(),
       unavailableGatewayMethods: new Set(),
     });
 

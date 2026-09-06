@@ -66,7 +66,6 @@ export type GatewayRequestContext = {
   nodeSubscribe: (nodeId: string, sessionKey: string) => void;
   nodeUnsubscribe: (nodeId: string, sessionKey: string) => void;
   nodeUnsubscribeAll: (nodeId: string) => void;
-  hasConnectedTalkNode: () => boolean;
   hasExecApprovalClients?: (excludeConnId?: string) => boolean;
   getApprovalClientConnIds?: <TPayload>(params?: {
     excludeConnId?: string;
@@ -127,10 +126,6 @@ export type GatewayRequestContext = {
     runtime: import("../../runtime.js").RuntimeEnv,
     prompter: import("../../wizard/prompts.js").WizardPrompter,
   ) => Promise<void>;
-  broadcastVoiceWakeChanged: (triggers: string[]) => void;
-  broadcastVoiceWakeRoutingChanged: (
-    config: import("../../infra/voicewake-routing.js").VoiceWakeRoutingConfig,
-  ) => void;
   unavailableGatewayMethods?: ReadonlySet<string>;
 };
 

@@ -171,10 +171,6 @@ const loadSystemHandlers = lazyHandlerModule(
   () => import("./server-methods/system.js"),
   (module) => module.systemHandlers,
 );
-const loadTalkHandlers = lazyHandlerModule(
-  () => import("./server-methods/talk.js"),
-  (module) => module.talkHandlers,
-);
 const loadTasksHandlers = lazyHandlerModule(
   () => import("./server-methods/tasks.js"),
   (module) => module.tasksHandlers,
@@ -202,14 +198,6 @@ const loadUpdateHandlers = lazyHandlerModule(
 const loadUsageHandlers = lazyHandlerModule(
   () => import("./server-methods/usage.js"),
   (module) => module.usageHandlers,
-);
-const loadVoicewakeRoutingHandlers = lazyHandlerModule(
-  () => import("./server-methods/voicewake-routing.js"),
-  (module) => module.voicewakeRoutingHandlers,
-);
-const loadVoicewakeHandlers = lazyHandlerModule(
-  () => import("./server-methods/voicewake.js"),
-  (module) => module.voicewakeHandlers,
 );
 const loadWebHandlers = lazyHandlerModule(
   () => import("./server-methods/web.js"),
@@ -261,14 +249,6 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...createLazyCoreHandlers({
     methods: ["logs.tail"],
     loadHandlers: loadLogsHandlers,
-  }),
-  ...createLazyCoreHandlers({
-    methods: ["voicewake.get", "voicewake.set"],
-    loadHandlers: loadVoicewakeHandlers,
-  }),
-  ...createLazyCoreHandlers({
-    methods: ["voicewake.routing.get", "voicewake.routing.set"],
-    loadHandlers: loadVoicewakeRoutingHandlers,
   }),
   ...createLazyCoreHandlers({
     methods: ["health", "status"],
@@ -384,28 +364,6 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...createLazyCoreHandlers({
     methods: ["wizard.start", "wizard.next", "wizard.cancel", "wizard.status"],
     loadHandlers: loadWizardHandlers,
-  }),
-  ...createLazyCoreHandlers({
-    methods: [
-      "talk.session.create",
-      "talk.session.join",
-      "talk.session.appendAudio",
-      "talk.session.startTurn",
-      "talk.session.endTurn",
-      "talk.session.cancelTurn",
-      "talk.session.cancelOutput",
-      "talk.session.submitToolResult",
-      "talk.session.steer",
-      "talk.session.close",
-      "talk.client.create",
-      "talk.client.toolCall",
-      "talk.client.steer",
-      "talk.catalog",
-      "talk.config",
-      "talk.speak",
-      "talk.mode",
-    ],
-    loadHandlers: loadTalkHandlers,
   }),
   ...createLazyCoreHandlers({
     methods: ["tasks.list", "tasks.get", "tasks.cancel"],

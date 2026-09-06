@@ -364,8 +364,6 @@ type PluginRegistrySnapshot = {
     textTransforms: PluginRegistry["textTransforms"];
     embeddingProviders: PluginRegistry["embeddingProviders"];
     speechProviders: PluginRegistry["speechProviders"];
-    realtimeTranscriptionProviders: PluginRegistry["realtimeTranscriptionProviders"];
-    realtimeVoiceProviders: PluginRegistry["realtimeVoiceProviders"];
     mediaUnderstandingProviders: PluginRegistry["mediaUnderstandingProviders"];
     transcriptSourceProviders: PluginRegistry["transcriptSourceProviders"];
     imageGenerationProviders: PluginRegistry["imageGenerationProviders"];
@@ -409,8 +407,6 @@ function snapshotPluginRegistry(registry: PluginRegistry): PluginRegistrySnapsho
       textTransforms: [...registry.textTransforms],
       embeddingProviders: [...registry.embeddingProviders],
       speechProviders: [...registry.speechProviders],
-      realtimeTranscriptionProviders: [...registry.realtimeTranscriptionProviders],
-      realtimeVoiceProviders: [...registry.realtimeVoiceProviders],
       mediaUnderstandingProviders: [...registry.mediaUnderstandingProviders],
       transcriptSourceProviders: [...registry.transcriptSourceProviders],
       imageGenerationProviders: [...registry.imageGenerationProviders],
@@ -453,8 +449,6 @@ function restorePluginRegistry(registry: PluginRegistry, snapshot: PluginRegistr
   registry.textTransforms = snapshot.arrays.textTransforms;
   registry.embeddingProviders = snapshot.arrays.embeddingProviders;
   registry.speechProviders = snapshot.arrays.speechProviders;
-  registry.realtimeTranscriptionProviders = snapshot.arrays.realtimeTranscriptionProviders;
-  registry.realtimeVoiceProviders = snapshot.arrays.realtimeVoiceProviders;
   registry.mediaUnderstandingProviders = snapshot.arrays.mediaUnderstandingProviders;
   registry.transcriptSourceProviders = snapshot.arrays.transcriptSourceProviders;
   registry.imageGenerationProviders = snapshot.arrays.imageGenerationProviders;

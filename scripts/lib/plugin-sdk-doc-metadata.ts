@@ -107,9 +107,6 @@ export const pluginSdkDocMetadata = {
   "speech-core": {
     category: "provider",
   },
-  "realtime-voice": {
-    category: "provider",
-  },
   "tts-runtime": {
     category: "runtime",
   },

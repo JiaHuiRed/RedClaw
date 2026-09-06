@@ -37,28 +37,9 @@ import type { ProviderUsageSnapshot } from "../infra/provider-usage.types.js";
 import type { MediaUnderstandingProvider } from "../media-understanding/types.js";
 import type { UnifiedModelCatalogEntry, UnifiedModelCatalogKind } from "../model-catalog/types.js";
 import type { MusicGenerationProvider } from "../music-generation/types.js";
-import type {
-  RealtimeTranscriptionProviderConfig,
-  RealtimeTranscriptionProviderConfiguredContext,
-  RealtimeTranscriptionProviderId,
-  RealtimeTranscriptionProviderResolveConfigContext,
-  RealtimeTranscriptionSession,
-  RealtimeTranscriptionSessionCreateRequest,
-} from "../realtime-transcription/provider-types.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { SecurityAuditFinding } from "../security/audit.types.js";
 import type { JsonSchemaObject } from "../shared/json-schema.types.js";
-import type {
-  RealtimeVoiceBridge,
-  RealtimeVoiceBrowserSession,
-  RealtimeVoiceBrowserSessionCreateRequest,
-  RealtimeVoiceBridgeCreateRequest,
-  RealtimeVoiceProviderCapabilities,
-  RealtimeVoiceProviderConfig,
-  RealtimeVoiceProviderConfiguredContext,
-  RealtimeVoiceProviderId,
-  RealtimeVoiceProviderResolveConfigContext,
-} from "../talk/provider-types.js";
 import type { TranscriptSourceProvider as TranscriptsSourceProviderCapability } from "../transcripts/provider-types.js";
 import type {
   SpeechDirectiveTokenParseContext,
@@ -1861,48 +1842,10 @@ export type PluginSpeechProviderEntry = SpeechProviderPlugin & {
   pluginId: string;
 };
 
-/** Realtime transcription capability registered by a plugin. */
-export type RealtimeTranscriptionProviderPlugin = {
-  id: RealtimeTranscriptionProviderId;
-  label: string;
-  aliases?: string[];
-  defaultModel?: string;
-  autoSelectOrder?: number;
-  resolveConfig?: (
-    ctx: RealtimeTranscriptionProviderResolveConfigContext,
-  ) => RealtimeTranscriptionProviderConfig;
-  isConfigured: (ctx: RealtimeTranscriptionProviderConfiguredContext) => boolean;
-  createSession: (req: RealtimeTranscriptionSessionCreateRequest) => RealtimeTranscriptionSession;
-};
-
-export type PluginRealtimeTranscriptionProviderEntry = RealtimeTranscriptionProviderPlugin & {
-  pluginId: string;
-};
-
 /** Transcript source capability registered by a channel or meeting plugin. */
 export type TranscriptSourceProvider = TranscriptsSourceProviderCapability;
 
 export type PluginTranscriptsSourceProviderEntry = TranscriptSourceProvider & {
-  pluginId: string;
-};
-
-/** Realtime voice capability registered by a plugin. */
-export type RealtimeVoiceProviderPlugin = {
-  id: RealtimeVoiceProviderId;
-  label: string;
-  aliases?: string[];
-  defaultModel?: string;
-  autoSelectOrder?: number;
-  capabilities?: RealtimeVoiceProviderCapabilities;
-  resolveConfig?: (ctx: RealtimeVoiceProviderResolveConfigContext) => RealtimeVoiceProviderConfig;
-  isConfigured: (ctx: RealtimeVoiceProviderConfiguredContext) => boolean;
-  createBridge: (req: RealtimeVoiceBridgeCreateRequest) => RealtimeVoiceBridge;
-  createBrowserSession?: (
-    req: RealtimeVoiceBrowserSessionCreateRequest,
-  ) => Promise<RealtimeVoiceBrowserSession>;
-};
-
-export type PluginRealtimeVoiceProviderEntry = RealtimeVoiceProviderPlugin & {
   pluginId: string;
 };
 
@@ -2690,10 +2633,6 @@ export type OpenClawPluginApi = {
   ) => void;
   /** Register a speech synthesis provider (speech capability). */
   registerSpeechProvider: (provider: SpeechProviderPlugin) => void;
-  /** Register a realtime transcription provider (streaming STT capability). */
-  registerRealtimeTranscriptionProvider: (provider: RealtimeTranscriptionProviderPlugin) => void;
-  /** Register a realtime voice provider (duplex voice capability). */
-  registerRealtimeVoiceProvider: (provider: RealtimeVoiceProviderPlugin) => void;
   /** Register a media understanding provider (media understanding capability). */
   registerMediaUnderstandingProvider: (provider: MediaUnderstandingProviderPlugin) => void;
   /** Register a transcripts source provider (live or imported meeting transcript capability). */

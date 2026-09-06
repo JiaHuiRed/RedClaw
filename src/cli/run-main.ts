@@ -437,24 +437,13 @@ async function resolveUnownedCliPrimaryMessage(params: {
   );
 }
 
-async function bootstrapCliProxyCaptureAndDispatcher(
+async function bootstrapCliProxyDispatcher(
   startupTrace: ReturnType<typeof createGatewayCliMainStartupTrace>,
   options: { ensureDispatcher?: boolean } = {},
 ): Promise<void> {
-  const [
-    { initializeDebugProxyCapture, finalizeDebugProxyCapture },
-    { maybeWarnAboutDebugProxyCoverage },
-  ] = await startupTrace.measure("proxy-imports", () =>
-    Promise.all([import("../proxy-capture/runtime.js"), import("../proxy-capture/coverage.js")]),
-  );
-  initializeDebugProxyCapture("cli");
-  process.once("exit", () => {
-    finalizeDebugProxyCapture();
-  });
   if (options.ensureDispatcher !== false) {
     await startupTrace.measure("proxy-dispatcher", () => ensureCliEnvProxyDispatcher());
   }
-  maybeWarnAboutDebugProxyCoverage();
 }
 
 export async function runCli(argv: string[] = process.argv) {
@@ -716,7 +705,7 @@ export async function runCli(argv: string[] = process.argv) {
     }
 
     if (!isHelpOrVersionInvocation) {
-      await bootstrapCliProxyCaptureAndDispatcher(startupTrace, {
+      await bootstrapCliProxyDispatcher(startupTrace, {
         ensureDispatcher: shouldUseCliEnvProxy,
       });
     }

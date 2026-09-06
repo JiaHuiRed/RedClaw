@@ -8,7 +8,6 @@ import {
   applyMessageDefaults,
   applyModelDefaults,
   applySessionDefaults,
-  applyTalkConfigNormalization,
 } from "./defaults.js";
 import { normalizeExecSafeBinProfilesInConfig } from "./normalize-exec-safe-bin.js";
 import { normalizeConfigPaths } from "./normalize-paths.js";
@@ -72,7 +71,6 @@ export function materializeRuntimeConfig(
     next = applyCompactionDefaults(next);
   }
   next = applyModelDefaults(next, { manifestRegistry: options.manifestRegistry });
-  next = applyTalkConfigNormalization(next);
   if (profile.normalizePaths) {
     normalizeConfigPaths(next);
   }

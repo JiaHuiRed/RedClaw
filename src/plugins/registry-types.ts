@@ -61,8 +61,6 @@ import type {
   PluginTextTransformRegistration,
   MigrationProviderPlugin,
   ProviderPlugin,
-  RealtimeTranscriptionProviderPlugin,
-  RealtimeVoiceProviderPlugin,
   SpeechProviderPlugin,
   VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
@@ -177,10 +175,6 @@ export type PluginSpeechProviderRegistration =
   PluginOwnedProviderRegistration<SpeechProviderPlugin>;
 export type PluginEmbeddingProviderRegistration =
   PluginOwnedProviderRegistration<EmbeddingProviderAdapter>;
-export type PluginRealtimeTranscriptionProviderRegistration =
-  PluginOwnedProviderRegistration<RealtimeTranscriptionProviderPlugin>;
-export type PluginRealtimeVoiceProviderRegistration =
-  PluginOwnedProviderRegistration<RealtimeVoiceProviderPlugin>;
 export type PluginMediaUnderstandingProviderRegistration =
   PluginOwnedProviderRegistration<MediaUnderstandingProviderPlugin>;
 export type PluginTranscriptsSourceProviderRegistration =
@@ -399,8 +393,6 @@ export type PluginRecord = {
   syntheticAuthRefs?: string[];
   embeddingProviderIds: string[];
   speechProviderIds: string[];
-  realtimeTranscriptionProviderIds: string[];
-  realtimeVoiceProviderIds: string[];
   mediaUnderstandingProviderIds: string[];
   transcriptSourceProviderIds: string[];
   imageGenerationProviderIds: string[];
@@ -439,8 +431,6 @@ export type PluginRegistry = {
   textTransforms: PluginTextTransformsRegistration[];
   embeddingProviders: PluginEmbeddingProviderRegistration[];
   speechProviders: PluginSpeechProviderRegistration[];
-  realtimeTranscriptionProviders: PluginRealtimeTranscriptionProviderRegistration[];
-  realtimeVoiceProviders: PluginRealtimeVoiceProviderRegistration[];
   mediaUnderstandingProviders: PluginMediaUnderstandingProviderRegistration[];
   transcriptSourceProviders: PluginTranscriptsSourceProviderRegistration[];
   imageGenerationProviders: PluginImageGenerationProviderRegistration[];

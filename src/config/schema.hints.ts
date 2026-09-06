@@ -42,13 +42,11 @@ const GROUP_LABELS: Record<string, string> = {
   hooks: "Hooks",
   ui: "UI",
   browser: "Browser",
-  talk: "Talk",
   channels: "Messaging Channels",
   skills: "Skills",
   plugins: "Plugins",
   discovery: "Discovery",
   presence: "Presence",
-  voicewake: "Voice Wake",
 };
 
 const GROUP_ORDER: Record<string, number> = {
@@ -70,13 +68,11 @@ const GROUP_ORDER: Record<string, number> = {
   hooks: 110,
   ui: 120,
   browser: 130,
-  talk: 140,
   channels: 150,
   skills: 200,
   plugins: 205,
   discovery: 210,
   presence: 220,
-  voicewake: 230,
   logging: 900,
 };
 

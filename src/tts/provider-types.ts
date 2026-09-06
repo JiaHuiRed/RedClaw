@@ -1,4 +1,9 @@
-import type { TalkProviderConfig } from "../config/types.gateway.js";
+// TTS provider entries reuse the legacy talk.providers shape (apiKey + free-form
+// provider fields); the talk config section itself is retired.
+export type TalkProviderConfig = {
+  apiKey?: unknown;
+  [key: string]: unknown;
+};
 import type { OpenClawConfig } from "../config/types.js";
 import type { ResolvedTtsPersona } from "../config/types.tts.js";
 
