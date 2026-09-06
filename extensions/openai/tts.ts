@@ -3,10 +3,6 @@ import {
   resolveProviderRequestHeaders,
 } from "openclaw/plugin-sdk/provider-http";
 import {
-  captureHttpExchange,
-  isDebugProxyGlobalFetchPatchInstalled,
-} from "openclaw/plugin-sdk/proxy-capture";
-import {
   fetchWithSsrFGuard,
   ssrfPolicyFromHttpBaseUrlAllowedHostname,
 } from "openclaw/plugin-sdk/ssrf-runtime";
@@ -145,7 +141,6 @@ export async function openaiTTS(params: {
     ...(extraBody == null ? {} : sanitizeExtraBodyRecord(extraBody)),
   });
   const requestUrl = `${baseUrl}/audio/speech`;
-  const debugProxyFetchPatchInstalled = isDebugProxyGlobalFetchPatchInstalled();
   const { response, release } = await fetchWithSsrFGuard({
     url: requestUrl,
     init: {
@@ -156,25 +151,10 @@ export async function openaiTTS(params: {
     timeoutMs,
     policy: ssrfPolicyFromHttpBaseUrlAllowedHostname(baseUrl),
     capture: false,
-    pinDns: debugProxyFetchPatchInstalled ? false : undefined,
+    pinDns: undefined,
     auditContext: "openai-tts",
   });
   try {
-    if (!debugProxyFetchPatchInstalled) {
-      captureHttpExchange({
-        url: requestUrl,
-        method: "POST",
-        requestHeaders,
-        requestBody,
-        response,
-        transport: "http",
-        meta: {
-          provider: "openai",
-          capability: "tts",
-        },
-      });
-    }
-
     await assertOkOrThrowProviderError(response, "OpenAI TTS API error");
 
     return Buffer.from(await response.arrayBuffer());

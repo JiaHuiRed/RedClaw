@@ -2,7 +2,6 @@ import {
   createProviderHttpError,
   resolveProviderRequestHeaders,
 } from "openclaw/plugin-sdk/provider-http";
-import { captureWsEvent } from "openclaw/plugin-sdk/proxy-capture";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
 import {
   asFiniteNumber,
@@ -39,23 +38,7 @@ export function captureOpenAIRealtimeWsClose(params: {
   capability: "realtime-transcription" | "realtime-voice";
   code: unknown;
   reasonBuffer: unknown;
-}): void {
-  captureWsEvent({
-    url: params.url,
-    direction: "local",
-    kind: "ws-close",
-    flowId: params.flowId,
-    closeCode: typeof params.code === "number" ? params.code : undefined,
-    meta: {
-      provider: "openai",
-      capability: params.capability,
-      reason:
-        Buffer.isBuffer(params.reasonBuffer) && params.reasonBuffer.length > 0
-          ? params.reasonBuffer.toString("utf8")
-          : undefined,
-    },
-  });
-}
+}): void {}
 
 export type OpenAIRealtimeClientSecretResult = {
   value: string;
