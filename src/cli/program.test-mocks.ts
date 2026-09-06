@@ -29,7 +29,6 @@ const programMocks = vi.hoisted(() => {
     runChannelLogin: vi.fn(),
     runChannelLogout: vi.fn(),
     runTui: vi.fn(),
-    runCrestodian: vi.fn(),
     loadAndMaybeMigrateDoctorConfig: vi.fn(),
     ensureConfigReady: vi.fn(),
     ensurePluginRegistryLoaded: vi.fn(),
@@ -42,7 +41,6 @@ export const setupCommand = programMocks.setupCommand as AnyMock;
 export const setupWizardCommand = programMocks.setupWizardCommand as AnyMock;
 export const callGateway = programMocks.callGateway as AnyMock;
 export const runTui = programMocks.runTui as AnyMock;
-export const runCrestodian = programMocks.runCrestodian as AnyMock;
 export const ensureConfigReady = programMocks.ensureConfigReady as AnyMock;
 
 export const runtime = programMocks.runtime as {
