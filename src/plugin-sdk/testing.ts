@@ -137,28 +137,6 @@ export {
   parseProviderModelMap,
   redactLiveApiKey,
 } from "../media-generation/live-test-helpers.js";
-export {
-  DEFAULT_LIVE_MUSIC_MODELS,
-  resolveConfiguredLiveMusicModels,
-  resolveLiveMusicAuthStore,
-} from "../music-generation/live-test-helpers.js";
-export {
-  canRunBufferBackedImageToVideoLiveLane,
-  canRunBufferBackedVideoToVideoLiveLane,
-  DEFAULT_LIVE_VIDEO_MODELS,
-  resolveConfiguredLiveVideoModels,
-  resolveLiveVideoAuthStore,
-  resolveLiveVideoResolution,
-} from "../video-generation/live-test-helpers.js";
-export { normalizeVideoGenerationDuration } from "../video-generation/duration-support.js";
-export { parseVideoGenerationModelRef } from "../video-generation/model-ref.js";
-export type {
-  GeneratedVideoAsset,
-  VideoGenerationMode,
-  VideoGenerationModeCapabilities,
-  VideoGenerationProvider,
-  VideoGenerationRequest,
-} from "../video-generation/types.js";
 export { jsonResponse, requestBodyText, requestUrl } from "../test-helpers/http.js";
 export { mockPinnedHostnameResolution } from "../test-helpers/ssrf.js";
 export { createOutboundTestPlugin, createTestRegistry } from "../test-utils/channel-plugins.js";

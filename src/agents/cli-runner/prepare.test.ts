@@ -16,8 +16,6 @@ import { testing as cliBackendsTesting } from "../cli-backends.js";
 import { hashCliSessionText } from "../cli-session.js";
 import { resetContextWindowCacheForTest } from "../context.js";
 import { buildActiveImageGenerationTaskPromptContextForSession } from "../image-generation-task-status.js";
-import { buildActiveMusicGenerationTaskPromptContextForSession } from "../music-generation-task-status.js";
-import { buildActiveVideoGenerationTaskPromptContextForSession } from "../video-generation-task-status.js";
 import {
   prepareCliRunContext,
   setCliRunnerPrepareTestDeps,
@@ -43,16 +41,6 @@ vi.mock("../../tts/tts.js", () => ({
   buildTtsSystemPromptHint: vi.fn(() => undefined),
 }));
 
-vi.mock("../video-generation-task-status.js", () => ({
-  VIDEO_GENERATION_TASK_KIND: "video_generation",
-  buildActiveVideoGenerationTaskPromptContextForSession: vi.fn(() => undefined),
-  buildVideoGenerationTaskStatusDetails: vi.fn(() => ({})),
-  buildVideoGenerationTaskStatusText: vi.fn(() => ""),
-  findActiveVideoGenerationTaskForSession: vi.fn(() => undefined),
-  getVideoGenerationTaskProviderId: vi.fn(() => undefined),
-  isActiveVideoGenerationTask: vi.fn(() => false),
-}));
-
 vi.mock("../image-generation-task-status.js", () => ({
   IMAGE_GENERATION_TASK_KIND: "image_generation",
   buildActiveImageGenerationTaskPromptContextForSession: vi.fn(() => undefined),
@@ -63,23 +51,9 @@ vi.mock("../image-generation-task-status.js", () => ({
   isActiveImageGenerationTask: vi.fn(() => false),
 }));
 
-vi.mock("../music-generation-task-status.js", () => ({
-  MUSIC_GENERATION_TASK_KIND: "music_generation",
-  buildActiveMusicGenerationTaskPromptContextForSession: vi.fn(() => undefined),
-  buildMusicGenerationTaskStatusDetails: vi.fn(() => ({})),
-  buildMusicGenerationTaskStatusText: vi.fn(() => ""),
-  findActiveMusicGenerationTaskForSession: vi.fn(() => undefined),
-}));
-
 const mockGetGlobalHookRunner = vi.mocked(getGlobalHookRunner);
-const mockBuildActiveVideoGenerationTaskPromptContextForSession = vi.mocked(
-  buildActiveVideoGenerationTaskPromptContextForSession,
-);
 const mockBuildActiveImageGenerationTaskPromptContextForSession = vi.mocked(
   buildActiveImageGenerationTaskPromptContextForSession,
-);
-const mockBuildActiveMusicGenerationTaskPromptContextForSession = vi.mocked(
-  buildActiveMusicGenerationTaskPromptContextForSession,
 );
 
 function createTestMcpLoopbackServerConfig(port: number) {
@@ -213,8 +187,6 @@ describe("shouldSkipLocalCliCredentialEpoch", () => {
     mockGetGlobalHookRunner.mockReturnValue(null);
     getRuntimeConfigMock.mockReturnValue({});
     mockBuildActiveImageGenerationTaskPromptContextForSession.mockReturnValue(undefined);
-    mockBuildActiveVideoGenerationTaskPromptContextForSession.mockReturnValue(undefined);
-    mockBuildActiveMusicGenerationTaskPromptContextForSession.mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -222,8 +194,6 @@ describe("shouldSkipLocalCliCredentialEpoch", () => {
     getRuntimeConfigMock.mockReset();
     mockGetGlobalHookRunner.mockReset();
     mockBuildActiveImageGenerationTaskPromptContextForSession.mockReset();
-    mockBuildActiveVideoGenerationTaskPromptContextForSession.mockReset();
-    mockBuildActiveMusicGenerationTaskPromptContextForSession.mockReset();
     resetContextWindowCacheForTest();
     clearMemoryPluginState();
     vi.unstubAllEnvs();
@@ -964,9 +934,6 @@ describe("shouldSkipLocalCliCredentialEpoch", () => {
       mockBuildActiveImageGenerationTaskPromptContextForSession.mockReturnValue(
         "active image task",
       );
-      mockBuildActiveVideoGenerationTaskPromptContextForSession.mockReturnValue(
-        "active video task",
-      );
       const hookRunner = {
         hasHooks: vi.fn((hookName: string) => hookName === "before_prompt_build"),
         runBeforePromptBuild: vi.fn(async () => ({
@@ -992,12 +959,9 @@ describe("shouldSkipLocalCliCredentialEpoch", () => {
       });
 
       expect(context.systemPrompt).toBe(
-        "active image task\n\nactive video task\n\nhook prepend system\n\nhook system\n\nCurrent model identity: test-cli/test-model. If asked what model you are, answer with this value for the current run.",
+        "active image task\n\nhook prepend system\n\nhook system\n\nCurrent model identity: test-cli/test-model. If asked what model you are, answer with this value for the current run.",
       );
       expect(mockBuildActiveImageGenerationTaskPromptContextForSession).toHaveBeenCalledWith(
-        "agent:main:test",
-      );
-      expect(mockBuildActiveVideoGenerationTaskPromptContextForSession).toHaveBeenCalledWith(
         "agent:main:test",
       );
     } finally {

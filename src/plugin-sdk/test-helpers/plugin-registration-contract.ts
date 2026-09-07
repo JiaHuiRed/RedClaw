@@ -11,8 +11,6 @@ type PluginRegistrationContractParams = {
   mediaUnderstandingProviderIds?: string[];
   transcriptSourceProviderIds?: string[];
   imageGenerationProviderIds?: string[];
-  videoGenerationProviderIds?: string[];
-  musicGenerationProviderIds?: string[];
   toolNames?: string[];
   requireSpeechVoices?: boolean;
   requireDescribeImages?: boolean;
@@ -96,22 +94,6 @@ export function describePluginRegistrationContract(params: PluginRegistrationCon
       it("keeps bundled image-generation ownership explicit", () => {
         expect(findRegistration(params.pluginId).imageGenerationProviderIds).toEqual(
           params.imageGenerationProviderIds,
-        );
-      });
-    }
-
-    if (params.videoGenerationProviderIds) {
-      it("keeps bundled video-generation ownership explicit", () => {
-        expect(findRegistration(params.pluginId).videoGenerationProviderIds).toEqual(
-          params.videoGenerationProviderIds,
-        );
-      });
-    }
-
-    if (params.musicGenerationProviderIds) {
-      it("keeps bundled music-generation ownership explicit", () => {
-        expect(findRegistration(params.pluginId).musicGenerationProviderIds).toEqual(
-          params.musicGenerationProviderIds,
         );
       });
     }

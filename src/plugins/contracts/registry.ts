@@ -9,10 +9,8 @@ import type {
   ImageGenerationProviderPlugin,
   MediaUnderstandingProviderPlugin,
   TranscriptSourceProvider,
-  MusicGenerationProviderPlugin,
   ProviderPlugin,
   SpeechProviderPlugin,
-  VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
   WebSearchProviderPlugin,
 } from "../types.js";
@@ -26,9 +24,7 @@ import {
   loadVitestImageGenerationProviderContractRegistry,
   loadVitestMediaUnderstandingProviderContractRegistry,
   loadVitestTranscriptsSourceProviderContractRegistry,
-  loadVitestMusicGenerationProviderContractRegistry,
   loadVitestSpeechProviderContractRegistry,
-  loadVitestVideoGenerationProviderContractRegistry,
 } from "./speech-vitest-registry.js";
 
 type BundledCapabilityRuntimeRegistry = ReturnType<typeof loadBundledCapabilityRuntimeRegistry>;
@@ -49,8 +45,6 @@ type MediaUnderstandingProviderContractEntry =
   CapabilityContractEntry<MediaUnderstandingProviderPlugin>;
 type TranscriptsSourceProviderContractEntry = CapabilityContractEntry<TranscriptSourceProvider>;
 type ImageGenerationProviderContractEntry = CapabilityContractEntry<ImageGenerationProviderPlugin>;
-type VideoGenerationProviderContractEntry = CapabilityContractEntry<VideoGenerationProviderPlugin>;
-type MusicGenerationProviderContractEntry = CapabilityContractEntry<MusicGenerationProviderPlugin>;
 
 type PluginRegistrationContractEntry = BundledPluginContractSnapshot;
 
@@ -63,8 +57,6 @@ type ManifestContractKey =
   | "transcriptSourceProviders"
   | "documentExtractors"
   | "imageGenerationProviders"
-  | "videoGenerationProviders"
-  | "musicGenerationProviders"
   | "webContentExtractors"
   | "webFetchProviders"
   | "webSearchProviders"
@@ -99,8 +91,6 @@ function resolveBundledManifestContracts(): PluginRegistrationContractEntry[] {
       transcriptSourceProviderIds: [...entry.transcriptSourceProviderIds],
       documentExtractorIds: [...entry.documentExtractorIds],
       imageGenerationProviderIds: [...entry.imageGenerationProviderIds],
-      videoGenerationProviderIds: [...entry.videoGenerationProviderIds],
-      musicGenerationProviderIds: [...entry.musicGenerationProviderIds],
       webContentExtractorIds: [...entry.webContentExtractorIds],
       webFetchProviderIds: [...entry.webFetchProviderIds],
       webSearchProviderIds: [...entry.webSearchProviderIds],
@@ -122,8 +112,6 @@ function resolveBundledManifestContracts(): PluginRegistrationContractEntry[] {
           (plugin.contracts?.transcriptSourceProviders?.length ?? 0) > 0 ||
           (plugin.contracts?.documentExtractors?.length ?? 0) > 0 ||
           (plugin.contracts?.imageGenerationProviders?.length ?? 0) > 0 ||
-          (plugin.contracts?.videoGenerationProviders?.length ?? 0) > 0 ||
-          (plugin.contracts?.musicGenerationProviders?.length ?? 0) > 0 ||
           (plugin.contracts?.webContentExtractors?.length ?? 0) > 0 ||
           (plugin.contracts?.webFetchProviders?.length ?? 0) > 0 ||
           (plugin.contracts?.webSearchProviders?.length ?? 0) > 0 ||
@@ -147,8 +135,6 @@ function resolveBundledManifestContracts(): PluginRegistrationContractEntry[] {
       transcriptSourceProviderIds: uniqueStrings(plugin.contracts?.transcriptSourceProviders ?? []),
       documentExtractorIds: uniqueStrings(plugin.contracts?.documentExtractors ?? []),
       imageGenerationProviderIds: uniqueStrings(plugin.contracts?.imageGenerationProviders ?? []),
-      videoGenerationProviderIds: uniqueStrings(plugin.contracts?.videoGenerationProviders ?? []),
-      musicGenerationProviderIds: uniqueStrings(plugin.contracts?.musicGenerationProviders ?? []),
       webContentExtractorIds: uniqueStrings(plugin.contracts?.webContentExtractors ?? []),
       webFetchProviderIds: uniqueStrings(plugin.contracts?.webFetchProviders ?? []),
       webSearchProviderIds: uniqueStrings(plugin.contracts?.webSearchProviders ?? []),
@@ -207,10 +193,6 @@ function resolveBundledManifestPluginIdsForContract(contract: ManifestContractKe
             return entry.documentExtractorIds.length > 0;
           case "imageGenerationProviders":
             return entry.imageGenerationProviderIds.length > 0;
-          case "videoGenerationProviders":
-            return entry.videoGenerationProviderIds.length > 0;
-          case "musicGenerationProviders":
-            return entry.musicGenerationProviderIds.length > 0;
           case "webContentExtractors":
             return entry.webContentExtractorIds.length > 0;
           case "webFetchProviders":
@@ -552,30 +534,6 @@ function loadImageGenerationProviderContractRegistry(): ImageGenerationProviderC
       }));
 }
 
-function loadVideoGenerationProviderContractRegistry(): VideoGenerationProviderContractEntry[] {
-  return process.env.VITEST
-    ? loadVitestVideoGenerationProviderContractRegistry()
-    : loadBundledCapabilityRuntimeRegistry({
-        pluginIds: resolveBundledManifestPluginIdsForContract("videoGenerationProviders"),
-        pluginSdkResolution: "dist",
-      }).videoGenerationProviders.map((entry) => ({
-        pluginId: entry.pluginId,
-        provider: entry.provider,
-      }));
-}
-
-function loadMusicGenerationProviderContractRegistry(): MusicGenerationProviderContractEntry[] {
-  return process.env.VITEST
-    ? loadVitestMusicGenerationProviderContractRegistry()
-    : loadBundledCapabilityRuntimeRegistry({
-        pluginIds: resolveBundledManifestPluginIdsForContract("musicGenerationProviders"),
-        pluginSdkResolution: "dist",
-      }).musicGenerationProviders.map((entry) => ({
-        pluginId: entry.pluginId,
-        provider: entry.provider,
-      }));
-}
-
 function createLazyArrayView<T>(load: () => T[]): T[] {
   return new Proxy([] as T[], {
     get(_target, prop) {
@@ -699,10 +657,6 @@ export const transcriptsSourceProviderContractRegistry: TranscriptsSourceProvide
   createLazyArrayView(loadTranscriptsSourceProviderContractRegistry);
 export const imageGenerationProviderContractRegistry: ImageGenerationProviderContractEntry[] =
   createLazyArrayView(loadImageGenerationProviderContractRegistry);
-export const videoGenerationProviderContractRegistry: VideoGenerationProviderContractEntry[] =
-  createLazyArrayView(loadVideoGenerationProviderContractRegistry);
-export const musicGenerationProviderContractRegistry: MusicGenerationProviderContractEntry[] =
-  createLazyArrayView(loadMusicGenerationProviderContractRegistry);
 
 function loadPluginRegistrationContractRegistry(): PluginRegistrationContractEntry[] {
   return resolveBundledManifestContracts();

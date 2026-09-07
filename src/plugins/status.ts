@@ -197,8 +197,6 @@ function buildPluginRecordFromInstalledIndex(
     mediaUnderstandingProviderIds: [...(manifest?.contracts?.mediaUnderstandingProviders ?? [])],
     transcriptSourceProviderIds: [...(manifest?.contracts?.transcriptSourceProviders ?? [])],
     imageGenerationProviderIds: [...(manifest?.contracts?.imageGenerationProviders ?? [])],
-    videoGenerationProviderIds: [...(manifest?.contracts?.videoGenerationProviders ?? [])],
-    musicGenerationProviderIds: [...(manifest?.contracts?.musicGenerationProviders ?? [])],
     webFetchProviderIds: [...(manifest?.contracts?.webFetchProviders ?? [])],
     webSearchProviderIds: [...(manifest?.contracts?.webSearchProviders ?? [])],
     migrationProviderIds: [...(manifest?.contracts?.migrationProviders ?? [])],

@@ -17,8 +17,6 @@ export function createEmptyPluginRegistry(): PluginRegistry {
         mediaUnderstandingProviders: [],
     transcriptSourceProviders: [],
     imageGenerationProviders: [],
-    videoGenerationProviders: [],
-    musicGenerationProviders: [],
     webFetchProviders: [],
     webSearchProviders: [],
     migrationProviders: [],

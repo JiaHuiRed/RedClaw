@@ -31,9 +31,7 @@ type CapabilityProviderRegistryKey =
   | "speechProviders"
   | "mediaUnderstandingProviders"
   | "transcriptSourceProviders"
-  | "imageGenerationProviders"
-  | "videoGenerationProviders"
-  | "musicGenerationProviders";
+  | "imageGenerationProviders";
 
 type CapabilityContractKey =
   | "embeddingProviders"
@@ -41,9 +39,7 @@ type CapabilityContractKey =
   | "speechProviders"
   | "mediaUnderstandingProviders"
   | "transcriptSourceProviders"
-  | "imageGenerationProviders"
-  | "videoGenerationProviders"
-  | "musicGenerationProviders";
+  | "imageGenerationProviders";
 
 type CapabilityProviderForKey<K extends CapabilityProviderRegistryKey> =
   PluginRegistry[K][number] extends { provider: infer T } ? T : never;
@@ -63,8 +59,6 @@ const CAPABILITY_CONTRACT_KEY: Record<CapabilityProviderRegistryKey, CapabilityC
   mediaUnderstandingProviders: "mediaUnderstandingProviders",
   transcriptSourceProviders: "transcriptSourceProviders",
   imageGenerationProviders: "imageGenerationProviders",
-  videoGenerationProviders: "videoGenerationProviders",
-  musicGenerationProviders: "musicGenerationProviders",
 };
 
 function shouldResolveWhenPluginsAreGloballyDisabled(key: CapabilityProviderRegistryKey): boolean {
@@ -72,11 +66,7 @@ function shouldResolveWhenPluginsAreGloballyDisabled(key: CapabilityProviderRegi
 }
 
 function shouldMergeManifestProvidersWhenActive(key: CapabilityProviderRegistryKey): boolean {
-  return (
-    key === "imageGenerationProviders" ||
-    key === "videoGenerationProviders" ||
-    key === "musicGenerationProviders"
-  );
+  return key === "imageGenerationProviders";
 }
 
 function shouldSkipCapabilityResolution(params: {

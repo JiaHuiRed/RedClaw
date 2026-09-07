@@ -19,12 +19,8 @@ const mocks = vi.hoisted(() => ({
     embeddingProviders: [],
     memoryEmbeddingProviders: [],
     speechProviders: [],
-    realtimeTranscriptionProviders: [],
-    realtimeVoiceProviders: [],
     mediaUnderstandingProviders: [],
     imageGenerationProviders: [],
-    videoGenerationProviders: [],
-    musicGenerationProviders: [],
   }),
   resolveRuntimePluginRegistry: vi.fn<
     (params?: unknown) => ReturnType<typeof createEmptyPluginRegistry> | undefined
@@ -273,12 +269,8 @@ function expectCompatChainApplied(params: {
   key:
     | "memoryEmbeddingProviders"
     | "speechProviders"
-    | "realtimeTranscriptionProviders"
-    | "realtimeVoiceProviders"
     | "mediaUnderstandingProviders"
-    | "imageGenerationProviders"
-    | "videoGenerationProviders"
-    | "musicGenerationProviders";
+    | "imageGenerationProviders";
   contractKey: string;
   cfg: OpenClawConfig;
   allowlistCompat: OpenClawConfig;
@@ -1035,45 +1027,6 @@ describe("resolvePluginCapabilityProviders", () => {
     });
   });
 
-  it("loads requested realtime voice providers missing from active registry", () => {
-    const active = createEmptyPluginRegistry();
-    active.realtimeVoiceProviders.push({
-      pluginId: "openai",
-      pluginName: "openai",
-      source: "test",
-      provider: { id: "openai" },
-    } as never);
-    const loaded = createEmptyPluginRegistry();
-    loaded.realtimeVoiceProviders.push({
-      pluginId: "google",
-      pluginName: "Google",
-      source: "test",
-      provider: { id: "google" },
-    } as never);
-    mocks.loadPluginManifestRegistry.mockReturnValue({
-      plugins: [
-        {
-          id: "google",
-          origin: "bundled",
-          contracts: { realtimeVoiceProviders: ["google"] },
-        },
-      ] as never,
-      diagnostics: [],
-    });
-    mocks.resolveRuntimePluginRegistry.mockImplementation((params?: unknown) =>
-      params === undefined ? active : loaded,
-    );
-
-    const provider = resolvePluginCapabilityProvider({
-      key: "realtimeVoiceProviders",
-      providerId: "google",
-      cfg: { plugins: { allow: ["openai", "google"] } } as OpenClawConfig,
-    });
-
-    expect(provider?.id).toBe("google");
-    expectActiveRegistryLookup(["google"]);
-  });
-
   it("does not merge unrelated bundled capability providers when cfg requests one provider", () => {
     const active = createEmptyPluginRegistry();
     active.speechProviders.push({
@@ -1161,12 +1114,8 @@ describe("resolvePluginCapabilityProviders", () => {
   it.each([
     ["memoryEmbeddingProviders", "memoryEmbeddingProviders"],
     ["speechProviders", "speechProviders"],
-    ["realtimeTranscriptionProviders", "realtimeTranscriptionProviders"],
-    ["realtimeVoiceProviders", "realtimeVoiceProviders"],
     ["mediaUnderstandingProviders", "mediaUnderstandingProviders"],
     ["imageGenerationProviders", "imageGenerationProviders"],
-    ["videoGenerationProviders", "videoGenerationProviders"],
-    ["musicGenerationProviders", "musicGenerationProviders"],
   ] as const)("applies bundled compat before fallback loading for %s", (key, contractKey) => {
     const { cfg, allowlistCompat, enablementCompat } = createCompatChainConfig();
     expectCompatChainApplied({
@@ -1437,13 +1386,9 @@ describe("resolvePluginCapabilityProviders", () => {
     expectActiveRegistryLookup(["microsoft"]);
   });
 
-  it.each([
-    "imageGenerationProviders",
-    "videoGenerationProviders",
-    "musicGenerationProviders",
-  ] as const)("uses an explicit empty plugin scope for %s when no bundled owner exists", (key) => {
+  it("uses an explicit empty plugin scope for imageGenerationProviders when no bundled owner exists", () => {
     const providers = resolvePluginCapabilityProviders({
-      key,
+      key: "imageGenerationProviders",
       cfg: {} as OpenClawConfig,
     });
 
@@ -1462,7 +1407,6 @@ describe("resolvePluginCapabilityProviders", () => {
           origin: "bundled",
           contracts: {
             imageGenerationProviders: ["openai"],
-            videoGenerationProviders: ["openai"],
           },
         },
         {
@@ -1470,8 +1414,6 @@ describe("resolvePluginCapabilityProviders", () => {
           origin: "bundled",
           contracts: {
             imageGenerationProviders: ["minimax"],
-            videoGenerationProviders: ["minimax"],
-            musicGenerationProviders: ["minimax"],
           },
         },
       ] as never,
@@ -1479,14 +1421,10 @@ describe("resolvePluginCapabilityProviders", () => {
     });
 
     resolvePluginCapabilityProviders({ key: "imageGenerationProviders", cfg });
-    resolvePluginCapabilityProviders({ key: "videoGenerationProviders", cfg });
-    resolvePluginCapabilityProviders({ key: "musicGenerationProviders", cfg });
 
     const snapshotLoadOptions = collectActiveRegistryLookups();
     expect(snapshotLoadOptions.map((options) => options.onlyPluginIds)).toEqual([
       ["minimax", "openai"],
-      ["minimax", "openai"],
-      ["minimax"],
     ]);
   });
 
@@ -1508,12 +1446,9 @@ describe("resolvePluginCapabilityProviders", () => {
     expectNoResolvedCapabilityProviders(
       resolvePluginCapabilityProviders({ key: "imageGenerationProviders", cfg }),
     );
-    expectNoResolvedCapabilityProviders(
-      resolvePluginCapabilityProviders({ key: "musicGenerationProviders", cfg }),
-    );
 
     const snapshotLoadOptions = collectActiveRegistryLookups();
-    expect(snapshotLoadOptions.map((options) => options.onlyPluginIds)).toEqual([["openai"], []]);
+    expect(snapshotLoadOptions.map((options) => options.onlyPluginIds)).toEqual([["openai"]]);
   });
 
   it("loads only the bundled owner plugin for a targeted provider lookup", () => {

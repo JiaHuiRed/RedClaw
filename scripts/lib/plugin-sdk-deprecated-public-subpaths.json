@@ -36,7 +36,6 @@
   "memory-core-host-query",
   "memory-host-files",
   "memory-host-status",
-  "music-generation-core",
   "outbound-runtime",
   "outbound-send-deps",
   "provider-auth-login",

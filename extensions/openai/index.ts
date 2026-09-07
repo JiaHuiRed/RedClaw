@@ -14,7 +14,6 @@ import {
   resolveOpenAISystemPromptContribution,
 } from "./prompt-overlay.js";
 import { buildOpenAISpeechProvider } from "./speech-provider.js";
-import { buildOpenAIVideoGenerationProvider } from "./video-generation-provider.js";
 
 export default definePluginEntry({
   id: "openai",
@@ -49,6 +48,5 @@ export default definePluginEntry({
     api.registerSpeechProvider(buildOpenAISpeechProvider());
     api.registerMediaUnderstandingProvider(openaiMediaUnderstandingProvider);
     api.registerMediaUnderstandingProvider(openaiCodexMediaUnderstandingProvider);
-    api.registerVideoGenerationProvider(buildOpenAIVideoGenerationProvider());
   },
 });

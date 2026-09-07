@@ -40,12 +40,8 @@ describe("plugin loader records", () => {
       contracts: {
         embeddingProviders: ["kitchen-sink-embedding-provider"],
         speechProviders: ["kitchen-sink-speech-provider"],
-        realtimeTranscriptionProviders: ["kitchen-sink-transcription-provider"],
-        realtimeVoiceProviders: ["kitchen-sink-voice-provider"],
         mediaUnderstandingProviders: ["kitchen-sink-media-provider"],
         imageGenerationProviders: ["kitchen-sink-image-provider"],
-        videoGenerationProviders: ["kitchen-sink-video-provider"],
-        musicGenerationProviders: ["kitchen-sink-music-provider"],
         webFetchProviders: ["kitchen-sink-web-fetch-provider"],
         webSearchProviders: ["kitchen-sink-web-search-provider"],
         migrationProviders: ["kitchen-sink-migration-provider"],
@@ -56,14 +52,8 @@ describe("plugin loader records", () => {
 
     expect(record.embeddingProviderIds).toEqual(["kitchen-sink-embedding-provider"]);
     expect(record.speechProviderIds).toEqual(["kitchen-sink-speech-provider"]);
-    expect(record.realtimeTranscriptionProviderIds).toEqual([
-      "kitchen-sink-transcription-provider",
-    ]);
-    expect(record.realtimeVoiceProviderIds).toEqual(["kitchen-sink-voice-provider"]);
     expect(record.mediaUnderstandingProviderIds).toEqual(["kitchen-sink-media-provider"]);
     expect(record.imageGenerationProviderIds).toEqual(["kitchen-sink-image-provider"]);
-    expect(record.videoGenerationProviderIds).toEqual(["kitchen-sink-video-provider"]);
-    expect(record.musicGenerationProviderIds).toEqual(["kitchen-sink-music-provider"]);
     expect(record.webFetchProviderIds).toEqual(["kitchen-sink-web-fetch-provider"]);
     expect(record.webSearchProviderIds).toEqual(["kitchen-sink-web-search-provider"]);
     expect(record.migrationProviderIds).toEqual(["kitchen-sink-migration-provider"]);
