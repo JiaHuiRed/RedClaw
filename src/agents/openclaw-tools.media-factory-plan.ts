@@ -18,8 +18,6 @@ import {
 
 export type OptionalMediaToolFactoryPlan = {
   imageGenerate: boolean;
-  videoGenerate: boolean;
-  musicGenerate: boolean;
   pdf: boolean;
 };
 
@@ -182,30 +180,16 @@ export function resolveOptionalMediaToolFactoryPlan(params: {
     allowlist: toolAllowlist,
     denylist: toolDenylist,
   });
-  const allowVideoGenerate = isToolAllowedByFactoryPolicy({
-    toolName: "video_generate",
-    allowlist: toolAllowlist,
-    denylist: toolDenylist,
-  });
-  const allowMusicGenerate = isToolAllowedByFactoryPolicy({
-    toolName: "music_generate",
-    allowlist: toolAllowlist,
-    denylist: toolDenylist,
-  });
   const allowPdf = isToolAllowedByFactoryPolicy({
     toolName: "pdf",
     allowlist: toolAllowlist,
     denylist: toolDenylist,
   });
   const explicitImageGeneration = hasExplicitToolModelConfig(defaults?.imageGenerationModel);
-  const explicitVideoGeneration = hasExplicitToolModelConfig(defaults?.videoGenerationModel);
-  const explicitMusicGeneration = hasExplicitToolModelConfig(defaults?.musicGenerationModel);
   const explicitPdf = hasExplicitPdfModelConfig(params.config);
   if (params.config?.plugins?.enabled === false) {
     return {
       imageGenerate: false,
-      videoGenerate: false,
-      musicGenerate: false,
       pdf: false,
     };
   }
@@ -221,24 +205,6 @@ export function resolveOptionalMediaToolFactoryPlan(params: {
           snapshot,
           authStore: params.authStore,
           key: "imageGenerationProviders",
-          config: params.config,
-        })),
-    videoGenerate:
-      allowVideoGenerate &&
-      (explicitVideoGeneration ||
-        hasSnapshotCapabilityAvailability({
-          snapshot,
-          authStore: params.authStore,
-          key: "videoGenerationProviders",
-          config: params.config,
-        })),
-    musicGenerate:
-      allowMusicGenerate &&
-      (explicitMusicGeneration ||
-        hasSnapshotCapabilityAvailability({
-          snapshot,
-          authStore: params.authStore,
-          key: "musicGenerationProviders",
           config: params.config,
         })),
     pdf:

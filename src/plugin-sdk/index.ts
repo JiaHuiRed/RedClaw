@@ -102,7 +102,6 @@ export type {
 } from "../plugins/memory-state.js";
 export type { CliBackendConfig } from "../config/types.js";
 export type * from "./image-generation.js";
-export type * from "./music-generation.js";
 export type { SecretInput, SecretRef } from "../config/types.secrets.js";
 export type { RuntimeEnv } from "../runtime.js";
 export type { HookEntry } from "../hooks/types.js";

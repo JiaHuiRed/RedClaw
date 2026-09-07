@@ -32,8 +32,6 @@ export const createTestRegistry = (channels: TestChannelRegistration[] = []): Pl
   mediaUnderstandingProviders: [],
   transcriptSourceProviders: [],
   imageGenerationProviders: [],
-  videoGenerationProviders: [],
-  musicGenerationProviders: [],
   webFetchProviders: [],
   webSearchProviders: [],
   migrationProviders: [],

@@ -367,8 +367,6 @@ type PluginRegistrySnapshot = {
     mediaUnderstandingProviders: PluginRegistry["mediaUnderstandingProviders"];
     transcriptSourceProviders: PluginRegistry["transcriptSourceProviders"];
     imageGenerationProviders: PluginRegistry["imageGenerationProviders"];
-    videoGenerationProviders: PluginRegistry["videoGenerationProviders"];
-    musicGenerationProviders: PluginRegistry["musicGenerationProviders"];
     webFetchProviders: PluginRegistry["webFetchProviders"];
     webSearchProviders: PluginRegistry["webSearchProviders"];
     migrationProviders: PluginRegistry["migrationProviders"];
@@ -410,8 +408,6 @@ function snapshotPluginRegistry(registry: PluginRegistry): PluginRegistrySnapsho
       mediaUnderstandingProviders: [...registry.mediaUnderstandingProviders],
       transcriptSourceProviders: [...registry.transcriptSourceProviders],
       imageGenerationProviders: [...registry.imageGenerationProviders],
-      videoGenerationProviders: [...registry.videoGenerationProviders],
-      musicGenerationProviders: [...registry.musicGenerationProviders],
       webFetchProviders: [...registry.webFetchProviders],
       webSearchProviders: [...registry.webSearchProviders],
       migrationProviders: [...registry.migrationProviders],
@@ -452,8 +448,6 @@ function restorePluginRegistry(registry: PluginRegistry, snapshot: PluginRegistr
   registry.mediaUnderstandingProviders = snapshot.arrays.mediaUnderstandingProviders;
   registry.transcriptSourceProviders = snapshot.arrays.transcriptSourceProviders;
   registry.imageGenerationProviders = snapshot.arrays.imageGenerationProviders;
-  registry.videoGenerationProviders = snapshot.arrays.videoGenerationProviders;
-  registry.musicGenerationProviders = snapshot.arrays.musicGenerationProviders;
   registry.webFetchProviders = snapshot.arrays.webFetchProviders;
   registry.webSearchProviders = snapshot.arrays.webSearchProviders;
   registry.migrationProviders = snapshot.arrays.migrationProviders;

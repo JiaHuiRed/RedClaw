@@ -44,8 +44,6 @@ export type BuildPluginApiParams = {
       | "registerMediaUnderstandingProvider"
       | "registerTranscriptSourceProvider"
       | "registerImageGenerationProvider"
-      | "registerVideoGenerationProvider"
-      | "registerMusicGenerationProvider"
       | "registerWebFetchProvider"
       | "registerWebSearchProvider"
       | "registerInteractiveHandler"
@@ -115,10 +113,6 @@ const noopRegisterMediaUnderstandingProvider: OpenClawPluginApi["registerMediaUn
 const noopRegisterTranscriptsSourceProvider: OpenClawPluginApi["registerTranscriptSourceProvider"] =
   () => {};
 const noopRegisterImageGenerationProvider: OpenClawPluginApi["registerImageGenerationProvider"] =
-  () => {};
-const noopRegisterVideoGenerationProvider: OpenClawPluginApi["registerVideoGenerationProvider"] =
-  () => {};
-const noopRegisterMusicGenerationProvider: OpenClawPluginApi["registerMusicGenerationProvider"] =
   () => {};
 const noopRegisterWebFetchProvider: OpenClawPluginApi["registerWebFetchProvider"] = () => {};
 const noopRegisterWebSearchProvider: OpenClawPluginApi["registerWebSearchProvider"] = () => {};
@@ -225,10 +219,6 @@ export function buildPluginApi(params: BuildPluginApiParams): OpenClawPluginApi 
       handlers.registerTranscriptSourceProvider ?? noopRegisterTranscriptsSourceProvider,
     registerImageGenerationProvider:
       handlers.registerImageGenerationProvider ?? noopRegisterImageGenerationProvider,
-    registerVideoGenerationProvider:
-      handlers.registerVideoGenerationProvider ?? noopRegisterVideoGenerationProvider,
-    registerMusicGenerationProvider:
-      handlers.registerMusicGenerationProvider ?? noopRegisterMusicGenerationProvider,
     registerWebFetchProvider: handlers.registerWebFetchProvider ?? noopRegisterWebFetchProvider,
     registerWebSearchProvider: handlers.registerWebSearchProvider ?? noopRegisterWebSearchProvider,
     registerInteractiveHandler:

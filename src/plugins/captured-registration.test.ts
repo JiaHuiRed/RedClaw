@@ -30,30 +30,6 @@ describe("captured plugin registration", () => {
             },
           ],
         });
-        api.registerVideoGenerationProvider({
-          id: "captured-video",
-          label: "Captured Video",
-          defaultModel: "captured-video-model",
-          capabilities: {
-            generate: { maxVideos: 1 },
-          },
-          generateVideo: async () => ({
-            provider: "captured-video",
-            model: "captured-video-model",
-            videos: [],
-          }),
-        });
-        api.registerMusicGenerationProvider({
-          id: "captured-music",
-          label: "Captured Music",
-          defaultModel: "captured-music-model",
-          capabilities: {
-            generate: { maxTracks: 1 },
-          },
-          generateMusic: async () => ({
-            tracks: [],
-          }),
-        });
         api.registerTextTransforms({
           input: [{ from: /red basket/g, to: "blue basket" }],
           output: [{ from: /blue basket/g, to: "red basket" }],
@@ -92,12 +68,6 @@ describe("captured plugin registration", () => {
     expect(captured.providers.map((provider) => provider.id)).toEqual(["captured-provider"]);
     expect(captured.modelCatalogProviders.map((provider) => provider.provider)).toEqual([
       "captured-provider",
-    ]);
-    expect(captured.videoGenerationProviders.map((provider) => provider.id)).toEqual([
-      "captured-video",
-    ]);
-    expect(captured.musicGenerationProviders.map((provider) => provider.id)).toEqual([
-      "captured-music",
     ]);
     expect(captured.textTransforms).toHaveLength(1);
     expect(captured.textTransforms[0]?.input).toHaveLength(1);

@@ -2,12 +2,10 @@ import { createCapturedPluginRegistration } from "../plugins/captured-registrati
 import type {
   ImageGenerationProviderPlugin,
   MediaUnderstandingProviderPlugin,
-  MusicGenerationProviderPlugin,
   OpenClawPluginApi,
   ProviderPlugin,
   SpeechProviderPlugin,
   UnifiedModelCatalogProviderPlugin,
-  VideoGenerationProviderPlugin,
 } from "../plugins/types.js";
 
 export { createCapturedPluginRegistration };
@@ -21,8 +19,6 @@ export type RegisteredProviderCollections = {
   speechProviders: SpeechProviderPlugin[];
   mediaProviders: MediaUnderstandingProviderPlugin[];
   imageProviders: ImageGenerationProviderPlugin[];
-  musicProviders: MusicGenerationProviderPlugin[];
-  videoProviders: VideoGenerationProviderPlugin[];
   modelCatalogProviders: UnifiedModelCatalogProviderPlugin[];
 };
 
@@ -54,8 +50,6 @@ export async function registerProviderPlugin(params: {
     speechProviders: captured.speechProviders,
     mediaProviders: captured.mediaUnderstandingProviders,
     imageProviders: captured.imageGenerationProviders,
-    musicProviders: captured.musicGenerationProviders,
-    videoProviders: captured.videoGenerationProviders,
     modelCatalogProviders: captured.modelCatalogProviders,
   };
 }

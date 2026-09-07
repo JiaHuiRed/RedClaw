@@ -17,13 +17,11 @@ import { joinPresentTextSegments } from "../../../shared/text/join-segments.js";
 import { listActiveProcessSessionReferences } from "../../bash-process-references.js";
 import { resolveHeartbeatPromptForSystemPrompt } from "../../heartbeat-system-prompt.js";
 import { buildActiveImageGenerationTaskPromptContextForSession } from "../../image-generation-task-status.js";
-import { buildActiveMusicGenerationTaskPromptContextForSession } from "../../music-generation-task-status.js";
 import { hasOpenAICompatibleConversationTurn } from "../../openai-compatible-conversation-turn.js";
 import { resolveProcessToolScopeKey } from "../../pi-tools.js";
 import { prependSystemPromptAdditionAfterCacheBoundary } from "../../system-prompt-cache-boundary.js";
 import { resolveEffectiveToolFsWorkspaceOnly } from "../../tool-fs-policy.js";
 import { derivePromptTokens, type NormalizedUsage } from "../../usage.js";
-import { buildActiveVideoGenerationTaskPromptContextForSession } from "../../video-generation-task-status.js";
 import { buildEmbeddedCompactionRuntimeContext } from "../compaction-runtime-context.js";
 import { resolveContextEngineCapabilities } from "../context-engine-capabilities.js";
 import { log } from "../logger.js";
@@ -482,11 +480,7 @@ export function resolveAttemptPrependSystemContext(params: {
 }): string | undefined {
   const activeMediaTaskPromptContexts =
     params.trigger === "user" || params.trigger === "manual"
-      ? [
-          buildActiveImageGenerationTaskPromptContextForSession(params.sessionKey),
-          buildActiveVideoGenerationTaskPromptContextForSession(params.sessionKey),
-          buildActiveMusicGenerationTaskPromptContextForSession(params.sessionKey),
-        ]
+      ? [buildActiveImageGenerationTaskPromptContextForSession(params.sessionKey)]
       : [];
   return joinPresentTextSegments([
     ...activeMediaTaskPromptContexts,

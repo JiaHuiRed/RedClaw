@@ -38,7 +38,6 @@ import type {
   ImageGenerationProviderPlugin,
   MediaUnderstandingProviderPlugin,
   TranscriptSourceProvider,
-  MusicGenerationProviderPlugin,
   OpenClawPluginChannelRegistration,
   OpenClawPluginCliCommandDescriptor,
   OpenClawPluginCliRegistrar,
@@ -62,7 +61,6 @@ import type {
   MigrationProviderPlugin,
   ProviderPlugin,
   SpeechProviderPlugin,
-  VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
   WebSearchProviderPlugin,
   UnifiedModelCatalogProviderPlugin,
@@ -181,10 +179,6 @@ export type PluginTranscriptsSourceProviderRegistration =
   PluginOwnedProviderRegistration<TranscriptSourceProvider>;
 export type PluginImageGenerationProviderRegistration =
   PluginOwnedProviderRegistration<ImageGenerationProviderPlugin>;
-export type PluginVideoGenerationProviderRegistration =
-  PluginOwnedProviderRegistration<VideoGenerationProviderPlugin>;
-export type PluginMusicGenerationProviderRegistration =
-  PluginOwnedProviderRegistration<MusicGenerationProviderPlugin>;
 export type PluginWebFetchProviderRegistration =
   PluginOwnedProviderRegistration<WebFetchProviderPlugin>;
 export type PluginWebSearchProviderRegistration =
@@ -396,8 +390,6 @@ export type PluginRecord = {
   mediaUnderstandingProviderIds: string[];
   transcriptSourceProviderIds: string[];
   imageGenerationProviderIds: string[];
-  videoGenerationProviderIds: string[];
-  musicGenerationProviderIds: string[];
   webFetchProviderIds: string[];
   webSearchProviderIds: string[];
   migrationProviderIds: string[];
@@ -434,8 +426,6 @@ export type PluginRegistry = {
   mediaUnderstandingProviders: PluginMediaUnderstandingProviderRegistration[];
   transcriptSourceProviders: PluginTranscriptsSourceProviderRegistration[];
   imageGenerationProviders: PluginImageGenerationProviderRegistration[];
-  videoGenerationProviders: PluginVideoGenerationProviderRegistration[];
-  musicGenerationProviders: PluginMusicGenerationProviderRegistration[];
   webFetchProviders: PluginWebFetchProviderRegistration[];
   webSearchProviders: PluginWebSearchProviderRegistration[];
   migrationProviders: PluginMigrationProviderRegistration[];

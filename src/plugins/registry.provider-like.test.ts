@@ -118,55 +118,6 @@ describe("plugin registry provider-like registrations", () => {
     ]);
   });
 
-  it("publishes synthesized media-generation catalog rows during provider registration", async () => {
-    const pluginRegistry = createTestRegistry();
-    const record = createPluginRecord({
-      id: "media-owner",
-      name: "Media Owner",
-      source: "/tmp/media-owner/index.js",
-      origin: "global",
-      enabled: true,
-      configSchema: false,
-    });
-
-    pluginRegistry.registerVideoGenerationProvider(record, {
-      id: "video-provider",
-      label: "Video Provider",
-      defaultModel: "video-default",
-      models: ["video-default", "video-pro"],
-      capabilities: {
-        generate: {
-          supportedDurationSeconds: [4, 8],
-        },
-      },
-      generateVideo: async () => ({
-        videos: [{ buffer: Buffer.alloc(0), mimeType: "video/mp4" }],
-      }),
-    });
-
-    expect(pluginRegistry.registry.videoGenerationProviders).toHaveLength(1);
-    expect(pluginRegistry.registry.modelCatalogProviders).toHaveLength(1);
-    const catalogProvider = pluginRegistry.registry.modelCatalogProviders[0]?.provider;
-    expect(catalogProvider?.provider).toBe("video-provider");
-    expect(catalogProvider?.kinds).toEqual(["video_generation"]);
-    const staticRows = await catalogProvider?.staticCatalog?.({} as never);
-    expect(staticRows).toHaveLength(2);
-    expect(staticRows?.[0]?.kind).toBe("video_generation");
-    expect(staticRows?.[0]?.provider).toBe("video-provider");
-    expect(staticRows?.[0]?.model).toBe("video-default");
-    expect(staticRows?.[0]?.source).toBe("static");
-    expect(staticRows?.[0]?.default).toBe(true);
-    expect(staticRows?.[0]?.capabilities).toEqual({
-      generate: {
-        supportedDurationSeconds: [4, 8],
-      },
-    });
-    expect(staticRows?.[1]?.kind).toBe("video_generation");
-    expect(staticRows?.[1]?.provider).toBe("video-provider");
-    expect(staticRows?.[1]?.model).toBe("video-pro");
-    expect(staticRows?.[1]?.source).toBe("static");
-  });
-
   it("does not duplicate manifest-declared capability provider ids during runtime registration", () => {
     const pluginRegistry = createTestRegistry();
     const record = createPluginRecord({

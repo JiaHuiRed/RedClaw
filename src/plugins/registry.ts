@@ -158,7 +158,6 @@ import {
 import type {
   CliBackendPlugin,
   ImageGenerationProviderPlugin,
-  MusicGenerationProviderPlugin,
   OpenClawPluginApi,
   OpenClawPluginChannelRegistration,
   OpenClawPluginCliCommandDescriptor,
@@ -187,7 +186,6 @@ import type {
   PluginRegistrationMode,
   ProviderPlugin,
   SpeechProviderPlugin,
-  VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
   WebSearchProviderPlugin,
 } from "./types.js";
@@ -240,8 +238,6 @@ export type {
   PluginSpeechProviderRegistration,
   PluginMediaUnderstandingProviderRegistration,
   PluginImageGenerationProviderRegistration,
-  PluginVideoGenerationProviderRegistration,
-  PluginMusicGenerationProviderRegistration,
   PluginWebFetchProviderRegistration,
   PluginWebSearchProviderRegistration,
 } from "./registry-types.js";
@@ -1285,46 +1281,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
       registerSynthesizedMediaModelCatalogProvider({
         record,
         kind: "image_generation",
-        provider,
-      });
-    }
-  };
-
-  const registerVideoGenerationProvider = (
-    record: PluginRecord,
-    provider: VideoGenerationProviderPlugin,
-  ) => {
-    const registered = registerUniqueProviderLike({
-      record,
-      provider,
-      kindLabel: "video-generation provider",
-      registrations: registry.videoGenerationProviders,
-      ownedIds: record.videoGenerationProviderIds,
-    });
-    if (registered) {
-      registerSynthesizedMediaModelCatalogProvider({
-        record,
-        kind: "video_generation",
-        provider,
-      });
-    }
-  };
-
-  const registerMusicGenerationProvider = (
-    record: PluginRecord,
-    provider: MusicGenerationProviderPlugin,
-  ) => {
-    const registered = registerUniqueProviderLike({
-      record,
-      provider,
-      kindLabel: "music-generation provider",
-      registrations: registry.musicGenerationProviders,
-      ownedIds: record.musicGenerationProviderIds,
-    });
-    if (registered) {
-      registerSynthesizedMediaModelCatalogProvider({
-        record,
-        kind: "music_generation",
         provider,
       });
     }
@@ -2642,10 +2598,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
                 registerTranscriptSourceProvider(record, provider),
               registerImageGenerationProvider: (provider) =>
                 registerImageGenerationProvider(record, provider),
-              registerVideoGenerationProvider: (provider) =>
-                registerVideoGenerationProvider(record, provider),
-              registerMusicGenerationProvider: (provider) =>
-                registerMusicGenerationProvider(record, provider),
               registerWebFetchProvider: (provider) => registerWebFetchProvider(record, provider),
               registerWebSearchProvider: (provider) => registerWebSearchProvider(record, provider),
               registerMigrationProvider: (provider) => registerMigrationProvider(record, provider),
@@ -3103,8 +3055,6 @@ export function createPluginRegistry(registryParams: PluginRegistryParams) {
     registerMediaUnderstandingProvider,
     registerTranscriptSourceProvider,
     registerImageGenerationProvider,
-    registerVideoGenerationProvider,
-    registerMusicGenerationProvider,
     registerWebSearchProvider,
     registerMigrationProvider,
     registerGatewayMethod,

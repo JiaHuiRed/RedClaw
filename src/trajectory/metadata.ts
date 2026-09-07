@@ -118,8 +118,6 @@ function buildPluginsFromActiveRegistry() {
         speechProviderIds: toSortedUniqueStrings(plugin.speechProviderIds),
         mediaUnderstandingProviderIds: toSortedUniqueStrings(plugin.mediaUnderstandingProviderIds),
         imageGenerationProviderIds: toSortedUniqueStrings(plugin.imageGenerationProviderIds),
-        videoGenerationProviderIds: toSortedUniqueStrings(plugin.videoGenerationProviderIds),
-        musicGenerationProviderIds: toSortedUniqueStrings(plugin.musicGenerationProviderIds),
         webFetchProviderIds: toSortedUniqueStrings(plugin.webFetchProviderIds),
         webSearchProviderIds: toSortedUniqueStrings(plugin.webSearchProviderIds),
         memoryEmbeddingProviderIds: toSortedUniqueStrings(plugin.memoryEmbeddingProviderIds),

@@ -61,8 +61,6 @@ export function createPluginRecord(params: {
     mediaUnderstandingProviderIds: [...(params.contracts?.mediaUnderstandingProviders ?? [])],
     transcriptSourceProviderIds: [...(params.contracts?.transcriptSourceProviders ?? [])],
     imageGenerationProviderIds: [...(params.contracts?.imageGenerationProviders ?? [])],
-    videoGenerationProviderIds: [...(params.contracts?.videoGenerationProviders ?? [])],
-    musicGenerationProviderIds: [...(params.contracts?.musicGenerationProviders ?? [])],
     webFetchProviderIds: [...(params.contracts?.webFetchProviders ?? [])],
     webSearchProviderIds: [...(params.contracts?.webSearchProviders ?? [])],
     migrationProviderIds: [...(params.contracts?.migrationProviders ?? [])],

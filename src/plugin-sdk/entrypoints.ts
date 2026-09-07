@@ -78,7 +78,6 @@ export const publicPluginOwnedSdkEntrypoints = [
   "memory-host-status",
   "speech-core",
   "telegram-command-config",
-  "video-generation-core",
 ] as const;
 
 /** Map every SDK entrypoint name to its source file path inside the repo. */

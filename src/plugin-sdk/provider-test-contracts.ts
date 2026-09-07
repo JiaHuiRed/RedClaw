@@ -34,17 +34,6 @@ export {
   createLegacyProviderConfig,
 } from "./test-helpers/onboard-config.js";
 export {
-  expectDashscopeVideoTaskPoll,
-  expectSuccessfulDashscopeVideoResult,
-  mockSuccessfulDashscopeVideoTask,
-  resetDashscopeVideoProviderMocks,
-  type DashscopeVideoProviderMocks,
-} from "./test-helpers/dashscope-video-provider.js";
-export {
-  expectExplicitMusicGenerationCapabilities,
-  expectExplicitVideoGenerationCapabilities,
-} from "./test-helpers/provider-media-capability-assertions.js";
-export {
   expectUnifiedModelCatalogEntries,
   expectUnifiedModelCatalogProviderRegistration,
 } from "./test-helpers/unified-model-catalog-contract.js";

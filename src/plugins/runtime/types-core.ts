@@ -267,22 +267,6 @@ export type PluginRuntimeCore = {
       params?: import("../../image-generation/runtime-types.js").ListRuntimeImageGenerationProvidersParams,
     ) => import("../../image-generation/runtime-types.js").RuntimeImageGenerationProvider[];
   };
-  videoGeneration: {
-    generate: (
-      params: import("../../video-generation/runtime-types.js").GenerateVideoParams,
-    ) => Promise<import("../../video-generation/runtime-types.js").GenerateVideoRuntimeResult>;
-    listProviders: (
-      params?: import("../../video-generation/runtime-types.js").ListRuntimeVideoGenerationProvidersParams,
-    ) => import("../../video-generation/runtime-types.js").RuntimeVideoGenerationProvider[];
-  };
-  musicGeneration: {
-    generate: (
-      params: import("../../music-generation/runtime-types.js").GenerateMusicParams,
-    ) => Promise<import("../../music-generation/runtime-types.js").GenerateMusicRuntimeResult>;
-    listProviders: (
-      params?: import("../../music-generation/runtime-types.js").ListRuntimeMusicGenerationProvidersParams,
-    ) => import("../../music-generation/runtime-types.js").RuntimeMusicGenerationProvider[];
-  };
   webSearch: {
     listProviders: (
       params?: import("../../web-search/runtime-types.js").ListWebSearchProvidersParams,

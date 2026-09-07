@@ -31,8 +31,6 @@ export type BundledPluginContractSnapshot = {
   transcriptSourceProviderIds: string[];
   documentExtractorIds: string[];
   imageGenerationProviderIds: string[];
-  videoGenerationProviderIds: string[];
-  musicGenerationProviderIds: string[];
   webContentExtractorIds: string[];
   webFetchProviderIds: string[];
   webSearchProviderIds: string[];
@@ -156,14 +154,6 @@ export function buildBundledPluginContractSnapshot(
       manifest.contracts?.imageGenerationProviders,
       (value) => value.trim(),
     ),
-    videoGenerationProviderIds: uniqueStrings(
-      manifest.contracts?.videoGenerationProviders,
-      (value) => value.trim(),
-    ),
-    musicGenerationProviderIds: uniqueStrings(
-      manifest.contracts?.musicGenerationProviders,
-      (value) => value.trim(),
-    ),
     webContentExtractorIds: uniqueStrings(manifest.contracts?.webContentExtractors, (value) =>
       value.trim(),
     ),
@@ -194,8 +184,6 @@ export function hasBundledPluginContractSnapshotCapabilities(
     entry.transcriptSourceProviderIds.length > 0 ||
     entry.documentExtractorIds.length > 0 ||
     entry.imageGenerationProviderIds.length > 0 ||
-    entry.videoGenerationProviderIds.length > 0 ||
-    entry.musicGenerationProviderIds.length > 0 ||
     entry.webContentExtractorIds.length > 0 ||
     entry.webFetchProviderIds.length > 0 ||
     entry.webSearchProviderIds.length > 0 ||

@@ -40,8 +40,6 @@ describe("plugin contract registry", () => {
               transcriptSourceProviders: entry.transcriptSourceProviderIds,
               documentExtractors: entry.documentExtractorIds,
               imageGenerationProviders: entry.imageGenerationProviderIds,
-              videoGenerationProviders: entry.videoGenerationProviderIds,
-              musicGenerationProviders: entry.musicGenerationProviderIds,
               webContentExtractors: entry.webContentExtractorIds,
               webFetchProviders: entry.webFetchProviderIds,
               webSearchProviders: entry.webSearchProviderIds,

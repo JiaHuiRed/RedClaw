@@ -30,14 +30,12 @@ import type {
   MediaUnderstandingProviderPlugin,
   TranscriptSourceProvider,
   MigrationProviderPlugin,
-  MusicGenerationProviderPlugin,
   OpenClawPluginCliCommandDescriptor,
   OpenClawPluginCliRegistrar,
   PluginTextTransformRegistration,
   ProviderPlugin,
   SpeechProviderPlugin,
   UnifiedModelCatalogProviderPlugin,
-  VideoGenerationProviderPlugin,
   WebFetchProviderPlugin,
   WebSearchProviderPlugin,
 } from "./types.js";
@@ -63,8 +61,6 @@ export type CapturedPluginRegistration = {
   mediaUnderstandingProviders: MediaUnderstandingProviderPlugin[];
   transcriptSourceProviders: TranscriptSourceProvider[];
   imageGenerationProviders: ImageGenerationProviderPlugin[];
-  videoGenerationProviders: VideoGenerationProviderPlugin[];
-  musicGenerationProviders: MusicGenerationProviderPlugin[];
   webFetchProviders: WebFetchProviderPlugin[];
   webSearchProviders: WebSearchProviderPlugin[];
   migrationProviders: MigrationProviderPlugin[];
@@ -100,8 +96,6 @@ export function createCapturedPluginRegistration(params?: {
   const mediaUnderstandingProviders: MediaUnderstandingProviderPlugin[] = [];
   const transcriptSourceProviders: TranscriptSourceProvider[] = [];
   const imageGenerationProviders: ImageGenerationProviderPlugin[] = [];
-  const videoGenerationProviders: VideoGenerationProviderPlugin[] = [];
-  const musicGenerationProviders: MusicGenerationProviderPlugin[] = [];
   const webFetchProviders: WebFetchProviderPlugin[] = [];
   const webSearchProviders: WebSearchProviderPlugin[] = [];
   const migrationProviders: MigrationProviderPlugin[] = [];
@@ -140,8 +134,6 @@ export function createCapturedPluginRegistration(params?: {
     mediaUnderstandingProviders,
     transcriptSourceProviders,
     imageGenerationProviders,
-    videoGenerationProviders,
-    musicGenerationProviders,
     webFetchProviders,
     webSearchProviders,
     migrationProviders,
@@ -235,12 +227,6 @@ export function createCapturedPluginRegistration(params?: {
         },
         registerImageGenerationProvider(provider: ImageGenerationProviderPlugin) {
           imageGenerationProviders.push(provider);
-        },
-        registerVideoGenerationProvider(provider: VideoGenerationProviderPlugin) {
-          videoGenerationProviders.push(provider);
-        },
-        registerMusicGenerationProvider(provider: MusicGenerationProviderPlugin) {
-          musicGenerationProviders.push(provider);
         },
         registerWebFetchProvider(provider: WebFetchProviderPlugin) {
           webFetchProviders.push(provider);
