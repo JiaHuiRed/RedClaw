@@ -351,6 +351,17 @@ Gateway model capability checks also read explicit `models.providers.<id>.models
 
 `agents.defaults.models["provider/model"]` only controls model visibility, aliases, and per-model metadata for agents. It does not register a new runtime model by itself. For custom provider models, also add `models.providers.<provider>.models[]` with at least the matching `id`.
 
+### Adding a provider from the Control UI
+
+Settings → AI & Agents → Models has an **Add provider** flow that mirrors the steps above:
+
+- **Preset gallery**: providers backed by installed plugins show up pre-filled (base URL, API type, model catalog). For these, the config entry only stores the API key — the runtime catalog still comes from the plugin.
+- **Custom provider**: any OpenAI/Anthropic-compatible endpoint. The form writes the same `models.providers.<id>` shape as `openclaw onboard --auth-choice custom-api-key`, including the required `models[]` entry.
+- **Test connection** probes the endpoint with the pasted key before saving and classifies the result (auth failure, wrong URL, rate limit, network).
+- Saving goes through the regular config apply path, so `models.*` hot-reloads without a gateway restart.
+
+Providers whose plugins are not installed appear in the gallery as previews with docs links; install the plugin first, then add the key.
+
 ### Moonshot AI (Kimi)
 
 Moonshot ships as a bundled provider plugin. Use the built-in provider by default, and add an explicit `models.providers.moonshot` entry only when you need to override the base URL or model metadata:

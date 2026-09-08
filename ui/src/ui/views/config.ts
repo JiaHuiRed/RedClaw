@@ -117,6 +117,9 @@ export type ConfigProps = {
   onWebPushUnsubscribe?: () => void;
   onWebPushTest?: () => void;
   onRequestUpdate?: () => void;
+  onAddProviderClick?: () => void;
+  /** "Add model provider" dialog (rendered by the caller from controller state). */
+  providerAddDialog?: TemplateResult | typeof nothing;
 };
 
 // SVG Icons for sidebar (Lucide-style)
@@ -1795,6 +1798,7 @@ export function renderConfig(props: ConfigProps) {
                             toggleSensitivePathReveal(path);
                             requestUpdate();
                           },
+                          onAddProviderClick: props.onAddProviderClick,
                         })}
                   `
                 : (() => {
@@ -1867,5 +1871,6 @@ export function renderConfig(props: ConfigProps) {
           : nothing}
       </main>
     </div>
+    ${props.providerAddDialog ?? nothing}
   `;
 }

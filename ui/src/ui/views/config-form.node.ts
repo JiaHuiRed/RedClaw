@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { t } from "../../i18n/index.ts";
 import { formatUnknownText } from "../format.ts";
 import { icons as sharedIcons } from "../icons.ts";
 import {
@@ -442,6 +443,8 @@ export function renderNode(params: {
   isSensitivePathRevealed?: (path: Array<string | number>) => boolean;
   onToggleSensitivePath?: (path: Array<string | number>) => void;
   onPatch: (path: Array<string | number>, value: unknown) => void;
+  /** Rendered for the models.providers map: opens the guided add-provider dialog. */
+  onAddProviderClick?: () => void;
 }): TemplateResult | typeof nothing {
   const { schema, value, path, hints, unsupported, disabled, onPatch } = params;
   const showLabel = params.showLabel ?? true;
@@ -948,6 +951,7 @@ function renderObject(params: {
   isSensitivePathRevealed?: (path: Array<string | number>) => boolean;
   onToggleSensitivePath?: (path: Array<string | number>) => void;
   onPatch: (path: Array<string | number>, value: unknown) => void;
+  onAddProviderClick?: () => void;
 }): TemplateResult {
   const {
     schema,
@@ -1025,6 +1029,7 @@ function renderObject(params: {
           isSensitivePathRevealed,
           onToggleSensitivePath,
           onPatch,
+          onAddProviderClick: params.onAddProviderClick,
         })
       : nothing}
   `;
@@ -1188,6 +1193,7 @@ function renderMapField(params: {
   isSensitivePathRevealed?: (path: Array<string | number>) => boolean;
   onToggleSensitivePath?: (path: Array<string | number>) => void;
   onPatch: (path: Array<string | number>, value: unknown) => void;
+  onAddProviderClick?: () => void;
 }): TemplateResult {
   const {
     schema,
@@ -1218,30 +1224,47 @@ function renderMapField(params: {
           }),
         )
       : entries;
+  const isModelProvidersMap = path.length === 2 && path[0] === "models" && path[1] === "providers";
 
   return html`
     <div class="cfg-map">
       <div class="cfg-map__header">
         <span class="cfg-map__label">Custom entries</span>
-        <button
-          type="button"
-          class="cfg-map__add"
-          ?disabled=${disabled}
-          @click=${() => {
-            const next = { ...value };
-            let index = 1;
-            let key = `custom-${index}`;
-            while (key in next) {
-              index += 1;
-              key = `custom-${index}`;
-            }
-            next[key] = anySchema ? {} : defaultValue(schema);
-            onPatch(path, next);
-          }}
-        >
-          <span class="cfg-map__add-icon">${icons.plus}</span>
-          Add Entry
-        </button>
+        <span class="cfg-map__header-actions">
+          ${isModelProvidersMap && params.onAddProviderClick
+            ? html`
+                <button
+                  type="button"
+                  class="cfg-map__add cfg-map__add--primary"
+                  ?disabled=${disabled}
+                  data-test-id="mpa-open"
+                  @click=${params.onAddProviderClick}
+                >
+                  <span class="cfg-map__add-icon">${icons.plus}</span>
+                  ${t("modelProviders.add.openButton")}
+                </button>
+              `
+            : nothing}
+          <button
+            type="button"
+            class="cfg-map__add"
+            ?disabled=${disabled}
+            @click=${() => {
+              const next = { ...value };
+              let index = 1;
+              let key = `custom-${index}`;
+              while (key in next) {
+                index += 1;
+                key = `custom-${index}`;
+              }
+              next[key] = anySchema ? {} : defaultValue(schema);
+              onPatch(path, next);
+            }}
+          >
+            <span class="cfg-map__add-icon">${icons.plus}</span>
+            Add Entry
+          </button>
+        </span>
       </div>
 
       ${visibleEntries.length === 0

@@ -1,17 +1,18 @@
 import { modelKey } from "../agents/model-selection.js";
+import {
+  requestAnthropicVerification,
+  requestOpenAiVerification,
+} from "../agents/provider-probe.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { SecretInput } from "../config/types.secrets.js";
 import { ensureApiKeyFromEnvOrPrompt } from "../plugins/provider-auth-input.js";
 import type { RuntimeEnv } from "../runtime.js";
-import { fetchWithTimeout } from "../utils/fetch-timeout.js";
 import { normalizeSecretInput } from "../utils/normalize-secret-input.js";
 import { t } from "../wizard/i18n/index.js";
 import type { WizardPrompter } from "../wizard/prompts.js";
 import {
   applyCustomApiConfig,
-  buildAnthropicVerificationProbeRequest,
   buildEndpointIdFromUrl,
-  buildOpenAiVerificationProbeRequest,
   normalizeEndpointId,
   normalizeOptionalProviderApiKey,
   resolveCustomModelAliasError,
@@ -22,8 +23,6 @@ import {
 } from "./onboard-custom-config.js";
 export {
   applyCustomApiConfig,
-  buildAnthropicVerificationProbeRequest,
-  buildOpenAiVerificationProbeRequest,
   CustomApiError,
   inferCustomModelSupportsImageInput,
   parseNonInteractiveCustomApiFlags,
@@ -41,7 +40,6 @@ export {
 } from "./onboard-custom-config.js";
 import type { SecretInputMode } from "./onboard-types.js";
 
-const VERIFY_TIMEOUT_MS = 30_000;
 type CustomApiCompatibilityChoice = CustomApiCompatibility | "unknown";
 
 const COMPATIBILITY_OPTIONS: Array<{
@@ -81,52 +79,6 @@ function formatVerificationError(error: unknown): string {
   } catch {
     return "unknown error";
   }
-}
-
-type VerificationResult = {
-  ok: boolean;
-  status?: number;
-  error?: unknown;
-};
-
-async function requestVerification(params: {
-  endpoint: string;
-  headers: Record<string, string>;
-  body: Record<string, unknown>;
-}): Promise<VerificationResult> {
-  try {
-    const res = await fetchWithTimeout(
-      params.endpoint,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...params.headers,
-        },
-        body: JSON.stringify(params.body),
-      },
-      VERIFY_TIMEOUT_MS,
-    );
-    return { ok: res.ok, status: res.status };
-  } catch (error) {
-    return { ok: false, error };
-  }
-}
-
-async function requestOpenAiVerification(params: {
-  baseUrl: string;
-  apiKey: string;
-  modelId: string;
-}): Promise<VerificationResult> {
-  return await requestVerification(buildOpenAiVerificationProbeRequest(params));
-}
-
-async function requestAnthropicVerification(params: {
-  baseUrl: string;
-  apiKey: string;
-  modelId: string;
-}): Promise<VerificationResult> {
-  return await requestVerification(buildAnthropicVerificationProbeRequest(params));
 }
 
 async function promptBaseUrlAndKey(params: {

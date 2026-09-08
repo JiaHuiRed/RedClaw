@@ -3,8 +3,6 @@ import { CONTEXT_WINDOW_HARD_MIN_TOKENS } from "../agents/context-window-guard.j
 import type { OpenClawConfig } from "../config/config.js";
 import {
   applyCustomApiConfig,
-  buildAnthropicVerificationProbeRequest,
-  buildOpenAiVerificationProbeRequest,
   CUSTOM_PROVIDER_DEFAULT_CONTEXT_WINDOW_TOKENS,
   inferCustomModelSupportsImageInput,
   parseNonInteractiveCustomApiFlags,
@@ -47,62 +45,6 @@ function applyCustomModelConfigWithContextWindow(contextWindow?: number) {
     providerId: "custom",
   });
 }
-
-it("uses expanded max_tokens for openai verification probes", () => {
-  const request = buildOpenAiVerificationProbeRequest({
-    baseUrl: "https://example.com/v1",
-    apiKey: "test-key",
-    modelId: "detected-model",
-  });
-
-  expect(request.body.max_tokens).toBe(16);
-});
-it("uses azure responses-specific headers and body for openai verification probes", () => {
-  const request = buildOpenAiVerificationProbeRequest({
-    baseUrl: "https://my-resource.openai.azure.com",
-    apiKey: "azure-test-key",
-    modelId: "gpt-4.1",
-  });
-
-  expect(request.endpoint).toBe("https://my-resource.openai.azure.com/openai/v1/responses");
-  expect(request.headers["api-key"]).toBe("azure-test-key");
-  expect(request.headers.Authorization).toBeUndefined();
-  expect(request.body).toEqual({
-    model: "gpt-4.1",
-    input: "Hi",
-    max_output_tokens: 16,
-    stream: false,
-  });
-});
-it("uses Azure Foundry chat-completions probes for services.ai URLs", () => {
-  const request = buildOpenAiVerificationProbeRequest({
-    baseUrl: "https://my-resource.services.ai.azure.com",
-    apiKey: "azure-test-key",
-    modelId: "deepseek-v3-0324",
-  });
-
-  expect(request.endpoint).toBe(
-    "https://my-resource.services.ai.azure.com/openai/deployments/deepseek-v3-0324/chat/completions?api-version=2024-10-21",
-  );
-  expect(request.headers["api-key"]).toBe("azure-test-key");
-  expect(request.headers.Authorization).toBeUndefined();
-  expect(request.body).toEqual({
-    model: "deepseek-v3-0324",
-    messages: [{ role: "user", content: "Hi" }],
-    max_tokens: 16,
-    stream: false,
-  });
-});
-it("uses expanded max_tokens for anthropic verification probes", () => {
-  const request = buildAnthropicVerificationProbeRequest({
-    baseUrl: "https://example.com",
-    apiKey: "test-key",
-    modelId: "detected-model",
-  });
-
-  expect(request.endpoint).toBe("https://example.com/v1/messages");
-  expect(request.body.max_tokens).toBe(1);
-});
 
 describe("applyCustomApiConfig", () => {
   it.each([

@@ -206,6 +206,7 @@ export type AppViewState = {
   configSearchQuery: string;
   configActiveSection: string | null;
   configActiveSubsection: string | null;
+  modelProviderAdd: import("./controllers/model-providers.js").ModelProviderAddState;
   pendingUpdateExpectedVersion: string | null;
   updateStatusBanner: { tone: "danger" | "warn" | "info"; text: string } | null;
   communicationsFormMode: "form" | "raw";

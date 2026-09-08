@@ -75,6 +75,8 @@ export const CORE_GATEWAY_METHOD_SPECS: readonly CoreGatewayMethodSpec[] = [
   { name: "todo.remove", scope: "operator.write" },
   { name: "memory.overview", scope: "operator.read" },
   { name: "models.list", scope: "operator.read", startup: true },
+  { name: "models.providers.presets", scope: "operator.read" },
+  { name: "models.providers.probe", scope: "operator.write" },
   { name: "models.authStatus", scope: "operator.read" },
   { name: "models.authLogout", scope: "operator.admin", controlPlaneWrite: true },
   { name: "tools.catalog", scope: "operator.read" },

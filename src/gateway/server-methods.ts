@@ -334,7 +334,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
     loadHandlers: loadWebHandlers,
   }),
   ...createLazyCoreHandlers({
-    methods: ["models.list"],
+    methods: ["models.list", "models.providers.presets", "models.providers.probe"],
     loadHandlers: loadModelsHandlers,
   }),
   ...createLazyCoreHandlers({
