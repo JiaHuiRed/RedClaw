@@ -1,5 +1,22 @@
 # 更新日志
 
+## [0.3.27] - 2026-09-09
+
+> 控制台首次拥有专属的"添加模型供应商"体验；顺带清完语音栈/crestodian 减法遗留的死引用。
+
+### 新增
+
+- **添加模型供应商**（设置 → AI & Agents → Models）：预设画廊（已装插件目录自动预填，未装插件置灰引导）→ 贴密钥 → 测试连接（OpenAI/Anthropic/Ollama 三族探测，区分鉴权失败/地址错误/限流/网络）→ 保存走 config.apply 热加载，不重启网关。自定义/中转端点走同一弹窗的"自定义供应商"表单。
+- **网关 RPC**：`models.providers.presets`（静态目录聚合，核心零硬编码）、`models.providers.probe`（端点探测）；探测构造器从 onboard 收拢为共享模块 `src/agents/provider-probe.ts`。
+
+### 清理
+
+- 剪除语音栈减法批次的孤儿残留：talk 测试助手 + 3 个 talk 测试文件、`test-helpers.speech` 死引用、vitest shim 中已删除的 talk 导出、`setup.finalize` 未用导入、`zod-schema` 未用导入——`pnpm tsgo:core` 恢复到仅剩 2 个历史错误（`agent.ts` replyTo/to、`run-main.ts` crestodian 引用，均为行为相关遗留，单列待决）。
+
+### 已知问题
+
+- `check:changed` 两处门禁在本仓库损坏：`check:changelog-attributions` 脚本缺失、oxlint 准备脚本仍引用已删除的 `extensions/qa-channel`。
+
 ## [0.3.26] - 2026-09-06
 
 > 减法工程第一批落地：剪除上游遗留的笨重子系统，累计 **-90k 行、~450 文件**。核心回路（chat → agent → memory/dream → heartbeat → cron → 微信 → GUI）零改动。
