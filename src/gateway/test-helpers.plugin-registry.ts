@@ -2,7 +2,6 @@ import type { PluginRegistry } from "../plugins/registry.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
 import { resolveGlobalSingleton } from "../shared/global-singleton.js";
 import { createDefaultGatewayTestChannels } from "./test-helpers.channels.js";
-import { createDefaultGatewayTestSpeechProviders } from "./test-helpers.speech.js";
 
 function createStubPluginRegistry(): PluginRegistry {
   return {
@@ -15,14 +14,10 @@ function createStubPluginRegistry(): PluginRegistry {
     providers: [],
     modelCatalogProviders: [],
     embeddingProviders: [],
-    speechProviders: createDefaultGatewayTestSpeechProviders(),
-    realtimeTranscriptionProviders: [],
-    realtimeVoiceProviders: [],
+    speechProviders: [],
     mediaUnderstandingProviders: [],
     transcriptSourceProviders: [],
     imageGenerationProviders: [],
-    videoGenerationProviders: [],
-    musicGenerationProviders: [],
     webFetchProviders: [],
     webSearchProviders: [],
     migrationProviders: [],

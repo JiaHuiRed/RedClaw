@@ -2,10 +2,7 @@ import { z } from "zod";
 import { parseByteSize } from "../cli/parse-bytes.js";
 import { parseDurationMs } from "../cli/parse-duration.js";
 import { normalizeAgentId } from "../routing/session-key.js";
-import {
-  normalizeLowercaseStringOrEmpty,
-  normalizeStringifiedOptionalString,
-} from "../shared/string-coerce.js";
+import { normalizeStringifiedOptionalString } from "../shared/string-coerce.js";
 import {
   isValidControlUiChatMessageMaxWidth,
   normalizeControlUiChatMessageMaxWidth,
