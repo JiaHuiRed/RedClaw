@@ -10,6 +10,7 @@ import {
   serializeConfigForm,
   setPathValue,
 } from "./config/form-utils.ts";
+import type { ModelProviderAddState } from "./model-providers.ts";
 
 export type ConfigState = {
   client: GatewayBrowserClient | null;
@@ -38,6 +39,7 @@ export type ConfigState = {
   configActiveSubsection: string | null;
   pendingUpdateExpectedVersion: string | null;
   updateStatusBanner: { tone: "danger" | "warn" | "info"; text: string } | null;
+  modelProviderAdd: ModelProviderAddState;
   lastError: string | null;
 };
 

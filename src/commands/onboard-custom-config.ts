@@ -1,6 +1,7 @@
 import { CONTEXT_WINDOW_HARD_MIN_TOKENS } from "../agents/context-window-guard.js";
 import { DEFAULT_PROVIDER } from "../agents/defaults.js";
 import { buildModelAliasIndex, modelKey } from "../agents/model-selection.js";
+import { isAzureOpenAiUrl, isAzureUrl, transformAzureConfigUrl } from "../agents/provider-probe.js";
 import type { ModelProviderConfig } from "../config/types.models.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { isSecretRef, type SecretInput } from "../config/types.secrets.js";
@@ -93,67 +94,6 @@ function resolveCustomModelSupportsImageInput(params: {
       return inference.confidence === "known" ? inference.supportsImageInput : params.fallback;
     })()
   );
-}
-
-function isAzureFoundryUrl(baseUrl: string): boolean {
-  try {
-    const url = new URL(baseUrl);
-    const host = normalizeLowercaseStringOrEmpty(url.hostname);
-    return host.endsWith(".services.ai.azure.com");
-  } catch {
-    return false;
-  }
-}
-
-function isAzureOpenAiUrl(baseUrl: string): boolean {
-  try {
-    const url = new URL(baseUrl);
-    const host = normalizeLowercaseStringOrEmpty(url.hostname);
-    return host.endsWith(".openai.azure.com");
-  } catch {
-    return false;
-  }
-}
-
-function isAzureUrl(baseUrl: string): boolean {
-  return isAzureFoundryUrl(baseUrl) || isAzureOpenAiUrl(baseUrl);
-}
-
-/**
- * Transforms an Azure AI Foundry/OpenAI URL to include the deployment path.
- * Azure requires: https://host/openai/deployments/<model-id>/chat/completions?api-version=2024-xx-xx-preview
- * But we can't add query params here, so we just add the path prefix.
- * The api-version will be handled by the Azure OpenAI client or as a query param.
- *
- * Example:
- *   https://my-resource.services.ai.azure.com + gpt-5.4-nano
- *   => https://my-resource.services.ai.azure.com/openai/deployments/gpt-5.4-nano
- */
-function transformAzureUrl(baseUrl: string, modelId: string): string {
-  const normalizedUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  // Check if the URL already includes the deployment path
-  if (normalizedUrl.includes("/openai/deployments/")) {
-    return normalizedUrl;
-  }
-  return `${normalizedUrl}/openai/deployments/${modelId}`;
-}
-
-/**
- * Transforms an Azure URL into the base URL stored in config.
- *
- * Example:
- *   https://my-resource.openai.azure.com
- *   => https://my-resource.openai.azure.com/openai/v1
- */
-function transformAzureConfigUrl(baseUrl: string): string {
-  const normalizedUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  if (normalizedUrl.endsWith("/openai/v1")) {
-    return normalizedUrl;
-  }
-  // Strip a full deployment path back to the base origin
-  const deploymentIdx = normalizedUrl.indexOf("/openai/deployments/");
-  const base = deploymentIdx !== -1 ? normalizedUrl.slice(0, deploymentIdx) : normalizedUrl;
-  return `${base}/openai/v1`;
 }
 
 function hasSameHost(a: string, b: string): boolean {
@@ -307,132 +247,11 @@ export function resolveCustomModelAliasError(params: {
   return `Alias ${normalized} already points to ${existingKey}.`;
 }
 
-function buildAzureOpenAiHeaders(apiKey: string) {
-  const headers: Record<string, string> = {};
-  if (apiKey) {
-    headers["api-key"] = apiKey;
-  }
-  return headers;
-}
-
-function buildOpenAiHeaders(apiKey: string) {
-  const headers: Record<string, string> = {};
-  if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
-  return headers;
-}
-
-function buildAnthropicHeaders(apiKey: string) {
-  const headers: Record<string, string> = {
-    "anthropic-version": "2023-06-01",
-  };
-  if (apiKey) {
-    headers["x-api-key"] = apiKey;
-  }
-  return headers;
-}
-
-type VerificationRequest = {
-  endpoint: string;
-  headers: Record<string, string>;
-  body: Record<string, unknown>;
-};
-
 export function normalizeOptionalProviderApiKey(value: unknown): SecretInput | undefined {
   if (isSecretRef(value)) {
     return value;
   }
   return normalizeOptionalSecretInput(value);
-}
-
-function resolveVerificationEndpoint(params: {
-  baseUrl: string;
-  modelId: string;
-  endpointPath: "chat/completions" | "messages";
-}) {
-  const resolvedUrl = isAzureUrl(params.baseUrl)
-    ? transformAzureUrl(params.baseUrl, params.modelId)
-    : params.baseUrl;
-  const endpointUrl = new URL(
-    params.endpointPath,
-    resolvedUrl.endsWith("/") ? resolvedUrl : `${resolvedUrl}/`,
-  );
-  if (isAzureUrl(params.baseUrl)) {
-    endpointUrl.searchParams.set("api-version", "2024-10-21");
-  }
-  return endpointUrl.href;
-}
-
-export function buildOpenAiVerificationProbeRequest(params: {
-  baseUrl: string;
-  apiKey: string;
-  modelId: string;
-}): VerificationRequest {
-  const isBaseUrlAzureUrl = isAzureUrl(params.baseUrl);
-  const headers = isBaseUrlAzureUrl
-    ? buildAzureOpenAiHeaders(params.apiKey)
-    : buildOpenAiHeaders(params.apiKey);
-  if (isAzureOpenAiUrl(params.baseUrl)) {
-    const endpoint = new URL(
-      "responses",
-      transformAzureConfigUrl(params.baseUrl).replace(/\/?$/, "/"),
-    ).href;
-    return {
-      endpoint,
-      headers,
-      body: {
-        model: params.modelId,
-        input: "Hi",
-        max_output_tokens: 16,
-        stream: false,
-      },
-    };
-  }
-  const endpoint = resolveVerificationEndpoint({
-    baseUrl: params.baseUrl,
-    modelId: params.modelId,
-    endpointPath: "chat/completions",
-  });
-  return {
-    endpoint,
-    headers,
-    body: {
-      model: params.modelId,
-      messages: [{ role: "user", content: "Hi" }],
-      // Recent OpenAI-family endpoints reject probes below 16 tokens.
-      max_tokens: 16,
-      stream: false,
-    },
-  };
-}
-
-export function buildAnthropicVerificationProbeRequest(params: {
-  baseUrl: string;
-  apiKey: string;
-  modelId: string;
-}): VerificationRequest {
-  // Use a base URL with /v1 injected for this raw fetch only. The rest of the app uses the
-  // Anthropic client, which appends /v1 itself; config should store the base URL
-  // without /v1 to avoid /v1/v1/messages at runtime. See docs/gateway/configuration-reference.md.
-  const baseUrlForRequest = /\/v1\/?$/.test(params.baseUrl.trim())
-    ? params.baseUrl.trim()
-    : params.baseUrl.trim().replace(/\/?$/, "") + "/v1";
-  const endpoint = resolveVerificationEndpoint({
-    baseUrl: baseUrlForRequest,
-    modelId: params.modelId,
-    endpointPath: "messages",
-  });
-  return {
-    endpoint,
-    headers: buildAnthropicHeaders(params.apiKey),
-    body: {
-      model: params.modelId,
-      max_tokens: 1,
-      messages: [{ role: "user", content: "Hi" }],
-      stream: false,
-    },
-  };
 }
 
 function resolveProviderApi(

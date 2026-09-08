@@ -90,6 +90,7 @@ import {
   type ExecApprovalRequest,
 } from "./controllers/exec-approval.ts";
 import type { ExecApprovalsFile, ExecApprovalsSnapshot } from "./controllers/exec-approvals.ts";
+import { createModelProviderAddState } from "./controllers/model-providers.ts";
 import type {
   ClawHubSearchResult,
   ClawHubSkillDetail,
@@ -338,6 +339,8 @@ export class OpenClawApp extends LitElement {
   @state() configSearchQuery = "";
   @state() configActiveSection: string | null = null;
   @state() configActiveSubsection: string | null = null;
+  @state() modelProviderAdd: import("./controllers/model-providers.js").ModelProviderAddState =
+    createModelProviderAddState();
   @state() pendingUpdateExpectedVersion: string | null = null;
   @state() updateStatusBanner: { tone: "danger" | "warn" | "info"; text: string } | null = null;
   @state() communicationsFormMode: "form" | "raw" = "form";

@@ -107,6 +107,20 @@ import {
   updateExecApprovalsFormValue,
 } from "./controllers/exec-approvals.ts";
 import { loadLogs } from "./controllers/logs.ts";
+import {
+  backToModelProviderGallery,
+  canProbeModelProviderDraft,
+  canSaveModelProvider,
+  closeModelProviderAdd,
+  filterModelProviderPresets,
+  openModelProviderAdd,
+  patchModelProviderDraft,
+  probeModelProviderDraft,
+  saveModelProvider,
+  selectModelProviderCustom,
+  selectModelProviderPreset,
+  setModelProviderAddFilter,
+} from "./controllers/model-providers.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import {
@@ -182,6 +196,7 @@ import { renderDreaming } from "./views/dreaming.ts";
 import { renderExecApprovalPrompt } from "./views/exec-approval.ts";
 import { renderGatewayUrlConfirmation } from "./views/gateway-url-confirmation.ts";
 import { renderLoginGate } from "./views/login-gate.ts";
+import { renderModelProviderAdd } from "./views/model-provider-add.ts";
 import { renderOverview } from "./views/overview.ts";
 
 let pendingUpdate: (() => void) | undefined;
@@ -1203,6 +1218,46 @@ export function renderApp(state: AppViewState) {
       typeof state.configSnapshot?.raw === "string" ||
       !!state.configSnapshot?.config ||
       !!state.configForm,
+    onAddProviderClick: () => {
+      openModelProviderAdd(state);
+      requestHostUpdate?.();
+    },
+    providerAddDialog: renderModelProviderAdd({
+      add: state.modelProviderAdd,
+      presets: filterModelProviderPresets(state),
+      canProbe: canProbeModelProviderDraft(state),
+      canSave: canSaveModelProvider(state),
+      onClose: () => {
+        closeModelProviderAdd(state);
+        requestHostUpdate?.();
+      },
+      onFilterChange: (value) => {
+        setModelProviderAddFilter(state, value);
+        requestHostUpdate?.();
+      },
+      onSelectPreset: (preset) => {
+        selectModelProviderPreset(state, preset);
+        requestHostUpdate?.();
+      },
+      onSelectCustom: () => {
+        selectModelProviderCustom(state);
+        requestHostUpdate?.();
+      },
+      onBack: () => {
+        backToModelProviderGallery(state);
+        requestHostUpdate?.();
+      },
+      onDraftChange: (patch) => {
+        patchModelProviderDraft(state, patch);
+        requestHostUpdate?.();
+      },
+      onProbe: () => {
+        void probeModelProviderDraft(state).then(() => requestHostUpdate?.());
+      },
+      onSave: () => {
+        void saveModelProvider(state).then(() => requestHostUpdate?.());
+      },
+    }),
   } satisfies Omit<
     ConfigProps,
     | "formMode"

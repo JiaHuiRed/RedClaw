@@ -19,6 +19,7 @@ export type ConfigFormProps = {
   isSensitivePathRevealed?: (path: Array<string | number>) => boolean;
   onToggleSensitivePath?: (path: Array<string | number>) => void;
   onPatch: (path: Array<string | number>, value: unknown) => void;
+  onAddProviderClick?: () => void;
 };
 
 // SVG Icons for section cards (Lucide-style)
@@ -472,6 +473,7 @@ export function renderConfigForm(props: ConfigFormProps) {
           isSensitivePathRevealed: props.isSensitivePathRevealed,
           onToggleSensitivePath: props.onToggleSensitivePath,
           onPatch: props.onPatch,
+          onAddProviderClick: props.onAddProviderClick,
         })}
       </div>
     </section>

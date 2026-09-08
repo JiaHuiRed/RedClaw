@@ -29,12 +29,12 @@
     "subtitles.activity",
     "tabs.activity"
   ],
-  "generatedAt": "2026-05-27T02:52:44.017Z",
+  "generatedAt": "2026-09-08T15:58:03.775Z",
   "locale": "zh-CN",
   "model": "claude-opus-4-7",
   "provider": "anthropic",
-  "sourceHash": "24e6aff2cfb534faf3b6a9c96ccafee1470519c2f4498c07841072435a0565ea",
-  "totalKeys": 1155,
-  "translatedKeys": 1127,
+  "sourceHash": "95f40b10dc75276917d282b71ab4f4fdd8f9e57c9425ad7ce7950448a31dee32",
+  "totalKeys": 1183,
+  "translatedKeys": 1155,
   "workflow": 1
 }
