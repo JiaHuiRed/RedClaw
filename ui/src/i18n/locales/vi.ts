@@ -89,6 +89,12 @@ export const vi: TranslationMap = {
     generic: {
       subtitle: "Trạng thái và cấu hình kênh.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Thay đổi URL Gateway",
       subtitle: "Thao tác này sẽ kết nối lại tới một máy chủ gateway khác",
@@ -176,6 +182,11 @@ export const vi: TranslationMap = {
     searchPlaceholder: "Lọc theo khóa, agent, nhãn, loại…",
     selected: "Đã chọn {count}",
     deleteSelected: "Xóa",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "Chọn tất cả trên trang",
     selectSession: "Chọn phiên",
     optionalPlaceholder: "(tùy chọn)",
@@ -237,6 +248,13 @@ export const vi: TranslationMap = {
     noSummary: "Chưa ghi nhận bản tóm tắt.",
     branchFromCheckpoint: "Tạo nhánh từ điểm kiểm tra",
     restoreCheckpoint: "Khôi phục điểm kiểm tra",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "Không có agent",

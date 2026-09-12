@@ -120,6 +120,8 @@ export type ConfigProps = {
   onAddProviderClick?: () => void;
   /** "Add model provider" dialog (rendered by the caller from controller state). */
   providerAddDialog?: TemplateResult | typeof nothing;
+  restartingGateway?: boolean;
+  onRestartGateway?: () => void;
 };
 
 // SVG Icons for sidebar (Lucide-style)
@@ -1500,6 +1502,24 @@ export function renderConfig(props: ConfigProps) {
               >
                 ${renderActionButtonContent(props.updating, "Update", "Updating…")}
               </button>
+              ${props.onRestartGateway
+                ? html`
+                    <button
+                      class="btn btn--sm"
+                      ?disabled=${props.restartingGateway === true}
+                      aria-busy=${props.restartingGateway ? "true" : "false"}
+                      data-test-id="config-restart-gateway"
+                      title=${t("config.actions.restartTitle")}
+                      @click=${props.onRestartGateway}
+                    >
+                      ${renderActionButtonContent(
+                        props.restartingGateway === true,
+                        t("config.actions.restart"),
+                        t("config.actions.restarting"),
+                      )}
+                    </button>
+                  `
+                : nothing}
             </div>
           </div>
         </div>

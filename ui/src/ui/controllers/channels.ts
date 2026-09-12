@@ -142,3 +142,27 @@ export async function logoutWhatsApp(state: ChannelsState) {
     state.whatsappBusy = false;
   }
 }
+
+export type ChannelRuntimeAction = "start" | "stop";
+
+export async function setChannelRuntime(
+  state: ChannelsState,
+  channel: string,
+  action: ChannelRuntimeAction,
+) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  state.channelRuntimeBusy = channel;
+  state.channelsError = null;
+  try {
+    await state.client.request(action === "start" ? "channels.start" : "channels.stop", {
+      channel,
+    });
+  } catch (err) {
+    state.channelsError = String(err);
+  } finally {
+    state.channelRuntimeBusy = null;
+    await loadChannels(state, true);
+  }
+}

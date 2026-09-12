@@ -89,6 +89,12 @@ export const ar: TranslationMap = {
     generic: {
       subtitle: "حالة القناة وإعداداتها.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "تغيير عنوان URL الخاص بـ Gateway",
       subtitle: "سيؤدي هذا إلى إعادة الاتصال بخادم Gateway مختلف",
@@ -175,6 +181,11 @@ export const ar: TranslationMap = {
     searchPlaceholder: "تصفية حسب المفتاح أو الوكيل أو التسمية أو النوع…",
     selected: "تم تحديد {count}",
     deleteSelected: "حذف",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "تحديد الكل في الصفحة",
     selectSession: "تحديد الجلسة",
     optionalPlaceholder: "(اختياري)",
@@ -236,6 +247,13 @@ export const ar: TranslationMap = {
     noSummary: "لم يتم التقاط أي ملخص.",
     branchFromCheckpoint: "إنشاء فرع من نقطة التحقق",
     restoreCheckpoint: "استعادة نقطة التحقق",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "لا توجد وكلاء",

@@ -89,6 +89,12 @@ export const tr: TranslationMap = {
     generic: {
       subtitle: "Kanal durumu ve yapılandırması.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Gateway URL'sini Değiştir",
       subtitle: "Bu işlem farklı bir gateway sunucusuna yeniden bağlanacaktır",
@@ -178,6 +184,11 @@ export const tr: TranslationMap = {
     searchPlaceholder: "Anahtara, ajana, etikete, türe göre filtrele…",
     selected: "{count} seçildi",
     deleteSelected: "Sil",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "Sayfadakilerin tümünü seç",
     selectSession: "Oturumu seç",
     optionalPlaceholder: "(isteğe bağlı)",
@@ -239,6 +250,13 @@ export const tr: TranslationMap = {
     noSummary: "Özet yakalanmadı.",
     branchFromCheckpoint: "Kontrol noktasından dal oluştur",
     restoreCheckpoint: "Kontrol noktasını geri yükle",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

@@ -89,6 +89,12 @@ export const fa: TranslationMap = {
     generic: {
       subtitle: "وضعیت و پیکربندی کانال.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "تغییر URL Gateway",
       subtitle: "این کار به یک سرور Gateway دیگر دوباره متصل می‌شود",
@@ -177,6 +183,11 @@ export const fa: TranslationMap = {
     searchPlaceholder: "فیلتر بر اساس کلید، عامل، برچسب، نوع…",
     selected: "{count} انتخاب‌شده",
     deleteSelected: "حذف",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "انتخاب همه در صفحه",
     selectSession: "انتخاب نشست",
     optionalPlaceholder: "(اختیاری)",
@@ -238,6 +249,13 @@ export const fa: TranslationMap = {
     noSummary: "هیچ خلاصه‌ای ثبت نشده است.",
     branchFromCheckpoint: "انشعاب از نقطهٔ وارسی",
     restoreCheckpoint: "بازیابی نقطهٔ وارسی",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "هیچ عاملی وجود ندارد",

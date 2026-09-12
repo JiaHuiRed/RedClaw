@@ -89,6 +89,12 @@ export const nl: TranslationMap = {
     generic: {
       subtitle: "Kanaalstatus en -configuratie.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Gateway-URL wijzigen",
       subtitle: "Hiermee wordt opnieuw verbinding gemaakt met een andere Gateway-server",
@@ -178,6 +184,11 @@ export const nl: TranslationMap = {
     searchPlaceholder: "Filter op sleutel, agent, label, type…",
     selected: "{count} geselecteerd",
     deleteSelected: "Verwijderen",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "Alles op pagina selecteren",
     selectSession: "Sessie selecteren",
     optionalPlaceholder: "(optioneel)",
@@ -239,6 +250,13 @@ export const nl: TranslationMap = {
     noSummary: "Geen samenvatting vastgelegd.",
     branchFromCheckpoint: "Vertakken vanaf controlepunt",
     restoreCheckpoint: "Controlepunt herstellen",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "Geen agents",

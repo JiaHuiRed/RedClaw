@@ -14,4 +14,6 @@ export type ChannelsState = {
   whatsappLoginQrDataUrl: string | null;
   whatsappLoginConnected: boolean | null;
   whatsappBusy: boolean;
+  /** Channel id while a channels.start/channels.stop call is in flight. */
+  channelRuntimeBusy?: string | null;
 };

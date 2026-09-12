@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleChannelConfigReload, handleChannelConfigSave } from "./app-channels.ts";
 import type { ChannelsState } from "./controllers/channels.ts";
 import type { ConfigState } from "./controllers/config.ts";
+import { createModelProviderAddState } from "./controllers/model-providers.ts";
 import type { ChannelsStatusSnapshot } from "./types.ts";
 
 type ChannelsActionHostForTest = ConfigState &
@@ -69,12 +70,14 @@ function createHost(request: ReturnType<typeof vi.fn> = vi.fn()): ChannelsAction
     configValid: null,
     connected: true,
     lastError: null,
+    modelProviderAdd: createModelProviderAddState(),
     nostrProfileAccountId: null,
     nostrProfileFormState: null,
     pendingUpdateExpectedVersion: null,
     settings: {},
     updateStatusBanner: null,
     updateRunning: false,
+    gatewayRestarting: false,
     whatsappBusy: false,
     whatsappLoginConnected: null,
     whatsappLoginMessage: null,

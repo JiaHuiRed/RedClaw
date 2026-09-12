@@ -1,3 +1,4 @@
+import { t } from "../../i18n/index.ts";
 import {
   reconcileChatRunFromCurrentSessionRow,
   type ChatRunUiStatus,
@@ -43,6 +44,8 @@ export type SessionsState = SessionsChatRunState & {
   sessionsCheckpointErrorByKey: Record<string, string>;
   chatSessionMessageSubscriptionKey?: string | null;
   chatSessionMessageSubscriptionRequestedKey?: string | null;
+  sessionsCleanupBusy?: boolean;
+  sessionsCleanupMessage?: string | null;
 };
 
 export type LoadSessionsOverrides = {
@@ -789,6 +792,34 @@ export async function createSessionAndRefresh(
     return null;
   }
   return createdKey;
+}
+
+/**
+ * Apply the gateway's configured session-maintenance policy across all agent
+ * stores. The UI confirms because enforcement can prune stale entries/files.
+ */
+export async function cleanupSessionStore(state: SessionsState): Promise<void> {
+  if (!state.client || !state.connected || state.sessionsLoading) {
+    return;
+  }
+  if (!window.confirm(t("sessionsView.cleanupConfirm"))) {
+    return;
+  }
+  state.sessionsCleanupBusy = true;
+  state.sessionsCleanupMessage = null;
+  try {
+    const res = await state.client.request<{
+      mode?: string;
+      appliedSummaries?: unknown[];
+    }>("sessions.cleanup", { allAgents: true });
+    const applied = Array.isArray(res?.appliedSummaries) ? res.appliedSummaries.length : 0;
+    state.sessionsCleanupMessage = `sessions.cleanup — mode: ${res?.mode ?? "?"}, applied: ${applied}`;
+    await loadSessions(state);
+  } catch (err) {
+    state.sessionsCleanupMessage = String(err);
+  } finally {
+    state.sessionsCleanupBusy = false;
+  }
 }
 
 export async function deleteSessionsAndRefresh(

@@ -24,6 +24,7 @@ export type ConfigState = {
   configSaving: boolean;
   configApplying: boolean;
   updateRunning: boolean;
+  gatewayRestarting: boolean;
   configSnapshot: ConfigSnapshot | null;
   configDraftBaseHash?: string | null;
   configSchema: unknown;
@@ -266,6 +267,35 @@ export async function applyConfig(state: ConfigState): Promise<boolean> {
   return submitConfigChange(state, "config.apply", "configApplying", {
     sessionKey: state.applySessionKey,
   });
+}
+
+/**
+ * Safe gateway restart via gateway.restart.preflight/request. The socket drops
+ * on restart; GatewayBrowserClient reconnects and config state reloads through
+ * the normal connect flow.
+ */
+export async function restartGateway(state: ConfigState): Promise<boolean> {
+  if (!state.client || !state.connected) {
+    return false;
+  }
+  state.gatewayRestarting = true;
+  state.updateStatusBanner = null;
+  try {
+    await state.client.request("gateway.restart.preflight", {});
+    await state.client.request("gateway.restart.request", {
+      reason: "control-ui: manual restart",
+    });
+    state.updateStatusBanner = {
+      tone: "info",
+      text: "Gateway restart requested. The console will reconnect automatically.",
+    };
+    return true;
+  } catch (err) {
+    state.updateStatusBanner = { tone: "danger", text: String(err) };
+    return false;
+  } finally {
+    state.gatewayRestarting = false;
+  }
 }
 
 export async function runUpdate(state: ConfigState) {

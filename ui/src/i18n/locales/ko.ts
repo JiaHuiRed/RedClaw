@@ -89,6 +89,12 @@ export const ko: TranslationMap = {
     generic: {
       subtitle: "채널 상태 및 구성.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Gateway URL 변경",
       subtitle: "다른 Gateway 서버에 다시 연결됩니다",
@@ -175,6 +181,11 @@ export const ko: TranslationMap = {
     searchPlaceholder: "키, 에이전트, 레이블, 종류로 필터링…",
     selected: "{count}개 선택됨",
     deleteSelected: "삭제",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "페이지에서 모두 선택",
     selectSession: "세션 선택",
     optionalPlaceholder: "(선택 사항)",
@@ -236,6 +247,13 @@ export const ko: TranslationMap = {
     noSummary: "캡처된 요약이 없습니다.",
     branchFromCheckpoint: "체크포인트에서 브랜치 생성",
     restoreCheckpoint: "체크포인트 복원",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

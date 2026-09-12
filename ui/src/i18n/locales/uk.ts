@@ -89,6 +89,12 @@ export const uk: TranslationMap = {
     generic: {
       subtitle: "Стан каналу та конфігурація.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Змінити URL Gateway",
       subtitle: "Це перепідключить до іншого сервера Gateway",
@@ -177,6 +183,11 @@ export const uk: TranslationMap = {
     searchPlaceholder: "Фільтрувати за ключем, агентом, міткою, типом…",
     selected: "Вибрано: {count}",
     deleteSelected: "Видалити",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "Вибрати все на сторінці",
     selectSession: "Вибрати сеанс",
     optionalPlaceholder: "(необов’язково)",
@@ -238,6 +249,13 @@ export const uk: TranslationMap = {
     noSummary: "Підсумок не зафіксовано.",
     branchFromCheckpoint: "Створити гілку з контрольної точки",
     restoreCheckpoint: "Відновити контрольну точку",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",
