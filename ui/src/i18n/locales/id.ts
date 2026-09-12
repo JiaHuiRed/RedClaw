@@ -89,6 +89,12 @@ export const id: TranslationMap = {
     generic: {
       subtitle: "Status dan konfigurasi saluran.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Ubah URL Gateway",
       subtitle: "Ini akan menyambungkan ulang ke server gateway yang berbeda",
@@ -176,6 +182,11 @@ export const id: TranslationMap = {
     searchPlaceholder: "Filter menurut kunci, agen, label, jenis…",
     selected: "{count} dipilih",
     deleteSelected: "Hapus",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "Pilih semua di halaman",
     selectSession: "Pilih sesi",
     optionalPlaceholder: "(opsional)",
@@ -237,6 +248,13 @@ export const id: TranslationMap = {
     noSummary: "Tidak ada ringkasan yang direkam.",
     branchFromCheckpoint: "Buat cabang dari checkpoint",
     restoreCheckpoint: "Pulihkan checkpoint",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

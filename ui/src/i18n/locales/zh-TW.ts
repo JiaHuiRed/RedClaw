@@ -89,6 +89,12 @@ export const zh_TW: TranslationMap = {
     generic: {
       subtitle: "頻道狀態與設定。",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "變更 Gateway URL",
       subtitle: "這將重新連線至不同的 Gateway 伺服器",
@@ -174,6 +180,11 @@ export const zh_TW: TranslationMap = {
     searchPlaceholder: "依金鑰、代理程式、標籤、類型篩選…",
     selected: "已選取 {count} 個",
     deleteSelected: "刪除",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "選取此頁全部",
     selectSession: "選取工作階段",
     optionalPlaceholder: "（選填）",
@@ -235,6 +246,13 @@ export const zh_TW: TranslationMap = {
     noSummary: "未擷取摘要。",
     branchFromCheckpoint: "從檢查點建立分支",
     restoreCheckpoint: "還原檢查點",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

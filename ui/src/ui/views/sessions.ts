@@ -58,6 +58,9 @@ export type SessionsProps = {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onRefresh: () => void;
+  cleanupBusy?: boolean;
+  cleanupMessage?: string | null;
+  onCleanupStore?: () => void;
   onPatch: (
     key: string,
     patch: {
@@ -518,10 +521,31 @@ export function renderSessions(props: SessionsProps) {
               : t("sessionsView.subtitle")}
           </div>
         </div>
-        <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
-          ${props.loading ? t("common.loading") : t("common.refresh")}
-        </button>
+        <span class="row" style="gap: 8px;">
+          ${props.onCleanupStore
+            ? html`
+                <button
+                  class="btn"
+                  ?disabled=${props.loading || props.cleanupBusy === true}
+                  data-test-id="sessions-cleanup"
+                  title=${t("sessionsView.cleanupTitle")}
+                  @click=${props.onCleanupStore}
+                >
+                  ${props.cleanupBusy === true
+                    ? t("sessionsView.cleaningUp")
+                    : t("sessionsView.cleanup")}
+                </button>
+              `
+            : nothing}
+          <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+            ${props.loading ? t("common.loading") : t("common.refresh")}
+          </button>
+        </span>
       </div>
+
+      ${props.cleanupMessage
+        ? html`<div class="callout info" style="margin-top: 12px;">${props.cleanupMessage}</div>`
+        : nothing}
 
       <div class="sessions-filter-panel">
         <div class="sessions-filter-panel__header">

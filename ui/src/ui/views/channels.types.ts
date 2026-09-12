@@ -34,6 +34,9 @@ export type ChannelsProps = {
   configFormDirty: boolean;
   nostrProfileFormState: NostrProfileFormState | null;
   nostrProfileAccountId: string | null;
+  /** Channel id while a channels.start/channels.stop call is in flight. */
+  channelRuntimeBusy?: string | null;
+  onChannelRuntime?: (channel: string, action: "start" | "stop") => void;
   onRefresh: (probe: boolean) => void;
   onWhatsAppStart: (force: boolean) => void;
   onWhatsAppWait: () => void;

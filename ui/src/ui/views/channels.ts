@@ -75,6 +75,46 @@ export function renderChannels(props: ChannelsProps) {
       )}
     </section>
 
+    ${props.onChannelRuntime
+      ? html`
+          <section class="card" style="margin-top: 18px;">
+            <div class="card-title">${t("channels.runtime.title")}</div>
+            <div class="card-sub">${t("channels.runtime.subtitle")}</div>
+            <div class="status-list" style="margin-top: 12px;">
+              ${orderedChannels.map(
+                (channel) => html`
+                  <div class="row" style="justify-content: space-between; align-items: center;">
+                    <span>${resolveChannelLabel(props.snapshot, channel.key)}</span>
+                    <span class="row" style="gap: 6px;">
+                      <button
+                        type="button"
+                        class="btn btn--sm"
+                        ?disabled=${props.channelRuntimeBusy === channel.key}
+                        data-test-id="channel-start-${channel.key}"
+                        @click=${() => props.onChannelRuntime?.(channel.key, "start")}
+                      >
+                        ${props.channelRuntimeBusy === channel.key
+                          ? t("common.loading")
+                          : t("channels.runtime.start")}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn--sm"
+                        ?disabled=${props.channelRuntimeBusy === channel.key}
+                        data-test-id="channel-stop-${channel.key}"
+                        @click=${() => props.onChannelRuntime?.(channel.key, "stop")}
+                      >
+                        ${t("channels.runtime.stop")}
+                      </button>
+                    </span>
+                  </div>
+                `,
+              )}
+            </div>
+          </section>
+        `
+      : nothing}
+
     <section class="card" style="margin-top: 18px;">
       <div class="row" style="justify-content: space-between;">
         <div>

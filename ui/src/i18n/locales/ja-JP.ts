@@ -89,6 +89,12 @@ export const ja_JP: TranslationMap = {
     generic: {
       subtitle: "チャネルの状態と設定。",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Gateway URL を変更",
       subtitle: "別の Gateway サーバーに再接続します",
@@ -179,6 +185,11 @@ export const ja_JP: TranslationMap = {
     searchPlaceholder: "キー、エージェント、ラベル、種類で絞り込み…",
     selected: "{count} 件選択中",
     deleteSelected: "削除",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "ページ内をすべて選択",
     selectSession: "セッションを選択",
     optionalPlaceholder: "（任意）",
@@ -240,6 +251,13 @@ export const ja_JP: TranslationMap = {
     noSummary: "要約は取得されていません。",
     branchFromCheckpoint: "チェックポイントからブランチ",
     restoreCheckpoint: "チェックポイントを復元",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

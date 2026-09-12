@@ -342,6 +342,7 @@ export class OpenClawApp extends LitElement {
   @state() modelProviderAdd: import("./controllers/model-providers.js").ModelProviderAddState =
     createModelProviderAddState();
   @state() pendingUpdateExpectedVersion: string | null = null;
+  @state() gatewayRestarting = false;
   @state() updateStatusBanner: { tone: "danger" | "warn" | "info"; text: string } | null = null;
   @state() communicationsFormMode: "form" | "raw" = "form";
   @state() communicationsSearchQuery = "";
@@ -372,6 +373,9 @@ export class OpenClawApp extends LitElement {
   @state() whatsappLoginQrDataUrl: string | null = null;
   @state() whatsappLoginConnected: boolean | null = null;
   @state() whatsappBusy = false;
+  @state() channelRuntimeBusy: string | null = null;
+  @state() sessionsCleanupBusy = false;
+  @state() sessionsCleanupMessage: string | null = null;
   @state() nostrProfileFormState: NostrProfileFormState | null = null;
   @state() nostrProfileAccountId: string | null = null;
 

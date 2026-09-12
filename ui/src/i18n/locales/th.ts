@@ -89,6 +89,12 @@ export const th: TranslationMap = {
     generic: {
       subtitle: "สถานะและการกำหนดค่าของช่องทาง",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "เปลี่ยน Gateway URL",
       subtitle: "การดำเนินการนี้จะเชื่อมต่อใหม่ไปยังเซิร์ฟเวอร์เกตเวย์อื่น",
@@ -174,6 +180,11 @@ export const th: TranslationMap = {
     searchPlaceholder: "กรองตามคีย์, agent, ป้ายกำกับ, ชนิด…",
     selected: "เลือกแล้ว {count} รายการ",
     deleteSelected: "ลบ",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "เลือกทั้งหมดในหน้านี้",
     selectSession: "เลือกเซสชัน",
     optionalPlaceholder: "(ไม่บังคับ)",
@@ -235,6 +246,13 @@ export const th: TranslationMap = {
     noSummary: "ไม่มีสรุปที่บันทึกไว้",
     branchFromCheckpoint: "แตกแขนงจากเช็กพอยต์",
     restoreCheckpoint: "กู้คืนเช็กพอยต์",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

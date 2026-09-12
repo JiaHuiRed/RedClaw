@@ -54,12 +54,15 @@ import {
   resetConfigPendingChanges,
   runUpdate,
   saveConfig,
+  restartGateway,
   stageDefaultAgentConfigEntry,
   stageConfigPreset,
   updateConfigRawValue,
   updateConfigFormValue,
   removeConfigFormValue,
 } from "./controllers/config.ts";
+import { setChannelRuntime } from "./controllers/channels.ts";
+import { cleanupSessionStore } from "./controllers/sessions.ts";
 import {
   loadCronJobsPage,
   loadCronRuns,
@@ -1222,6 +1225,10 @@ export function renderApp(state: AppViewState) {
       openModelProviderAdd(state);
       requestHostUpdate?.();
     },
+    restartingGateway: state.gatewayRestarting,
+    onRestartGateway: () => {
+      void restartGateway(state).then(() => requestHostUpdate?.());
+    },
     providerAddDialog: renderModelProviderAdd({
       add: state.modelProviderAdd,
       presets: filterModelProviderPresets(state),
@@ -1537,6 +1544,10 @@ export function renderApp(state: AppViewState) {
             configFormDirty: state.configFormDirty,
             nostrProfileFormState: state.nostrProfileFormState,
             nostrProfileAccountId: state.nostrProfileAccountId,
+            channelRuntimeBusy: state.channelRuntimeBusy ?? null,
+            onChannelRuntime: (channel, action) => {
+              void setChannelRuntime(state, channel, action).then(() => requestHostUpdate?.());
+            },
             onRefresh: (probe) => loadChannels(state, probe),
             onWhatsAppStart: (force) => state.handleWhatsAppStart(force),
             onWhatsAppWait: () => state.handleWhatsAppWait(),
@@ -2091,6 +2102,11 @@ export function renderApp(state: AppViewState) {
                 loading: state.sessionsLoading,
                 result: state.sessionsResult,
                 error: state.sessionsError,
+                cleanupBusy: state.sessionsCleanupBusy === true,
+                cleanupMessage: state.sessionsCleanupMessage ?? null,
+                onCleanupStore: () => {
+                  void cleanupSessionStore(state).then(() => requestHostUpdate?.());
+                },
                 activeMinutes: state.sessionsFilterActive,
                 limit: state.sessionsFilterLimit,
                 includeGlobal: state.sessionsIncludeGlobal,

@@ -15,6 +15,7 @@ import {
   updateConfigRawValue,
   type ConfigState,
 } from "./config.ts";
+import { createModelProviderAddState } from "./model-providers.ts";
 
 function createState(): ConfigState {
   return {
@@ -32,6 +33,7 @@ function createState(): ConfigState {
     configRaw: "",
     configRawOriginal: "",
     configSaving: false,
+    gatewayRestarting: false,
     configSchema: null,
     configSchemaLoading: false,
     configSchemaVersion: null,
@@ -45,6 +47,7 @@ function createState(): ConfigState {
     pendingUpdateExpectedVersion: null,
     updateStatusBanner: null,
     updateRunning: false,
+    modelProviderAdd: createModelProviderAddState(),
   };
 }
 

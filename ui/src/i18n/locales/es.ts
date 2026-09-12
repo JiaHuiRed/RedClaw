@@ -89,6 +89,12 @@ export const es: TranslationMap = {
     generic: {
       subtitle: "Estado y configuración del canal.",
     },
+    runtime: {
+      title: "Channel runtime",
+      subtitle: "Start or stop channel runtimes from the console.",
+      start: "Start",
+      stop: "Stop",
+    },
     gatewayUrlConfirmation: {
       title: "Cambiar URL del Gateway",
       subtitle: "Esto volverá a conectarse a un servidor Gateway diferente",
@@ -176,6 +182,11 @@ export const es: TranslationMap = {
     searchPlaceholder: "Filtrar por clave, agente, etiqueta, tipo…",
     selected: "{count} seleccionados",
     deleteSelected: "Eliminar",
+    cleanup: "Clean up store",
+    cleaningUp: "Cleaning up…",
+    cleanupTitle: "Apply configured session maintenance across all agents",
+    cleanupConfirm:
+      "Run configured session cleanup across all agents? This may remove stale sessions and unreferenced files.",
     selectAllOnPage: "Seleccionar todo en la página",
     selectSession: "Seleccionar sesión",
     optionalPlaceholder: "(opcional)",
@@ -237,6 +248,13 @@ export const es: TranslationMap = {
     noSummary: "No se capturó ningún resumen.",
     branchFromCheckpoint: "Crear rama desde el punto de control",
     restoreCheckpoint: "Restaurar punto de control",
+  },
+  config: {
+    actions: {
+      restart: "Restart Gateway",
+      restarting: "Restarting…",
+      restartTitle: "Restart the gateway to apply configuration changes",
+    },
   },
   agents: {
     noAgents: "No agents",

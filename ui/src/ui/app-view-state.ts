@@ -173,6 +173,7 @@ export type AppViewState = {
   configSaving: boolean;
   configApplying: boolean;
   updateRunning: boolean;
+  gatewayRestarting: boolean;
   applySessionKey: string;
   configSnapshot: ConfigSnapshot | null;
   configSchema: unknown;
@@ -237,6 +238,7 @@ export type AppViewState = {
   whatsappLoginQrDataUrl: string | null;
   whatsappLoginConnected: boolean | null;
   whatsappBusy: boolean;
+  channelRuntimeBusy: string | null;
   nostrProfileFormState: NostrProfileFormState | null;
   nostrProfileAccountId: string | null;
   configFormDirty: boolean;
@@ -274,6 +276,8 @@ export type AppViewState = {
   sessionsLoading: boolean;
   sessionsResult: SessionsListResult | null;
   sessionsError: string | null;
+  sessionsCleanupBusy: boolean;
+  sessionsCleanupMessage: string | null;
   threadsLoading: boolean;
   threadsResult: SessionsListResult | null;
   threadsError: string | null;
