@@ -351,6 +351,23 @@ export async function getReplyFromConfig(
     }
   }
 
+  // One-shot run-level model override (chat.send `model` param): explicit
+  // per-message user intent wins over stored session/channel overrides.
+  // Heartbeat runs never arrive through chat.send, so the two never compete.
+  const runModelOverrideRaw = normalizeOptionalString(opts?.modelOverride);
+  const resolvedRunModelOverride =
+    runModelOverrideRaw && opts?.isHeartbeat !== true
+      ? resolveModelRefFromString({
+          raw: runModelOverrideRaw,
+          defaultProvider,
+          aliasIndex,
+        })
+      : null;
+  if (resolvedRunModelOverride) {
+    provider = resolvedRunModelOverride.ref.provider;
+    model = resolvedRunModelOverride.ref.model;
+  }
+
   const { workspaceDirRaw, workspaceDirForNativeCommand, agentDir, timeoutMs } =
     resolverTiming.measureSync("reply.resolve_workspace_agent_dir", () => {
       const workspaceDirRaw = resolveAgentWorkspaceDir(cfg, agentId) ?? DEFAULT_AGENT_WORKSPACE_DIR;
@@ -642,7 +659,8 @@ export async function getReplyFromConfig(
   if (
     storedModelOverride?.model &&
     !hasResolvedHeartbeatModelOverride &&
-    !staleHeartbeatAutoFallbackOverride
+    !staleHeartbeatAutoFallbackOverride &&
+    !resolvedRunModelOverride
   ) {
     provider = storedModelOverride.provider ?? defaultProvider;
     model = storedModelOverride.model;
@@ -662,7 +680,8 @@ export async function getReplyFromConfig(
   if (
     !hasResolvedHeartbeatModelOverride &&
     !hasEffectiveSessionModelOverride &&
-    resolvedChannelModelOverride
+    resolvedChannelModelOverride &&
+    !resolvedRunModelOverride
   ) {
     provider = resolvedChannelModelOverride.ref.provider;
     model = resolvedChannelModelOverride.ref.model;

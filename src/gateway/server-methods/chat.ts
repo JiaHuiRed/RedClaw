@@ -2360,6 +2360,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       sessionId?: string;
       message: string;
       thinking?: string;
+      model?: string;
       fastMode?: boolean;
       deliver?: boolean;
       originatingChannel?: string;
@@ -2991,6 +2992,7 @@ export const chatHandlers: GatewayRequestHandlers = {
               images: replyOptionImages,
               imageOrder: imageOrder.length > 0 ? imageOrder : undefined,
               thinkingLevelOverride: p.thinking,
+              modelOverride: p.model,
               fastModeOverride: p.fastMode,
               userTurnTranscriptRecorder: userTurnRecorder,
               // Activate reasoning streaming for WS clients: the embedded

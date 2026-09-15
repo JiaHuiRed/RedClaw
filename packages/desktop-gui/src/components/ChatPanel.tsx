@@ -21,6 +21,7 @@ import {
   ImagePlus,
   X,
   AlertCircle,
+  Cpu,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import ReactMarkdown from "react-markdown";
@@ -44,6 +45,8 @@ import CommandPalette from "./CommandPalette";
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
 // v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
 const USER_AVATAR_KEY = "redclaw:userAvatar:v1";
+// 本条消息模型覆盖（per-run modelOverride）：null = 跟随会话当前模型
+const CHAT_MODEL_KEY = "redclaw:chatModel:v1";
 const AVATAR_SIZE = 256;
 
 function fmt(n: number | null): string {
@@ -543,6 +546,13 @@ function ChatPanel({
   const [modelSearch, setModelSearch] = useState("");
   const [availableModels, setAvailableModels] = useState<ModelEntry[]>(gateway.models);
   const modelSelectorRef = useRef<HTMLDivElement>(null);
+  // 输入框内 per-message 模型选择：覆盖只随下一次 chat.send 生效，不改会话默认
+  const [chatModel, setChatModel] = useState<string | null>(() =>
+    localStorage.getItem(CHAT_MODEL_KEY),
+  );
+  const [showChatModelSelector, setShowChatModelSelector] = useState(false);
+  const [chatModelSearch, setChatModelSearch] = useState("");
+  const chatModelSelectorRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
   // 用户上翻看历史时不被拉回底部。
@@ -557,10 +567,19 @@ function ChatPanel({
         setShowModelSelector(false);
         setModelSearch("");
       }
+      if (
+        chatModelSelectorRef.current &&
+        !chatModelSelectorRef.current.contains(e.target as Node)
+      ) {
+        setShowChatModelSelector(false);
+        setChatModelSearch("");
+      }
     }
-    if (showModelSelector) document.addEventListener("mousedown", handleClick);
+    if (showModelSelector || showChatModelSelector) {
+      document.addEventListener("mousedown", handleClick);
+    }
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showModelSelector]);
+  }, [showModelSelector, showChatModelSelector]);
 
   const paletteItems = useMemo(
     () => getVisibleItems(commands, input, cmdCategory),
@@ -606,6 +625,41 @@ function ChatPanel({
         m.provider.toLowerCase().includes(q),
     );
   }, [availableModels, modelSearch]);
+
+  // 输入框模型选择器：按 provider 分组（过滤时保留有命中的组）
+  const groupedChatModels = useMemo(() => {
+    const map = new Map<string, ModelEntry[]>();
+    for (const m of availableModels) {
+      const list = map.get(m.provider) ?? [];
+      list.push(m);
+      map.set(m.provider, list);
+    }
+    return [...map.entries()];
+  }, [availableModels]);
+
+  const filteredChatModelGroups = useMemo(() => {
+    if (!chatModelSearch) return groupedChatModels;
+    const q = chatModelSearch.toLowerCase();
+    return groupedChatModels
+      .map(
+        ([provider, models]) =>
+          [
+            provider,
+            models.filter(
+              (m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q),
+            ),
+          ] as const,
+      )
+      .filter(([, models]) => models.length > 0);
+  }, [groupedChatModels, chatModelSearch]);
+
+  function pickChatModel(modelId: string | null) {
+    setChatModel(modelId);
+    if (modelId) localStorage.setItem(CHAT_MODEL_KEY, modelId);
+    else localStorage.removeItem(CHAT_MODEL_KEY);
+    setShowChatModelSelector(false);
+    setChatModelSearch("");
+  }
 
   // AI 头像：连接后拉 agent identity；avatarStatus=data 时 avatar 是完整 data URL
   useEffect(() => {
@@ -845,7 +899,10 @@ function ChatPanel({
 
     setIsGenerating(true);
     try {
-      await gateway.sendMessage(msg, undefined, attachments.length ? attachments : undefined);
+      await gateway.sendMessage(msg, {
+        attachments: attachments.length ? attachments : undefined,
+        model: chatModel ?? undefined,
+      });
     } catch (err) {
       console.error("send failed:", err);
       setIsGenerating(false);
@@ -1506,6 +1563,120 @@ function ChatPanel({
                 e.target.value = "";
               }}
             />
+            {/* per-message 模型选择：覆盖仅对本条消息生效，不改会话默认模型 */}
+            <div className="relative shrink-0" ref={chatModelSelectorRef}>
+              <button
+                onClick={() => setShowChatModelSelector((v) => !v)}
+                disabled={!connected}
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors disabled:opacity-30 max-w-28"
+                style={{
+                  background: chatModel
+                    ? "color-mix(in srgb, var(--accent) 14%, var(--bg-secondary))"
+                    : "var(--bg-tertiary)",
+                  color: chatModel ? "var(--accent)" : "var(--text-secondary)",
+                }}
+                title={chatModel ? `本条消息将使用 ${chatModel}` : "本条消息跟随会话模型"}
+              >
+                <Cpu size={13} className="shrink-0" />
+                <span className="truncate">{chatModel ? shortModel(chatModel) : "模型"}</span>
+              </button>
+              {showChatModelSelector && (
+                <div
+                  className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border shadow-lg z-50 overflow-hidden"
+                  style={{
+                    background: "var(--bg-secondary)",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  <div className="px-3 py-2 border-b" style={{ borderColor: "var(--border)" }}>
+                    <input
+                      className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                      style={{ background: "var(--bg-tertiary)", color: "var(--text-primary)" }}
+                      placeholder="搜索模型…"
+                      value={chatModelSearch}
+                      onChange={(e) => setChatModelSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <button
+                      onClick={() => pickChatModel(null)}
+                      className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center justify-between border-b"
+                      style={{
+                        color: "var(--text-primary)",
+                        background: chatModel ? "transparent" : "var(--bg-tertiary)",
+                        borderColor: "var(--border)",
+                      }}
+                    >
+                      <span>
+                        跟随会话设置
+                        <span
+                          className="block text-[10px] mt-0.5"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {model ? shortModel(model) : "默认模型"}
+                        </span>
+                      </span>
+                      {!chatModel && (
+                        <span className="text-[10px] shrink-0" style={{ color: "var(--accent)" }}>
+                          当前
+                        </span>
+                      )}
+                    </button>
+                    {filteredChatModelGroups.length === 0 && (
+                      <div
+                        className="px-3 py-4 text-xs text-center"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {chatModelSearch ? "未找到匹配模型" : "暂无可用模型"}
+                      </div>
+                    )}
+                    {filteredChatModelGroups.map(([provider, models]) => (
+                      <div key={provider}>
+                        <div
+                          className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {provider}
+                        </div>
+                        {models.map((m) => {
+                          const active = m.id === chatModel;
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => pickChatModel(m.id)}
+                              className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center gap-2"
+                              style={{
+                                color: "var(--text-primary)",
+                                background: active ? "var(--bg-tertiary)" : "transparent",
+                              }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{m.name || m.id}</div>
+                                <div
+                                  className="text-[10px] mt-0.5 truncate"
+                                  style={{ color: "var(--text-secondary)" }}
+                                >
+                                  {m.id}
+                                </div>
+                              </div>
+                              {active && (
+                                <span
+                                  className="text-[10px] shrink-0"
+                                  style={{ color: "var(--accent)" }}
+                                >
+                                  本条消息
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             {imageMode && (
               <select
                 value={imageSize}

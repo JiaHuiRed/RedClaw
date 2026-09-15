@@ -468,10 +468,10 @@ function resolveHarnessDefaultParentSessionKey(params: {
 function resolveTurnModelOverride(
   replyOptions: DispatchFromConfigParams["replyOptions"],
 ): string | undefined {
-  if (replyOptions?.isHeartbeat !== true) {
-    return undefined;
+  if (replyOptions?.isHeartbeat === true) {
+    return normalizeOptionalString(replyOptions.heartbeatModelOverride);
   }
-  return normalizeOptionalString(replyOptions.heartbeatModelOverride);
+  return normalizeOptionalString(replyOptions?.modelOverride);
 }
 
 function resolveChannelModelCandidate(params: {

@@ -38,6 +38,9 @@ export const ChatSendParamsSchema = Type.Object(
     sessionId: Type.Optional(NonEmptyString),
     message: Type.String(),
     thinking: Type.Optional(Type.String()),
+    // One-shot model override for this run ("provider/model" ref); does not
+    // persist to the session (same semantics as thinking).
+    model: Type.Optional(Type.String()),
     fastMode: Type.Optional(Type.Boolean()),
     deliver: Type.Optional(Type.Boolean()),
     originatingChannel: Type.Optional(Type.String()),
