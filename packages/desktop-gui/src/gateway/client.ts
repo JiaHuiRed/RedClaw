@@ -242,7 +242,7 @@ export interface AgentUpdateInput {
 }
 
 type Listener = (msg: Message) => void;
-type DeltaListener = (text: string, reasoning: string) => void;
+type DeltaListener = (text: string, reasoning: string, replace?: boolean) => void;
 type StatusListener = (connected: boolean) => void;
 type SessionInfoListener = (info: SessionInfo) => void;
 type SessionListListener = (sessions: ChatSession[]) => void;
@@ -280,6 +280,12 @@ class GatewayClient {
   private _agentId: string | null = null;
   private _commands: CommandEntry[] = [];
   private _models: ModelEntry[] = [];
+  // 事件防护（借鉴 eigent 投影管线的轻量版）：
+  // 1) delta seq 水位线，丢弃迟到/重放帧（run 终态时重置）
+  private _deltaSeq: number | null = null;
+  // 2) 同 id 消息只投递一次，防重复 final 广播造成双条
+  private _seenMessageIds = new Set<string>();
+  private _seenMessageIdOrder: string[] = [];
 
   private messageListeners: Listener[] = [];
   private deltaListeners: DeltaListener[] = [];
@@ -1185,15 +1191,27 @@ class GatewayClient {
       return;
 
     switch (state) {
-      case "delta":
-        this._notifyDelta(deltaText || "", message?.reasoning || "");
+      case "delta": {
+        // seq 水位线：<= 上次已收的帧是迟到/重放，丢弃（server 端 delta 有 150ms
+        // 节流与增量对齐，正常序列 seq 单调；run 终态时重置水位线）
+        const seq = typeof payload.seq === "number" ? payload.seq : null;
+        if (seq !== null) {
+          if (this._deltaSeq !== null && seq <= this._deltaSeq) break;
+          this._deltaSeq = seq;
+        }
+        // replace=true 时 deltaText 是「到目前为止的全文」而非增量（server 端
+        // 投影分叉时的修复帧），必须透传给 UI，按追加处理会重复拼文本
+        this._notifyDelta(deltaText || "", message?.reasoning || "", payload.replace === true);
         break;
+      }
       case "final":
+        this._deltaSeq = null;
         void this._handleFinalChatMessage(message);
         // refresh session info after each completed response
         this.fetchSessionInfo();
         break;
       case "aborted": {
+        this._deltaSeq = null;
         const partialText =
           message?.text ||
           message?.content
@@ -1215,6 +1233,7 @@ class GatewayClient {
       }
       case "error":
         console.error("[Gateway] chat error:", errorMessage);
+        this._deltaSeq = null;
         this._notifyStreamEnd();
         this._notifyError(errorMessage || "生成失败");
         break;
@@ -1381,11 +1400,23 @@ class GatewayClient {
   }
 
   private _notifyMessage(msg: Message) {
+    // 同 id 只投递一次：重复 final/补发广播（如重连重放）会在聊天里出现双条。
+    // FIFO 上限 200 条，防长会话无界增长。
+    if (msg.id) {
+      if (this._seenMessageIds.has(msg.id)) return;
+      this._seenMessageIds.add(msg.id);
+      this._seenMessageIdOrder.push(msg.id);
+      if (this._seenMessageIdOrder.length > 200) {
+        for (const id of this._seenMessageIdOrder.splice(0, 100)) {
+          this._seenMessageIds.delete(id);
+        }
+      }
+    }
     this.messageListeners.forEach((fn) => fn(msg));
   }
 
-  private _notifyDelta(text: string, reasoning: string) {
-    this.deltaListeners.forEach((fn) => fn(text, reasoning));
+  private _notifyDelta(text: string, reasoning: string, replace?: boolean) {
+    this.deltaListeners.forEach((fn) => fn(text, reasoning, replace));
   }
 
   private _notifyStatus() {
