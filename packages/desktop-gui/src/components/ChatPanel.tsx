@@ -539,10 +539,27 @@ function ChatPanel({
       setImagePending(false);
     });
 
-    const unsubDelta = gateway.onDelta((text, _reasoning) => {
+    const unsubDelta = gateway.onDelta((text, _reasoning, replace) => {
       if (!text) return;
       updateSegments((prev) => {
         const last = prev[prev.length - 1];
+        if (replace) {
+          // replace 帧 deltaText 是全文而非增量：与已有文本段拼接结果对齐，
+          // 前缀一致时只补差值；分叉时整段重建（工具段位置保留）
+          const prevText = prev
+            .filter((s): s is Extract<StreamSegment, { kind: "text" }> => s.kind === "text")
+            .map((s) => s.text)
+            .join("");
+          if (text.startsWith(prevText)) {
+            const tail = text.slice(prevText.length);
+            if (!tail) return prev;
+            if (last?.kind === "text") {
+              return [...prev.slice(0, -1), { kind: "text", text: last.text + tail }];
+            }
+            return [...prev, { kind: "text", text: tail }];
+          }
+          return [...prev.filter((s) => s.kind === "tool"), { kind: "text", text }];
+        }
         if (last?.kind === "text") {
           return [...prev.slice(0, -1), { kind: "text", text: last.text + text }];
         }
@@ -579,6 +596,14 @@ function ChatPanel({
     const unsubStatus = gateway.onStatus((status) => {
       setConnected(status);
       setConnecting(false);
+      if (!status) {
+        // 断线即清流式残留：run 已不可达，冻结的气泡只会永远挂着；
+        // 重连后 App 层重拉历史对齐真相（轻量 resync）
+        clearSegments();
+        setStreamingReasoning("");
+        setIsGenerating(false);
+        setImagePending(false);
+      }
     });
 
     const unsubModels = gateway.onModelList((models) => {
