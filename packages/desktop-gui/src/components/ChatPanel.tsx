@@ -36,6 +36,7 @@ import {
 } from "../gateway/client";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
 import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
+import ActivityCapsule from "./ActivityCapsule";
 import ChatEmptyState from "./ChatEmptyState";
 import CommandPalette from "./CommandPalette";
 import ErrorBoundary from "./ErrorBoundary";
@@ -800,6 +801,11 @@ function ChatPanel({
 
   const { model, totalTokens, contextTokens, percentUsed } = sessionInfo;
   const hasStreaming = segments.length > 0;
+  // 胶囊监视面的工具序列 = 当前流式分段里的工具段（保序）
+  const capsuleTools = useMemo(
+    () => segments.flatMap((seg) => (seg.kind === "tool" ? [seg.tool] : [])),
+    [segments],
+  );
 
   return (
     <div className="flex-1 flex flex-col min-w-0 relative">
@@ -1251,6 +1257,15 @@ function ChatPanel({
           </div>
         )}
       </div>
+
+      {/* 运行期胶囊：折叠 pill / 展开实时工具监视，悬浮于消息区右上角 */}
+      <ActivityCapsule
+        visible={isGenerating}
+        elapsed={elapsed}
+        thinkingChars={streamingReasoning.length}
+        tools={capsuleTools}
+        onOpenCode={onToggleCode}
+      />
 
       {/* 回到底部：上翻后流式继续时出现 */}
       {showJump && (
