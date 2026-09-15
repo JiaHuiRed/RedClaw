@@ -734,7 +734,15 @@ function ChatPanel({
 
   useEffect(() => {
     const unsubMsg = gateway.onMessage((msg) => {
-      setMessages((prev) => [...prev, msg]);
+      // 该轮工具卡随 final 消息持久化：流式分段清空前的快照挂到消息上，
+      // 之后翻历史也能看到这一轮的工具轨迹（右栏 CodePanel 是另一路镜像）
+      const runTools = segmentsRef.current.flatMap((seg) =>
+        seg.kind === "tool" ? [seg.tool] : [],
+      );
+      setMessages((prev) => [
+        ...prev,
+        msg.role === "assistant" && runTools.length > 0 ? { ...msg, tools: runTools } : msg,
+      ]);
       setStreamingReasoning("");
       clearSegments();
       setIsGenerating(false);
@@ -1335,6 +1343,18 @@ function ChatPanel({
                         speaking={speakingMsgId === msg.id}
                         onSpeak={() => handleSpeak(msg)}
                       />
+                    )}
+                    {msg.role === "assistant" && msg.tools && msg.tools.length > 0 && (
+                      <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        <summary className="cursor-pointer select-none">
+                          本轮工具 · {msg.tools.length} 次调用
+                        </summary>
+                        <div className="mt-1.5 flex flex-col gap-1.5">
+                          {msg.tools.map((tool, i) => (
+                            <StreamToolCard key={i} tool={tool} />
+                          ))}
+                        </div>
+                      </details>
                     )}
                     {msg.reasoning && (
                       <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>

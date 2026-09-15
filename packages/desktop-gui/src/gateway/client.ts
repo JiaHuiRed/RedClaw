@@ -22,6 +22,8 @@ export interface Message {
   timestamp: number;
   reasoning?: string;
   images?: MessageImage[];
+  // 该轮工具调用轨迹：final 到达时从流式分段快照附带（gateway 历史不含工具事件）
+  tools?: ToolCallEvent[];
   // 生成失败轮（占位文本见下）：历史里折叠成细条而不是完整气泡
   failed?: boolean;
 }
