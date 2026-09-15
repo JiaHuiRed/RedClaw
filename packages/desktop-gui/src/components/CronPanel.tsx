@@ -1,7 +1,18 @@
-import { CalendarClock, Check, Play, Plus, RefreshCw, Trash2, X, Zap } from "lucide-react";
+import {
+  CalendarClock,
+  Check,
+  ChevronDown,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
 import { useEffect, useState } from "react";
-import { gateway, type CronJobSummary } from "../gateway/client";
+import { gateway, type CronJobSummary, type CronRunLogEntry } from "../gateway/client";
 import ResizeHandle from "./ResizeHandle";
+import SchedulePicker, { type ScheduleResult } from "./SchedulePicker";
 
 interface CronPanelProps {
   width: number;
@@ -42,6 +53,28 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  // 运行历史：展开哪个 job + 对应 runs（首次展开懒加载）
+  const [historyJobId, setHistoryJobId] = useState<string | null>(null);
+  const [runs, setRuns] = useState<CronRunLogEntry[] | null>(null);
+  const [runsLoading, setRunsLoading] = useState(false);
+
+  async function toggleHistory(jobId: string) {
+    if (historyJobId === jobId) {
+      setHistoryJobId(null);
+      return;
+    }
+    setHistoryJobId(jobId);
+    setRuns(null);
+    setRunsLoading(true);
+    try {
+      setRuns(await gateway.fetchCronRuns(jobId, 10));
+    } catch (err) {
+      console.error("[CronPanel] runs failed:", err);
+      setRuns([]);
+    } finally {
+      setRunsLoading(false);
+    }
+  }
 
   async function refresh() {
     setLoading(true);
@@ -234,6 +267,22 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
                   <Play size={10} />
                   运行
                 </button>
+                <button
+                  onClick={() => void toggleHistory(job.id)}
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
+                  style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                  title="最近运行记录"
+                >
+                  <ChevronDown
+                    size={10}
+                    className={
+                      historyJobId === job.id
+                        ? "rotate-180 transition-transform"
+                        : "transition-transform"
+                    }
+                  />
+                  历史
+                </button>
                 <span className="flex-1" />
                 {confirmDelete === job.id ? (
                   <button
@@ -256,6 +305,63 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
                   </button>
                 )}
               </div>
+
+              {historyJobId === job.id && (
+                <div
+                  className="rounded-lg px-2.5 py-2 space-y-1"
+                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+                >
+                  {runsLoading && (
+                    <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                      加载中…
+                    </div>
+                  )}
+                  {!runsLoading && runs?.length === 0 && (
+                    <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                      暂无运行记录
+                    </div>
+                  )}
+                  {runs?.map((run, i) => (
+                    <div key={i} className="flex items-center gap-2 text-[11px] min-w-0">
+                      <span
+                        className="shrink-0 font-medium"
+                        style={{
+                          color:
+                            run.status === "ok"
+                              ? "var(--success)"
+                              : run.status === "error"
+                                ? "var(--danger)"
+                                : "var(--text-secondary)",
+                        }}
+                      >
+                        {RUN_STATUS_LABEL[run.status ?? ""] ?? run.status ?? "未知"}
+                      </span>
+                      <span style={{ color: "var(--text-secondary)" }} className="shrink-0">
+                        {fmtTime(run.runAtMs ?? run.ts)}
+                      </span>
+                      {run.durationMs != null && (
+                        <span className="shrink-0" style={{ color: "var(--text-secondary)" }}>
+                          {(run.durationMs / 1000).toFixed(1)}s
+                        </span>
+                      )}
+                      {run.summary && (
+                        <span className="truncate min-w-0" title={run.summary}>
+                          {run.summary}
+                        </span>
+                      )}
+                      {run.error && (
+                        <span
+                          className="truncate min-w-0"
+                          style={{ color: "var(--danger)" }}
+                          title={run.error}
+                        >
+                          {run.error}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -276,13 +382,13 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
 
 function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
-  const [expr, setExpr] = useState("0 9 * * *");
+  const [schedule, setSchedule] = useState<ScheduleResult | null>(null);
   const [message, setMessage] = useState("");
   const [lightContext, setLightContext] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = name.trim().length > 0 && expr.trim().length > 0 && message.trim().length > 0;
+  const canSubmit = name.trim().length > 0 && schedule !== null && message.trim().length > 0;
 
   async function submit() {
     if (!canSubmit || busy) return;
@@ -291,7 +397,7 @@ function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated
     try {
       await gateway.cronCreate({
         name: name.trim(),
-        scheduleExpr: expr.trim(),
+        schedule: schedule!.schedule,
         message: message.trim(),
         lightContext,
       });
@@ -344,22 +450,15 @@ function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated
           />
         </label>
 
-        <label className="block space-y-1">
+        <div className="space-y-1.5">
           <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-            Cron 表达式（Asia/Hong_Kong 时区）
+            执行频率
           </span>
-          <input
-            className="w-full text-xs px-2.5 py-2 rounded-lg outline-none"
-            style={{ ...inputStyle, fontFamily: "var(--font-mono, monospace)" }}
-            value={expr}
-            onChange={(e) => setExpr(e.target.value)}
-            placeholder="0 9 * * *"
-            spellCheck={false}
-          />
-          <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
-            分 时 日 月 周 —— 「0 9 * * *」= 每天 9:00；「0 9,14,20 * * *」= 每天 9/14/20 点
+          <SchedulePicker onChange={setSchedule} />
+          <span className="text-[10px] block" style={{ color: "var(--text-secondary)" }}>
+            {schedule ? `已选：${schedule.summary}` : "选择频率后自动生成调度（Asia/Hong_Kong）"}
           </span>
-        </label>
+        </div>
 
         <label className="block space-y-1">
           <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>

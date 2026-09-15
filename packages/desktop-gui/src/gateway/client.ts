@@ -202,10 +202,28 @@ export interface CronJobSummary {
 
 export interface CronCreateInput {
   name: string;
-  scheduleExpr: string;
+  schedule: CronScheduleInput;
   message: string;
   agentId?: string;
   lightContext?: boolean;
+}
+
+// cron.add 支持的调度形态（CronScheduleSchema 的 GUI 子集）
+export type CronScheduleInput =
+  | { kind: "cron"; expr: string; tz?: string }
+  | { kind: "at"; at: string }
+  | { kind: "every"; everyMs: number };
+
+// cron.runs 条目（CronRunLogEntrySchema 子集）
+export interface CronRunLogEntry {
+  ts: number;
+  jobId: string;
+  status?: string;
+  error?: string;
+  summary?: string;
+  durationMs?: number;
+  runAtMs?: number;
+  jobName?: string;
 }
 
 export interface AgentCreateInput {
@@ -694,7 +712,7 @@ class GatewayClient {
   async cronCreate(input: CronCreateInput): Promise<{ id: string }> {
     const res = await this._request("cron.add", {
       name: input.name,
-      schedule: { kind: "cron", expr: input.scheduleExpr, tz: "Asia/Hong_Kong" },
+      schedule: input.schedule,
       sessionTarget: "isolated",
       wakeMode: "now",
       payload: {
@@ -708,6 +726,18 @@ class GatewayClient {
     if (!res.ok) throw new Error(res.error?.message ?? "新建定时任务失败");
     const payload = res.payload as { id?: string };
     return { id: payload?.id ?? "" };
+  }
+
+  async fetchCronRuns(jobId: string, limit = 10): Promise<CronRunLogEntry[]> {
+    const res = await this._request("cron.runs", {
+      scope: "job",
+      id: jobId,
+      limit,
+      sortDir: "desc",
+    });
+    if (!res.ok) throw new Error(res.error?.message ?? "查询运行历史失败");
+    const payload = res.payload as { entries?: CronRunLogEntry[] };
+    return Array.isArray(payload?.entries) ? payload.entries : [];
   }
 
   async fetchCommands() {
