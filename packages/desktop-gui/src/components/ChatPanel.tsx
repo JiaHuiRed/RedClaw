@@ -59,6 +59,18 @@ function shortModel(m: string | null): string {
   return parts.length > 1 ? parts[1]! : m;
 }
 
+// 工具 input 里最有意义字段的一行预览（对齐 open-claude-cowork formatToolPreview）
+function formatToolPreview(tool: ToolCallEvent): string {
+  const input = tool.input as Record<string, unknown> | undefined;
+  if (!input) return "";
+  const key = ["pattern", "command", "file_path", "path", "query", "content", "description"].find(
+    (k) => input[k] !== undefined,
+  );
+  if (!key) return "";
+  const v = String(input[key]).replace(/\s+/g, " ").trim();
+  return v.length > 50 ? v.slice(0, 50) + "…" : v;
+}
+
 // 读取图片为 base64 附件（dataUrl 供预览，base64 供 chat.send attachments）
 function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string }> {
   return new Promise((resolve, reject) => {
@@ -127,6 +139,51 @@ function MessageActions({
       >
         <Volume2 size={12} />
       </button>
+    </div>
+  );
+}
+
+// 单行紧凑工具卡：状态（spin/Check/失败）+ 工具名 + 等宽输入预览截断。
+// 流式分段与历史消息的工具明细共用，保证两处形态一致。
+function StreamToolCard({ tool }: { tool: ToolCallEvent }) {
+  const running = tool.phase === "start" && tool.result === undefined && tool.error === undefined;
+  const failed = tool.error !== undefined;
+  const preview = formatToolPreview(tool);
+  return (
+    <div
+      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs min-w-0"
+      style={{
+        background: "var(--bg-tertiary)",
+        border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
+        color: "var(--text-secondary)",
+      }}
+    >
+      {failed ? (
+        <span className="shrink-0" style={{ color: "var(--danger)" }}>
+          失败
+        </span>
+      ) : !running ? (
+        <Check size={13} className="shrink-0" style={{ color: "var(--success)" }} />
+      ) : (
+        <span
+          className="inline-block w-3 h-3 border-2 rounded-full animate-spin shrink-0"
+          style={{
+            borderColor: "var(--text-secondary)",
+            borderTopColor: "var(--accent)",
+          }}
+        />
+      )}
+      <span className="font-medium shrink-0" style={{ color: "var(--text-primary)" }}>
+        {tool.name}
+      </span>
+      {preview && (
+        <span
+          className="truncate min-w-0 opacity-80"
+          style={{ fontFamily: "var(--font-mono, monospace)" }}
+        >
+          {preview}
+        </span>
+      )}
     </div>
   );
 }
@@ -377,6 +434,15 @@ function EditableAvatar({
   );
 }
 
+// 流式轮内的分段模型：文本段与工具段按真实流顺序交错。
+// 文本段只在「工具事件打断」时切新段，段内容稳定引用让 memo 过的
+// MarkdownBlock 跳过已完成段的重解析（每个 delta 只重渲染最后一段）。
+type StreamSegment = { kind: "text"; text: string } | { kind: "tool"; tool: ToolCallEvent };
+
+function toolSegmentKey(tool: ToolCallEvent): string {
+  return tool.id ?? tool.name ?? "";
+}
+
 interface ChatPanelProps {
   connected: boolean;
   setConnected: (v: boolean) => void;
@@ -421,9 +487,16 @@ function ChatPanel({
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [streamingText, setStreamingText] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState("");
-  const [toolCalls, setToolCalls] = useState<ToolCallEvent[]>([]);
+  // 流式分段（文本/工具交错）。ref 与 state 同步维护：onMessage 等
+  // 订阅闭包里需要读到最新分段（React state 在闭包里是旧值）。
+  const [segments, setSegments] = useState<StreamSegment[]>([]);
+  const segmentsRef = useRef<StreamSegment[]>([]);
+  const updateSegments = (fn: (prev: StreamSegment[]) => StreamSegment[]) => {
+    segmentsRef.current = fn(segmentsRef.current);
+    setSegments(segmentsRef.current);
+  };
+  const clearSegments = () => updateSegments(() => []);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -590,11 +663,10 @@ function ChatPanel({
     }
   }, [messages]);
   // 切会话时清空上一会话的流式残留：App 层只负责 messages，
-  // 流式文本/reasoning/工具卡在组件内跟随会话切换统一清理。
+  // 流式分段/reasoning 在组件内跟随会话切换统一清理。
   useEffect(() => {
-    setStreamingText("");
     setStreamingReasoning("");
-    setToolCalls([]);
+    clearSegments();
   }, [currentSessionKey]);
 
   useEffect(() => {
@@ -609,16 +681,22 @@ function ChatPanel({
   useEffect(() => {
     const unsubMsg = gateway.onMessage((msg) => {
       setMessages((prev) => [...prev, msg]);
-      setStreamingText("");
       setStreamingReasoning("");
-      setToolCalls([]);
+      clearSegments();
       setIsGenerating(false);
       // 生图异步任务：秋秋回复 final 消息即代表该轮完成（图片随消息送达）
       setImagePending(false);
     });
 
     const unsubDelta = gateway.onDelta((text, _reasoning) => {
-      setStreamingText((prev) => prev + text);
+      if (!text) return;
+      updateSegments((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.kind === "text") {
+          return [...prev.slice(0, -1), { kind: "text", text: last.text + text }];
+        }
+        return [...prev, { kind: "text", text }];
+      });
     });
 
     const unsubThinking = gateway.onThinking((evt) => {
@@ -628,21 +706,22 @@ function ChatPanel({
     });
 
     const unsubTool = gateway.onTool((tool) => {
-      setToolCalls((prev) => {
-        const key = tool.id ?? tool.name;
-        if (!key) return prev;
-        const idx = prev.findIndex((t) => (t.id ?? t.name) === key);
-        if (idx === -1) return [...prev, tool];
+      const key = toolSegmentKey(tool);
+      if (!key) return;
+      updateSegments((prev) => {
+        const idx = prev.findIndex(
+          (seg) => seg.kind === "tool" && toolSegmentKey(seg.tool) === key,
+        );
+        if (idx === -1) return [...prev, { kind: "tool", tool }];
         const next = [...prev];
-        next[idx] = tool;
+        next[idx] = { kind: "tool", tool };
         return next;
       });
     });
 
     const unsubStreamEnd = gateway.onStreamEnd(() => {
-      setStreamingText("");
       setStreamingReasoning("");
-      setToolCalls([]);
+      clearSegments();
       setIsGenerating(false);
     });
 
@@ -686,7 +765,7 @@ function ChatPanel({
         scrollRafRef.current = null;
       }
     };
-  }, [messages, streamingText, streamingReasoning, toolCalls]);
+  }, [messages, segments, streamingReasoning]);
 
   async function handleConnect() {
     if (connected) {
@@ -695,19 +774,6 @@ function ChatPanel({
     }
     setConnecting(true);
     gateway.start();
-  }
-
-  // Show a compact one-line preview of a tool's most meaningful input
-  // field, mirroring the open-claude-cowork formatToolPreview approach.
-  function formatToolPreview(tool: ToolCallEvent): string {
-    const input = tool.input as Record<string, unknown> | undefined;
-    if (!input) return "";
-    const key = ["pattern", "command", "file_path", "path", "query", "content", "description"].find(
-      (k) => input[k] !== undefined,
-    );
-    if (!key) return "";
-    const v = String(input[key]).replace(/\s+/g, " ").trim();
-    return v.length > 50 ? v.slice(0, 50) + "…" : v;
   }
 
   async function addPendingImages(files: File[]) {
@@ -751,7 +817,7 @@ function ChatPanel({
     nearBottomRef.current = true;
     setInput("");
     setShowCmdPalette(false);
-    setToolCalls([]);
+    clearSegments();
 
     const attachments: OutgoingImageAttachment[] = pendingImages.map((p) => ({
       type: "image",
@@ -854,7 +920,7 @@ function ChatPanel({
   }
 
   const { model, totalTokens, contextTokens, percentUsed } = sessionInfo;
-  const hasStreaming = streamingText.length > 0;
+  const hasStreaming = segments.length > 0;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 relative">
@@ -1233,56 +1299,30 @@ function ChatPanel({
               ),
             )}
 
-            {isGenerating && toolCalls.length > 0 && (
-              <div className="flex flex-col gap-1 mb-1">
-                {toolCalls.map((tc, i) => {
-                  const running =
-                    tc.phase === "start" && tc.result === undefined && tc.error === undefined;
-                  const failed = tc.error !== undefined;
-                  const preview = formatToolPreview(tc);
-                  // 单行紧凑卡：状态 + 工具名 + 等宽预览截断，与消息卡形成层级差
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs min-w-0"
-                      style={{
-                        background: "var(--bg-tertiary)",
-                        border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      {failed ? (
-                        <span className="shrink-0" style={{ color: "var(--danger)" }}>
-                          失败
-                        </span>
-                      ) : !running ? (
-                        <Check size={13} className="shrink-0" style={{ color: "var(--success)" }} />
-                      ) : (
-                        <span
-                          className="inline-block w-3 h-3 border-2 rounded-full animate-spin shrink-0"
-                          style={{
-                            borderColor: "var(--text-secondary)",
-                            borderTopColor: "var(--accent)",
-                          }}
-                        />
-                      )}
-                      <span
-                        className="font-medium shrink-0"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {tc.name}
-                      </span>
-                      {preview && (
-                        <span
-                          className="truncate min-w-0 opacity-80"
-                          style={{ fontFamily: "var(--font-mono, monospace)" }}
-                        >
-                          {preview}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+            {isGenerating && segments.length > 0 && (
+              <div className="flex justify-start">
+                <div
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
+                  style={{
+                    background: "var(--assistant-bubble)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {segments.map((seg, i) =>
+                    seg.kind === "text" ? (
+                      <MarkdownBlock key={`text-${i}`} content={seg.text} />
+                    ) : (
+                      <div key={`tool-${i}`} className="my-1.5">
+                        <StreamToolCard tool={seg.tool} />
+                      </div>
+                    ),
+                  )}
+                  <span
+                    className="inline-block w-1.5 h-4 ml-0.5 animate-pulse align-middle"
+                    style={{ background: "var(--accent)" }}
+                  />
+                </div>
               </div>
             )}
 
@@ -1321,25 +1361,6 @@ function ChatPanel({
                     }}
                   />
                   响应中... {elapsed}s
-                </div>
-              </div>
-            )}
-
-            {hasStreaming && (
-              <div className="flex justify-start">
-                <div
-                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
-                  style={{
-                    background: "var(--assistant-bubble)",
-                    color: "var(--text-primary)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  {streamingText}
-                  <span
-                    className="inline-block w-1.5 h-4 ml-0.5 animate-pulse"
-                    style={{ background: "var(--accent)" }}
-                  />
                 </div>
               </div>
             )}
