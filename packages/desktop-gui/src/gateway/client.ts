@@ -425,15 +425,20 @@ class GatewayClient {
     };
   }
 
-  async sendMessage(text: string, sessionKey?: string, attachments?: OutgoingImageAttachment[]) {
+  async sendMessage(
+    text: string,
+    opts?: { sessionKey?: string; attachments?: OutgoingImageAttachment[]; model?: string },
+  ) {
     if (!this.connected) throw new Error("Gateway not connected");
-    const key = sessionKey ?? this._activeSessionKey;
+    const key = opts?.sessionKey ?? this._activeSessionKey;
     const idempotencyKey = crypto.randomUUID();
     try {
       await this._request("chat.send", {
         sessionKey: key,
         message: text,
-        ...(attachments?.length ? { attachments } : {}),
+        ...(opts?.attachments?.length ? { attachments: opts.attachments } : {}),
+        // One-shot per-run model override；不传 = 跟随会话当前模型
+        ...(opts?.model ? { model: opts.model } : {}),
         deliver: false,
         idempotencyKey,
       });

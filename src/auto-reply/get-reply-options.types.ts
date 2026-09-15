@@ -72,6 +72,8 @@ export type GetReplyOptions = {
   heartbeatModelOverride?: string;
   /** One-shot thinking level override for this run; does not persist to the session. */
   thinkingLevelOverride?: string;
+  /** One-shot model override for this run ("provider/model" ref); does not persist to the session. */
+  modelOverride?: string;
   /** One-shot fast-mode override for this run; does not persist to the session. */
   fastModeOverride?: boolean;
   /** Controls bootstrap workspace context injection (default: full). */
