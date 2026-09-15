@@ -24,8 +24,6 @@ import {
   Cpu,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   gateway,
   type Message,
@@ -34,13 +32,20 @@ import {
   type CommandEntry,
   type ModelEntry,
   type ChatSession,
-  type ToolCallEvent,
   type OutgoingImageAttachment,
 } from "../gateway/client";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
 import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
 import ChatEmptyState from "./ChatEmptyState";
 import CommandPalette from "./CommandPalette";
+import ErrorBoundary from "./ErrorBoundary";
+import {
+  AssistantParts,
+  MarkdownBlock,
+  StreamToolCard,
+  toolSegmentKey,
+  type StreamSegment,
+} from "./MessageParts";
 
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
 // v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
@@ -62,18 +67,6 @@ function shortModel(m: string | null): string {
   return parts.length > 1 ? parts[1]! : m;
 }
 
-// 工具 input 里最有意义字段的一行预览（对齐 open-claude-cowork formatToolPreview）
-function formatToolPreview(tool: ToolCallEvent): string {
-  const input = tool.input as Record<string, unknown> | undefined;
-  if (!input) return "";
-  const key = ["pattern", "command", "file_path", "path", "query", "content", "description"].find(
-    (k) => input[k] !== undefined,
-  );
-  if (!key) return "";
-  const v = String(input[key]).replace(/\s+/g, " ").trim();
-  return v.length > 50 ? v.slice(0, 50) + "…" : v;
-}
-
 // 读取图片为 base64 附件（dataUrl 供预览，base64 供 chat.send attachments）
 function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string }> {
   return new Promise((resolve, reject) => {
@@ -86,23 +79,6 @@ function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string
     reader.onerror = () => reject(reader.error ?? new Error("read image failed"));
     reader.readAsDataURL(file);
   });
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="shrink-0 p-1 rounded opacity-0 group-hover/code:opacity-100 transition-opacity"
-      style={{ color: "var(--text-secondary)" }}
-    >
-      {copied ? <Check size={12} /> : <Copy size={12} />}
-    </button>
-  );
 }
 
 // 消息级操作行：hover 显现（朗读中常驻），复制 + 朗读
@@ -145,186 +121,6 @@ function MessageActions({
     </div>
   );
 }
-
-// 单行紧凑工具卡：状态（spin/Check/失败）+ 工具名 + 等宽输入预览截断。
-// 流式分段与历史消息的工具明细共用，保证两处形态一致。
-function StreamToolCard({ tool }: { tool: ToolCallEvent }) {
-  const running = tool.phase === "start" && tool.result === undefined && tool.error === undefined;
-  const failed = tool.error !== undefined;
-  const preview = formatToolPreview(tool);
-  return (
-    <div
-      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs min-w-0"
-      style={{
-        background: "var(--bg-tertiary)",
-        border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
-        color: "var(--text-secondary)",
-      }}
-    >
-      {failed ? (
-        <span className="shrink-0" style={{ color: "var(--danger)" }}>
-          失败
-        </span>
-      ) : !running ? (
-        <Check size={13} className="shrink-0" style={{ color: "var(--success)" }} />
-      ) : (
-        <span
-          className="inline-block w-3 h-3 border-2 rounded-full animate-spin shrink-0"
-          style={{
-            borderColor: "var(--text-secondary)",
-            borderTopColor: "var(--accent)",
-          }}
-        />
-      )}
-      <span className="font-medium shrink-0" style={{ color: "var(--text-primary)" }}>
-        {tool.name}
-      </span>
-      {preview && (
-        <span
-          className="truncate min-w-0 opacity-80"
-          style={{ fontFamily: "var(--font-mono, monospace)" }}
-        >
-          {preview}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// memo: 输入框每次按键都会触发 ChatPanel 全量重渲染，
-// 历史消息的 content 引用不变时跳过 ReactMarkdown 重新解析（消息多时打字卡顿的根因）
-const MarkdownBlock = memo(function MarkdownBlock({ content }: { content: string }) {
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        p({ children }) {
-          return <p className="my-1.5 last:mb-0">{children}</p>;
-        },
-        code({ className, children }) {
-          const match = /language-(\w+)/.exec(className || "");
-          if (!match) {
-            return (
-              <code
-                className="text-sm px-1 py-0.5 rounded"
-                style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}
-              >
-                {children}
-              </code>
-            );
-          }
-          const code = String(children).replace(/\n$/, "");
-          return (
-            <div
-              className="group/code my-3 rounded-lg overflow-hidden text-sm"
-              style={{ background: "#1e1e1e", border: "1px solid #333" }}
-            >
-              <div
-                className="flex items-center justify-between px-3 py-1.5 text-[11px]"
-                style={{ background: "#2d2d2d", color: "#999" }}
-              >
-                <span>{match[1]}</span>
-                <CopyButton text={code} />
-              </div>
-              <pre className="p-3 m-0 overflow-x-auto">
-                <code
-                  className={className}
-                  style={{
-                    color: "#d4d4d4",
-                    fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace",
-                  }}
-                >
-                  {children}
-                </code>
-              </pre>
-            </div>
-          );
-        },
-        pre({ children }) {
-          return <>{children}</>;
-        },
-        a({ href, children }) {
-          return (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "var(--accent)" }}
-            >
-              {children}
-            </a>
-          );
-        },
-        ul({ children }) {
-          return <ul className="list-disc pl-5 my-1.5 space-y-0.5">{children}</ul>;
-        },
-        ol({ children }) {
-          return <ol className="list-decimal pl-5 my-1.5 space-y-0.5">{children}</ol>;
-        },
-        li({ children }) {
-          return <li>{children}</li>;
-        },
-        h1({ children }) {
-          return <h1 className="text-base font-bold my-2">{children}</h1>;
-        },
-        h2({ children }) {
-          return <h2 className="text-sm font-bold my-2">{children}</h2>;
-        },
-        h3({ children }) {
-          return <h3 className="text-sm font-semibold my-1.5">{children}</h3>;
-        },
-        blockquote({ children }) {
-          return (
-            <blockquote
-              className="pl-3 my-2 border-l-2 italic text-sm"
-              style={{ borderColor: "var(--accent)", color: "var(--text-secondary)" }}
-            >
-              {children}
-            </blockquote>
-          );
-        },
-        table({ children }) {
-          return (
-            <div className="my-2 overflow-x-auto">
-              <table
-                className="text-sm border-collapse w-full"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                {children}
-              </table>
-            </div>
-          );
-        },
-        th({ children }) {
-          return (
-            <th
-              className="px-3 py-1.5 text-left font-medium text-xs"
-              style={{
-                background: "var(--bg-tertiary)",
-                border: "1px solid var(--border)",
-                color: "var(--text-secondary)",
-              }}
-            >
-              {children}
-            </th>
-          );
-        },
-        td({ children }) {
-          return (
-            <td className="px-3 py-1.5 text-xs" style={{ border: "1px solid var(--border)" }}>
-              {children}
-            </td>
-          );
-        },
-        hr() {
-          return <hr className="my-3" style={{ borderColor: "var(--border)" }} />;
-        },
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  );
-});
 
 /** 读取图片文件 → canvas 居中裁剪缩放到 AVATAR_SIZE 方形 → JPEG data URL（几十 KB） */
 function compressImageFile(file: File, maxSize = AVATAR_SIZE, quality = 0.85): Promise<string> {
@@ -437,14 +233,7 @@ function EditableAvatar({
   );
 }
 
-// 流式轮内的分段模型：文本段与工具段按真实流顺序交错。
-// 文本段只在「工具事件打断」时切新段，段内容稳定引用让 memo 过的
-// MarkdownBlock 跳过已完成段的重解析（每个 delta 只重渲染最后一段）。
-type StreamSegment = { kind: "text"; text: string } | { kind: "tool"; tool: ToolCallEvent };
-
-function toolSegmentKey(tool: ToolCallEvent): string {
-  return tool.id ?? tool.name ?? "";
-}
+// 流式分段与消息分区模型见 ./MessageParts（文本/工具交错 + memo 局部重渲染）
 
 interface ChatPanelProps {
   connected: boolean;
@@ -1312,30 +1101,35 @@ function ChatPanel({
                           : "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    {msg.content ? (
-                      <MarkdownBlock content={msg.content} />
+                    {msg.role === "assistant" ? (
+                      // 分区注册表渲染（markdown/图片/工具/思考），各自包 ErrorBoundary
+                      <AssistantParts msg={msg} onPreview={setPreviewImg} />
                     ) : (
-                      msg.role === "user" && (
-                        <span className="text-sm" style={{ color: "var(--on-solid)" }}>
-                          📷 图片
-                        </span>
-                      )
-                    )}
-                    {msg.images && msg.images.length > 0 && (
-                      <div className="mt-2 flex flex-col gap-2">
-                        {msg.images.map((img, i) => (
-                          <img
-                            key={i}
-                            src={img.url}
-                            alt={img.alt ?? "生成图片"}
-                            onClick={() => setPreviewImg(img)}
-                            className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
-                            style={{ borderColor: "var(--border)" }}
-                            loading="lazy"
-                            title={img.alt ?? "生成图片（点击放大）"}
-                          />
-                        ))}
-                      </div>
+                      <>
+                        {msg.content ? (
+                          <MarkdownBlock content={msg.content} />
+                        ) : (
+                          <span className="text-sm" style={{ color: "var(--on-solid)" }}>
+                            📷 图片
+                          </span>
+                        )}
+                        {msg.images && msg.images.length > 0 && (
+                          <div className="mt-2 flex flex-col gap-2">
+                            {msg.images.map((img, i) => (
+                              <img
+                                key={i}
+                                src={img.url}
+                                alt={img.alt ?? "生成图片"}
+                                onClick={() => setPreviewImg(img)}
+                                className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
+                                style={{ borderColor: "var(--border)" }}
+                                loading="lazy"
+                                title={img.alt ?? "生成图片（点击放大）"}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                     {msg.role === "assistant" && msg.content && (
                       <MessageActions
@@ -1343,26 +1137,6 @@ function ChatPanel({
                         speaking={speakingMsgId === msg.id}
                         onSpeak={() => handleSpeak(msg)}
                       />
-                    )}
-                    {msg.role === "assistant" && msg.tools && msg.tools.length > 0 && (
-                      <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                        <summary className="cursor-pointer select-none">
-                          本轮工具 · {msg.tools.length} 次调用
-                        </summary>
-                        <div className="mt-1.5 flex flex-col gap-1.5">
-                          {msg.tools.map((tool, i) => (
-                            <StreamToolCard key={i} tool={tool} />
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                    {msg.reasoning && (
-                      <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                        <summary className="cursor-pointer select-none">
-                          思考过程（{msg.reasoning.length} 字）
-                        </summary>
-                        <p className="mt-1 whitespace-pre-wrap">{msg.reasoning}</p>
-                      </details>
                     )}
                   </div>
                   {msg.role === "user" && (
@@ -1388,15 +1162,17 @@ function ChatPanel({
                     border: "1px solid var(--border)",
                   }}
                 >
-                  {segments.map((seg, i) =>
-                    seg.kind === "text" ? (
-                      <MarkdownBlock key={`text-${i}`} content={seg.text} />
-                    ) : (
-                      <div key={`tool-${i}`} className="my-1.5">
-                        <StreamToolCard tool={seg.tool} />
-                      </div>
-                    ),
-                  )}
+                  <ErrorBoundary label="stream">
+                    {segments.map((seg, i) =>
+                      seg.kind === "text" ? (
+                        <MarkdownBlock key={`text-${i}`} content={seg.text} />
+                      ) : (
+                        <div key={`tool-${i}`} className="my-1.5">
+                          <StreamToolCard tool={seg.tool} />
+                        </div>
+                      ),
+                    )}
+                  </ErrorBoundary>
                   <span
                     className="inline-block w-1.5 h-4 ml-0.5 animate-pulse align-middle"
                     style={{ background: "var(--accent)" }}
