@@ -1,5 +1,20 @@
 # 更新日志
 
+## [0.3.29] - 2026-09-15
+
+> 借鉴 eigent（多 agent 工作台）的四项工程化升级：消息分区注册表渲染、定时任务友好封装、事件流防护、设计 token 门禁。
+
+### 新增
+
+- **消息分区注册表**（ChatPanel/MessageParts）：assistant 消息按 markdown/图片/工具/思考四个分区渲染，注册表驱动；每个分区独立包 ErrorBoundary，坏分区只折叠自身不拖垮时间线；历史消息里连续同名工具 ≥3 次折叠成组。ChatPanel 净减 224 行，渲染组件拆入 `MessageParts.tsx`。
+- **定时任务友好封装**（CronPanel/SchedulePicker）：新建任务从裸 cron 输入改为六模式选择器（单次/每天/每周/每月/间隔/高级），自动产出 cron/at/every 调度；任务卡新增「历史」展开最近 10 次运行记录（状态/耗时/摘要，走现成 `cron.runs` RPC）。
+- **设计 token 门禁**：`pnpm check:tokens` 扫描组件裸色值（hex/rgb），例外需在脚本 ALLOWED 登记理由；新增 `src/components/README.md` 架构约束文档（渲染管线/事件防护/主题规则/持久化 key 版本化，面向人与 agent）。
+
+### 修复
+
+- **delta `replace` 语义**：server 投影分叉时的修复帧（deltaText=全文）此前被当增量追加，造成流式文本重复；现按对齐/重建处理。
+- **事件防护三连**：delta seq 水位线丢弃迟到/重放帧；同 id 消息只投递一次（防重复 final 双条）；断线即清流式残留（此前断线后冻结气泡永久悬挂）。
+
 ## [0.3.28] - 2026-09-15
 
 > GUI 体验四连升级（借鉴 open-claude-cowork 的交互设计，工程实现全部 React 化）：流式分段渲染、per-message 模型切换、思考折叠、工具轨迹持久化。
