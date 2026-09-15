@@ -1338,7 +1338,9 @@ function ChatPanel({
                     )}
                     {msg.reasoning && (
                       <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                        <summary>思考过程</summary>
+                        <summary className="cursor-pointer select-none">
+                          思考过程（{msg.reasoning.length} 字）
+                        </summary>
                         <p className="mt-1 whitespace-pre-wrap">{msg.reasoning}</p>
                       </details>
                     )}
@@ -1386,16 +1388,20 @@ function ChatPanel({
             {isGenerating && streamingReasoning && !hasStreaming && (
               <div className="flex justify-start">
                 <div
-                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap"
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed"
                   style={{
                     background: "var(--bg-tertiary)",
                     color: "var(--text-secondary)",
                     border: "1px solid var(--border)",
-                    fontStyle: "italic",
                   }}
                 >
-                  <span className="mb-1 block font-medium not-italic">思考中…</span>
-                  {streamingReasoning}
+                  {/* 默认折叠 + 字数进度：长思考不撑屏，字数增长即是活性信号 */}
+                  <details>
+                    <summary className="cursor-pointer select-none font-medium">
+                      思考中…（{streamingReasoning.length} 字）
+                    </summary>
+                    <p className="mt-1 whitespace-pre-wrap">{streamingReasoning}</p>
+                  </details>
                 </div>
               </div>
             )}
