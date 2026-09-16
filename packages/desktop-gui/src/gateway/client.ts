@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 const DEFAULT_SESSION_KEY = "agent:main:main";
 const RECONNECT_DELAY = 2000;
 const RECONNECT_DELAY_MAX = 30_000;
@@ -485,6 +487,53 @@ class GatewayClient {
       const message = err instanceof Error ? err.message : String(err);
       this._notifyError(`停止失败：${message}`);
       throw err;
+    }
+  }
+
+  // ---- 网关进程生命周期（GUI 桌面端专属）----
+
+  /** 后台拉起网关进程（openclaw gateway）；已托管时返回既有 PID */
+  async spawnGatewayProcess(): Promise<number> {
+    try {
+      return await invoke<number>("gateway_spawn");
+    } catch (err) {
+      console.error("[Gateway] spawn gateway failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`启动网关进程失败：${message}`);
+      throw err;
+    }
+  }
+
+  /** 停止 GUI 托管的网关进程；false = 当前网关不是 GUI 启动的 */
+  async stopGatewayProcess(): Promise<boolean> {
+    try {
+      return await invoke<boolean>("gateway_stop");
+    } catch (err) {
+      console.error("[Gateway] stop gateway failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`停止网关进程失败：${message}`);
+      throw err;
+    }
+  }
+
+  /** 请求网关自我重启（gateway.restart.request，v0.3.27 RPC）；断线后自动重连接上 */
+  async restartGateway() {
+    try {
+      await this._request("gateway.restart.request", { reason: "desktop-gui" });
+    } catch (err) {
+      console.error("[Gateway] restart failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`重启网关失败：${message}`);
+      throw err;
+    }
+  }
+
+  /** 断线重连等待中立即发起一次连接（启动网关进程后快速接上，不等退避计时） */
+  retryNow() {
+    if (this.running && !this.connected && !this._connecting) {
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+      this._connect();
     }
   }
 
