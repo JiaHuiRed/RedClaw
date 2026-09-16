@@ -30,6 +30,7 @@ import {
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import {
   gateway,
+  deriveSessionTitle,
   type Message,
   type MessageImage,
   type SessionInfo,
@@ -370,6 +371,8 @@ function ChatPanel({
   // 网关生命周期菜单（启动/重启/停止进程）
   const [showGwMenu, setShowGwMenu] = useState(false);
   const gwMenuRef = useRef<HTMLDivElement>(null);
+  // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
+  const autoTitledRef = useRef<Set<string>>(new Set());
   const listRef = useRef<HTMLDivElement>(null);
   // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
   // 用户上翻看历史时不被拉回底部。
@@ -759,6 +762,14 @@ function ChatPanel({
       timestamp: Date.now(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    // 自动取标题：未命名会话用首条非命令消息命名（QQ/微信式），每次挂载每会话只做一次
+    if (!autoTitledRef.current.has(currentSessionKey)) {
+      const title = deriveSessionTitle([userMsg]);
+      if (title && !sessions.find((s) => s.sessionKey === currentSessionKey)?.title) {
+        autoTitledRef.current.add(currentSessionKey);
+        void gateway.renameSession(currentSessionKey, title).catch(() => undefined);
+      }
+    }
     // 自己发消息意味着要跟到底部
     nearBottomRef.current = true;
     setInput("");
@@ -1205,7 +1216,7 @@ function ChatPanel({
           ))}
 
         {(messages.length > 0 || isGenerating) && (
-          <div className="max-w-3xl mx-auto w-full px-4 py-4 flex flex-col gap-4">
+          <div className="max-w-6xl mx-auto w-full px-4 py-4 flex flex-col gap-4">
             {messages.map((msg) =>
               msg.failed ? (
                 // 生成失败轮：折叠成细条，替代占位文本空泡
@@ -1226,7 +1237,7 @@ function ChatPanel({
               ) : (
                 <div
                   key={msg.id}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2`}
                 >
                   {msg.role === "assistant" && (
                     <EditableAvatar

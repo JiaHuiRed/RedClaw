@@ -11,6 +11,8 @@ export type SessionStatus = {
   key: string;
   kind: SessionKind;
   sessionId?: string;
+  /** 会话显示名（sessions.patch 设置的 label）；未命名时为 null，客户端自行回退 */
+  title: string | null;
   updatedAt: number | null;
   age: number | null;
   thinkingLevel?: string;
