@@ -110,6 +110,8 @@ function Sidebar({
     agent?: AgentSummary;
   } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  // 拖拽调宽期间关掉宽度过渡，否则动画追手会有延迟感
+  const [dragging, setDragging] = useState(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const areaConfirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -184,6 +186,7 @@ function Sidebar({
     (e: ReactMouseEvent) => {
       e.preventDefault();
       setCollapsed(false);
+      setDragging(true);
       dragRef.current = { startX: e.clientX, startWidth: width };
       const onMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
@@ -195,6 +198,7 @@ function Sidebar({
       };
       const onUp = () => {
         dragRef.current = null;
+        setDragging(false);
         window.removeEventListener("mousemove", onMove);
         window.removeEventListener("mouseup", onUp);
       };
@@ -402,69 +406,54 @@ function Sidebar({
   return (
     <>
       <aside
-        className="relative flex flex-col border-r shrink-0"
+        className="relative flex flex-col border-r shrink-0 overflow-hidden"
         style={{
           width: collapsed ? COLLAPSED_WIDTH : width,
+          // 收展动画：宽度统一缓动；拖拽调宽时必须关掉，否则拖动跟手性全无
+          transition: dragging ? "none" : "width 220ms cubic-bezier(0.33, 0, 0.2, 1)",
           background: "var(--bg-secondary)",
           borderColor: "var(--border)",
         }}
       >
-        {/* Header */}
+        {/* 展开层：固定目标宽度，动画期间内容不 reflow，由 aside overflow 裁切揭示 */}
         <div
-          className="flex items-center justify-between px-3 h-12 border-b shrink-0"
-          style={{ borderColor: "var(--border)" }}
+          className={`absolute inset-y-0 left-0 flex flex-col ${
+            collapsed ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+          style={{ width, transition: dragging ? "none" : "opacity 150ms ease" }}
         >
-          {collapsed ? (
-            <div className="flex flex-col items-center justify-center gap-2 w-full">
-              <button
-                onClick={() => setCollapsed(false)}
-                className="p-1.5 rounded-md hover:opacity-80"
-                style={{ color: "var(--text-secondary)" }}
-                title="展开侧边栏"
-              >
-                <PanelLeftOpen size={16} />
-              </button>
+          {/* Header */}
+          <div
+            className="flex items-center justify-between px-3 h-12 border-b shrink-0"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <div className="flex items-center gap-2">
+              <ConnectionBadge state={connectionState} />
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                RedClaw
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
               <button
                 onClick={onNewSession}
-                className="p-1.5 rounded-md hover:opacity-80"
-                style={{ color: "var(--text-secondary)" }}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
+                style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
                 title="新建会话"
               >
-                <Plus size={16} />
+                <Plus size={14} />
+              </button>
+              <button
+                onClick={() => setCollapsed(true)}
+                className="p-1.5 rounded-md hover:opacity-80"
+                style={{ color: "var(--text-secondary)" }}
+                title="折叠侧边栏"
+              >
+                <PanelLeftClose size={14} />
               </button>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <ConnectionBadge state={connectionState} />
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                  RedClaw
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={onNewSession}
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
-                  style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
-                  title="新建会话"
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  onClick={() => setCollapsed(true)}
-                  className="p-1.5 rounded-md hover:opacity-80"
-                  style={{ color: "var(--text-secondary)" }}
-                  title="折叠侧边栏"
-                >
-                  <PanelLeftClose size={14} />
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+          </div>
 
-        {/* 项目区分组会话列表 */}
-        {!collapsed && (
+          {/* 项目区分组会话列表 */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {sessions.length === 0 && (
               <div className="text-xs text-center py-8" style={{ color: "var(--text-secondary)" }}>
@@ -594,10 +583,8 @@ function Sidebar({
               );
             })}
           </div>
-        )}
 
-        {/* Footer：新建项目区 + 设置 + 版本 */}
-        {!collapsed && (
+          {/* Footer：新建项目区 + 设置 + 版本 */}
           <div
             className="p-3 border-t flex items-center justify-between"
             style={{ borderColor: "var(--border)" }}
@@ -626,7 +613,38 @@ function Sidebar({
               </div>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* 折叠层：右缘对齐随宽度揭示；toggle 居中在 48px 头部行内，
+            与展开态头部行对齐，不再向上溢出顶到标题栏 */}
+        <div
+          className={`absolute inset-y-0 right-0 flex flex-col items-center ${
+            collapsed ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+          style={{ width: COLLAPSED_WIDTH, transition: dragging ? "none" : "opacity 150ms ease" }}
+        >
+          <div
+            className="w-full h-12 flex items-center justify-center border-b shrink-0"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <button
+              onClick={() => setCollapsed(false)}
+              className="p-1.5 rounded-md hover:opacity-80"
+              style={{ color: "var(--text-secondary)" }}
+              title="展开侧边栏"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+          </div>
+          <button
+            onClick={onNewSession}
+            className="mt-2 p-1.5 rounded-md hover:opacity-80"
+            style={{ color: "var(--text-secondary)" }}
+            title="新建会话"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
       </aside>
 
       {/* Drag handle */}
