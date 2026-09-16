@@ -34,6 +34,17 @@ export interface Message {
 // turn 失败时写入 transcript 的唯一占位文本
 const STREAM_ERROR_FALLBACK_TEXT = "[assistant turn failed before producing content]";
 
+/** 会话自动取标题：首条非命令的用户消息截断 24 字；找不到返回 null */
+export function deriveSessionTitle(messages: Message[]): string | null {
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    const text = m.content.trim();
+    if (!text || text.startsWith("/")) continue;
+    return text.length > 24 ? text.slice(0, 24) + "…" : text;
+  }
+  return null;
+}
+
 export interface ThinkingEvent {
   text: string;
   delta?: string;

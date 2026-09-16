@@ -7,6 +7,7 @@ import TodoPanel from "./components/TodoPanel";
 import UsagePanel from "./components/UsagePanel";
 import {
   gateway,
+  deriveSessionTitle,
   type Message,
   type SessionInfo,
   type ChatSession,
@@ -136,6 +137,34 @@ export default function App() {
       loadHistory(currentSessionKey);
     }
   }, [connected, currentSessionKey, loadHistory]);
+
+  // 未命名会话回填标题：用会话首条用户消息（尽力而为，每会话只试一次）。
+  // chat.history 返回尾部窗口，msgs 打满 limit 说明会话比窗口长、拿不到开头，不起名。
+  const backfillTriedRef = useRef<Set<string>>(new Set());
+  const backfillRunningRef = useRef(false);
+  useEffect(() => {
+    if (!connected || backfillRunningRef.current) return;
+    const targets = sessions
+      .filter((s) => !s.title && !backfillTriedRef.current.has(s.sessionKey))
+      .slice(0, 10);
+    if (targets.length === 0) return;
+    backfillRunningRef.current = true;
+    void (async () => {
+      for (const s of targets) {
+        backfillTriedRef.current.add(s.sessionKey);
+        try {
+          const msgs: Message[] = await gateway.fetchHistory(s.sessionKey, 200);
+          if (msgs.length >= 200) continue;
+          const title = deriveSessionTitle(msgs);
+          if (title) await gateway.renameSession(s.sessionKey, title);
+        } catch {
+          // 单个会话失败不阻塞其余；已标记 tried 不会死循环
+        }
+      }
+    })().finally(() => {
+      backfillRunningRef.current = false;
+    });
+  }, [connected, sessions]);
 
   const handleSelectSession = useCallback((sessionKey: string) => {
     setCurrentSessionKey(sessionKey);

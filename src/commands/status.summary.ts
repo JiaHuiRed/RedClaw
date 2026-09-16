@@ -317,6 +317,7 @@ export async function getStatusSummary(
         key,
         kind: classifySessionKey(key, entry),
         sessionId: entry?.sessionId,
+        title: entry?.label?.trim() ? entry.label.trim() : null,
         updatedAt,
         age,
         thinkingLevel: entry?.thinkingLevel,
