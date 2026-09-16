@@ -22,6 +22,10 @@ import {
   X,
   AlertCircle,
   Cpu,
+  ChevronDown,
+  Power,
+  RotateCw,
+  Rocket,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import {
@@ -363,6 +367,9 @@ function ChatPanel({
   const [showChatModelSelector, setShowChatModelSelector] = useState(false);
   const [chatModelSearch, setChatModelSearch] = useState("");
   const chatModelSelectorRef = useRef<HTMLDivElement>(null);
+  // 网关生命周期菜单（启动/重启/停止进程）
+  const [showGwMenu, setShowGwMenu] = useState(false);
+  const gwMenuRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
   // 用户上翻看历史时不被拉回底部。
@@ -384,12 +391,54 @@ function ChatPanel({
         setShowChatModelSelector(false);
         setChatModelSearch("");
       }
+      if (gwMenuRef.current && !gwMenuRef.current.contains(e.target as Node)) {
+        setShowGwMenu(false);
+      }
     }
-    if (showModelSelector || showChatModelSelector) {
+    if (showModelSelector || showChatModelSelector || showGwMenu) {
       document.addEventListener("mousedown", handleClick);
     }
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showModelSelector, showChatModelSelector]);
+  }, [showModelSelector, showChatModelSelector, showGwMenu]);
+
+  // 启动网关进程：spawn 后立即试连一次，不等退避计时
+  async function handleGatewaySpawn() {
+    setShowGwMenu(false);
+    try {
+      await gateway.spawnGatewayProcess();
+      setConnecting(true);
+      gateway.start();
+      gateway.retryNow();
+    } catch {
+      // 错误已由 client 层 toast
+    }
+  }
+
+  // 重启网关：已连接走 RPC 自重启（GUI 重连自动接上）；未连接退化为拉起进程
+  async function handleGatewayRestart() {
+    setShowGwMenu(false);
+    try {
+      if (connected) {
+        setConnecting(true);
+        await gateway.restartGateway();
+      } else {
+        await handleGatewaySpawn();
+      }
+    } catch {
+      // 错误已由 client 层 toast
+    }
+  }
+
+  // 停止网关进程：仅对 GUI 拉起的进程有效；终端自启的不归 GUI 管
+  async function handleGatewayStop() {
+    setShowGwMenu(false);
+    try {
+      const stopped = await gateway.stopGatewayProcess();
+      if (!stopped) console.info("[ChatPanel] 当前网关非 GUI 启动，跳过停止");
+    } catch {
+      // 错误已由 client 层 toast
+    }
+  }
 
   const paletteItems = useMemo(
     () => getVisibleItems(commands, input, cmdCategory),
@@ -1023,32 +1072,87 @@ function ChatPanel({
             <PanelRight size={14} />
             代码
           </button>
-          <button
-            onClick={handleConnect}
-            disabled={connecting}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80 disabled:opacity-50"
-            style={{
-              // Idle keeps the accent color (it's still an inviting call to
-              // action, not a passive status readout) - connecting/connected/
-              // error defer to the shared map so the button and the Sidebar
-              // badge never disagree about what those three actually mean.
-              background:
-                connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
-              color: "var(--on-solid)",
-            }}
-          >
-            {connecting ? (
-              <>连接中…</>
-            ) : connected ? (
-              <>
-                <PlugZap size={14} /> 已连接
-              </>
-            ) : (
-              <>
-                <Plug size={14} /> 连接
-              </>
+          <div className="flex items-center gap-0.5 relative" ref={gwMenuRef}>
+            <button
+              onClick={handleConnect}
+              disabled={connecting}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-l-md hover:opacity-80 disabled:opacity-50"
+              style={{
+                // Idle keeps the accent color (it's still an inviting call to
+                // action, not a passive status readout) - connecting/connected/
+                // error defer to the shared map so the button and the Sidebar
+                // badge never disagree about what those three actually mean.
+                background:
+                  connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
+                color: "var(--on-solid)",
+              }}
+            >
+              {connecting ? (
+                <>连接中…</>
+              ) : connected ? (
+                <>
+                  <PlugZap size={14} /> 已连接
+                </>
+              ) : (
+                <>
+                  <Plug size={14} /> 连接
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setShowGwMenu((v) => !v)}
+              className="flex items-center px-1 py-1.5 rounded-r-md hover:opacity-80 border-l"
+              style={{
+                background:
+                  connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
+                color: "var(--on-solid)",
+                borderColor: "color-mix(in srgb, var(--on-solid) 35%, transparent)",
+              }}
+              title="网关进程管理"
+            >
+              <ChevronDown size={12} />
+            </button>
+            {showGwMenu && (
+              <div
+                className="absolute top-full right-0 mt-1 w-56 rounded-xl border shadow-lg z-50 overflow-hidden py-1"
+                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
+              >
+                <button
+                  onClick={() => void handleGatewaySpawn()}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <Rocket size={13} style={{ color: "var(--accent)" }} />
+                  <span className="flex-1">启动网关进程</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                    后台
+                  </span>
+                </button>
+                <button
+                  onClick={() => void handleGatewayRestart()}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <RotateCw size={13} style={{ color: "var(--violet-9)" }} />
+                  <span className="flex-1">重启网关</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                    {connected ? "热重启" : "拉起"}
+                  </span>
+                </button>
+                <button
+                  onClick={() => void handleGatewayStop()}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <Power size={13} style={{ color: "var(--danger)" }} />
+                  <span className="flex-1">停止网关进程</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                    GUI 托管
+                  </span>
+                </button>
+              </div>
             )}
-          </button>
+          </div>
         </div>
       </div>
 
