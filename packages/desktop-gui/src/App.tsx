@@ -103,7 +103,34 @@ export default function App() {
     const unsubTool = gateway.onTool((tool) => {
       // message tool 是内部路由（sourceReply 补发 assistant 消息），不进代码面板
       if (tool.name === "message" && tool.phase === "result") return;
-      setToolOutputs((prev) => [...prev.slice(-59), tool]);
+      setToolOutputs((prev) => {
+        // 同一次调用的 start/update/result 事件合并成一张卡：
+        // 有 id 按 id 归并；无 id 把最近一条同名运行中记录视为同一次调用，
+        // 其余才追加——否则每个阶段各占一张空卡刷屏
+        if (tool.id) {
+          const idx = prev.findIndex((t) => t.id === tool.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = tool;
+            return next;
+          }
+        } else {
+          for (let i = prev.length - 1; i >= 0; i--) {
+            const t = prev[i];
+            if (
+              t &&
+              t.name === tool.name &&
+              !t.id &&
+              (t.phase === "start" || t.phase === "update")
+            ) {
+              const next = [...prev];
+              next[i] = tool;
+              return next;
+            }
+          }
+        }
+        return [...prev.slice(-59), tool];
+      });
     });
 
     // Apply any saved gateway URL/token before auto-connecting

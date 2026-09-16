@@ -76,6 +76,13 @@ const PHASE_LABEL: Record<string, string> = {
 export default function CodePanel({ outputs, width, onResize, onClose }: CodePanelProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // 无输入摘要也无输出的卡是纯噪音（如空结果的 read），直接不渲染、不计数
+  const visible = outputs.filter((tool) => {
+    const body = extractToolOutput(tool).trim();
+    const preview = formatInputPreview(tool);
+    return preview.length > 0 || body.length >= 3;
+  });
+
   // 新输出到达时自动滚到底部
   useEffect(() => {
     const el = scrollRef.current;
@@ -106,7 +113,7 @@ export default function CodePanel({ outputs, width, onResize, onClose }: CodePan
         <span className="text-sm font-medium">输出 / 代码</span>
         <div className="flex items-center gap-2">
           <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-            {outputs.length > 0 ? `${outputs.length} 条工具输出` : ""}
+            {visible.length > 0 ? `${visible.length} 条工具输出` : ""}
           </span>
           <button
             onClick={onClose}
@@ -117,7 +124,7 @@ export default function CodePanel({ outputs, width, onResize, onClose }: CodePan
           </button>
         </div>
       </div>
-      {outputs.length === 0 ? (
+      {visible.length === 0 ? (
         <div
           className="flex-1 flex items-center justify-center text-xs"
           style={{ color: "var(--text-secondary)" }}
@@ -126,7 +133,7 @@ export default function CodePanel({ outputs, width, onResize, onClose }: CodePan
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
-          {outputs.map((tool, i) => {
+          {visible.map((tool, i) => {
             const body = extractToolOutput(tool);
             const preview = formatInputPreview(tool);
             const phase = tool.phase ? (PHASE_LABEL[tool.phase] ?? tool.phase) : "";
