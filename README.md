@@ -2,7 +2,7 @@
 
 > 基于 [OpenClaw](https://github.com/openclaw/openclaw) 的桌面 AI 助手 — 你设备上的私人 AI
 
-[![版本](https://img.shields.io/badge/版本-v0.3.30-crimson?style=for-the-badge)](CHANGELOG.md)
+[![版本](https://img.shields.io/badge/版本-v0.3.31-crimson?style=for-the-badge)](CHANGELOG.md)
 [![许可证](https://img.shields.io/badge/许可证-MIT-lightgrey?style=for-the-badge)](LICENSE)
 [![平台](https://img.shields.io/badge/平台-Windows-blue?style=for-the-badge)](#)
 [![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
@@ -141,6 +141,7 @@ redclaw onboard   # 中文交互式向导
 
 | 版本    | 内容                                                                          |
 | ------- | ----------------------------------------------------------------------------- |
+| v0.3.31 | 侧边栏收展动画丝滑化 + 折叠按钮位置修正                                       |
 | v0.3.30 | 运行期活动胶囊（悬浮 pill/工具监视卡）                                        |
 | v0.3.29 | eigent 四连：消息分区注册表渲染 / 定时任务友好封装 / 事件流防护 / token 门禁  |
 | v0.3.28 | GUI 四连升级：流式分段渲染 / per-message 模型切换 / 思考折叠 / 工具轨迹持久化 |
