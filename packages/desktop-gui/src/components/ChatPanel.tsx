@@ -68,6 +68,26 @@ function shortModel(m: string | null): string {
   return parts.length > 1 ? parts[1]! : m;
 }
 
+// 顶栏面板按钮分色：同排按钮一眼可辨（色阶 -9 淡染背景 + 同色文字，随主题切换）
+const PANEL_TINTS = {
+  todo: {
+    background: "color-mix(in srgb, var(--blue-9) 12%, var(--bg-secondary))",
+    color: "var(--blue-9)",
+  },
+  usage: {
+    background: "color-mix(in srgb, var(--green-9) 12%, var(--bg-secondary))",
+    color: "var(--green-9)",
+  },
+  cron: {
+    background: "color-mix(in srgb, var(--violet-9) 12%, var(--bg-secondary))",
+    color: "var(--violet-9)",
+  },
+  code: {
+    background: "color-mix(in srgb, var(--amber-9) 14%, var(--bg-secondary))",
+    color: "var(--amber-9)",
+  },
+} as const;
+
 // 读取图片为 base64 附件（dataUrl 供预览，base64 供 chat.send attachments）
 function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string }> {
   return new Promise((resolve, reject) => {
@@ -972,7 +992,7 @@ function ChatPanel({
           <button
             onClick={onToggleTodo}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            style={PANEL_TINTS.todo}
           >
             <ListTodo size={14} />
             待办
@@ -980,7 +1000,7 @@ function ChatPanel({
           <button
             onClick={onToggleUsage}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            style={PANEL_TINTS.usage}
             title="用量与成本"
           >
             <Coins size={14} />
@@ -989,7 +1009,7 @@ function ChatPanel({
           <button
             onClick={onToggleCron}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            style={PANEL_TINTS.cron}
             title="定时任务"
           >
             <CalendarClock size={14} />
@@ -998,7 +1018,7 @@ function ChatPanel({
           <button
             onClick={onToggleCode}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            style={PANEL_TINTS.code}
           >
             <PanelRight size={14} />
             代码
