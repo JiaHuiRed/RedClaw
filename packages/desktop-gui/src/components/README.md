@@ -36,7 +36,8 @@ ChatPanel
 
 - **delta `replace` 语义**：server 端投影分叉时发修复帧，`replace: true` 表示
   deltaText 是全文而非增量；UI 必须按对齐/重建处理，按追加处理会重复拼文本。
-- **seq 水位线**：`_deltaSeq` 丢弃 `seq <=` 上次值的迟到/重放帧，run 终态重置。
+- **seq 水位线**：`_deltaSeqs`（per-session）丢弃 `seq <=` 上次值的迟到/重放帧，
+  run 终态清除该会话水位线。chat/thinking/tool 事件都只消费 active 会话。
 - **消息 id 去重**：`_notifyMessage` 同 id 只投递一次（FIFO 200 条防无界增长）。
 - **断线清残留**：`onStatus(false)` 时清 segments/reasoning/isGenerating；
   重连后 App 层 `loadHistory` 对齐真相。不要在这里做更重的恢复逻辑。
