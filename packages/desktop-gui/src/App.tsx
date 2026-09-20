@@ -73,14 +73,19 @@ export default function App() {
     }, 4000);
   }, []);
 
+  // 请求代际防护：切会话时旧会话的慢历史返回会覆盖新会话内容，
+  // 过期响应连同它的 finally（提前熄 loading）一起丢弃
+  const historyGenRef = useRef(0);
   const loadHistory = useCallback(async (sessionKey: string) => {
+    const gen = ++historyGenRef.current;
     setLoadingHistory(true);
     setMessages([]);
     try {
       const history = await gateway.fetchHistory(sessionKey);
+      if (gen !== historyGenRef.current) return;
       setMessages(history);
     } finally {
-      setLoadingHistory(false);
+      if (gen === historyGenRef.current) setLoadingHistory(false);
     }
   }, []);
 
@@ -206,7 +211,9 @@ export default function App() {
     } catch (err) {
       console.error("createSession failed:", err);
       pushToast("新建会话失败，已切换到默认会话");
+      // client._activeSessionKey 与 UI 同步回落，否则发送仍打到失败的旧 key
       setCurrentSessionKey(DEFAULT_SESSION_KEY);
+      gateway.setActiveSessionKey(DEFAULT_SESSION_KEY);
     }
   }, [pushToast]);
 

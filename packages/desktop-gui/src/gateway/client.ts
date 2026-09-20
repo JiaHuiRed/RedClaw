@@ -294,8 +294,8 @@ class GatewayClient {
   private _commands: CommandEntry[] = [];
   private _models: ModelEntry[] = [];
   // 事件防护（借鉴 eigent 投影管线的轻量版）：
-  // 1) delta seq 水位线，丢弃迟到/重放帧（run 终态时重置）
-  private _deltaSeq: number | null = null;
+  // 1) delta seq 水位线（per-session），丢弃迟到/重放帧（run 终态时清除该会话水位线）
+  private _deltaSeqs = new Map<string, number>();
   // 2) 同 id 消息只投递一次，防重复 final 广播造成双条
   private _seenMessageIds = new Set<string>();
   private _seenMessageIdOrder: string[] = [];
@@ -1235,29 +1235,21 @@ class GatewayClient {
   private _handleChatEvent(payload: any) {
     if (!payload) return;
     const { state, sessionKey, message, deltaText, errorMessage } = payload;
-    const hasMedia =
-      !!message?.mediaUrl ||
-      !!message?.mediaUrls ||
-      !!message?.MediaPath ||
-      !!message?.MediaPaths ||
-      (Array.isArray(message?.content) &&
-        message.content.some((c: any) => c?.type === "image" && c?.url));
-    if (
-      sessionKey &&
-      sessionKey !== this._activeSessionKey &&
-      !this._isKnownSessionKey(sessionKey) &&
-      !hasMedia
-    )
-      return;
+    // chat 事件与 thinking/tool 流同口径：只消费 active 会话。known-session
+    // /hasMedia 宽放行会让别的会话（含 heartbeat isolated key）的 delta/final
+    // 串进当前聊天流；跨会话内容由会话切换时的 fetchHistory 兜底。
+    if (sessionKey && sessionKey !== this._activeSessionKey) return;
 
     switch (state) {
       case "delta": {
-        // seq 水位线：<= 上次已收的帧是迟到/重放，丢弃（server 端 delta 有 150ms
-        // 节流与增量对齐，正常序列 seq 单调；run 终态时重置水位线）
+        // seq 水位线（per-session）：<= 上次已收的帧是迟到/重放，丢弃（server
+        // 端 delta 有 150ms 节流与增量对齐，正常序列 seq 单调；run 终态时清除）
         const seq = typeof payload.seq === "number" ? payload.seq : null;
         if (seq !== null) {
-          if (this._deltaSeq !== null && seq <= this._deltaSeq) break;
-          this._deltaSeq = seq;
+          const seqKey = this._deltaSeqKey(sessionKey);
+          const lastSeq = this._deltaSeqs.get(seqKey);
+          if (lastSeq !== undefined && seq <= lastSeq) break;
+          this._deltaSeqs.set(seqKey, seq);
         }
         // replace=true 时 deltaText 是「到目前为止的全文」而非增量（server 端
         // 投影分叉时的修复帧），必须透传给 UI，按追加处理会重复拼文本
@@ -1265,13 +1257,13 @@ class GatewayClient {
         break;
       }
       case "final":
-        this._deltaSeq = null;
+        this._deltaSeqs.delete(this._deltaSeqKey(sessionKey));
         void this._handleFinalChatMessage(message);
         // refresh session info after each completed response
         this.fetchSessionInfo();
         break;
       case "aborted": {
-        this._deltaSeq = null;
+        this._deltaSeqs.delete(this._deltaSeqKey(sessionKey));
         const partialText =
           message?.text ||
           message?.content
@@ -1293,7 +1285,7 @@ class GatewayClient {
       }
       case "error":
         console.error("[Gateway] chat error:", errorMessage);
-        this._deltaSeq = null;
+        this._deltaSeqs.delete(this._deltaSeqKey(sessionKey));
         this._notifyStreamEnd();
         this._notifyError(errorMessage || "生成失败");
         break;
@@ -1406,13 +1398,9 @@ class GatewayClient {
     }
   }
 
-  private _isKnownSessionKey(sessionKey: string): boolean {
-    if (!sessionKey) return false;
-    if (sessionKey === this._activeSessionKey) return true;
-    if (this._sessions.some((s) => s.sessionKey === sessionKey)) return true;
-    return (
-      sessionKey.includes(this._activeSessionKey) || this._activeSessionKey.includes(sessionKey)
-    );
+  // 无 sessionKey 的帧按 active 会话归属（与放行口径一致），水位线/清除都用它
+  private _deltaSeqKey(sessionKey: string | undefined): string {
+    return sessionKey || this._activeSessionKey;
   }
 
   private _handleAgentEvent(payload: any) {
