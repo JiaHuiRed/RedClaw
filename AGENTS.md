@@ -19,19 +19,11 @@ Skills own workflows; root owns hard policy and routing.
 
 ## ClawSweeper Review Policy
 
-- OpenClaw-specific review rules live here; generic ClawSweeper prompts stay repo-agnostic.
 - ClawSweeper-owned schema, labels, close reasons, protected-label gates, maintainer-item gates, and mutation rules live in `openclaw/clawsweeper`.
-- Review workers read this full root `AGENTS.md` before judging; no reliance on search snippets, `head`, partial ranges, local excerpts, or truncated copies. Then read every scoped `AGENTS.md` that owns touched paths.
-- Optional integrations, providers, channels, skill bundles, MCP surfaces, and service workflows route to plugins, ClawHub, or owner repos when current seams suffice. Keep core items for missing core/plugin APIs, bundled regressions, security/core hardening, or maintainer product decisions.
-- Plugin APIs, provider routing, auth/session state, persisted preferences, config loading, config/default additions, migrations, setup, startup checks, and fallback behavior are compatibility/upgrade-sensitive. Treat config breaks, new config/default surfaces, removed fallbacks, fail-closed changes, stricter validation, or new operator action as merge risk even with green CI when they can affect existing users, upgrades, provider/plugin behavior, or maintainer operations.
-- For PRs that add, remove, or change config/default surfaces with possible compatibility, upgrade, provider/plugin, operator, setup, startup, or fallback impact, ClawSweeper review should emit a `reviewMetrics` entry when practical. The metric should name the count and direction of the changes, such as added, changed, or removed config/default surfaces, and explain why the metric matters before merge. When the metric indicates concrete merge risk, also surface the concern in `risks`, use `mergeRiskLabels` when the risk matches the label rubric, make `bestSolution` name the desired pre-merge state, and ensure `labelJustifications` explain the specific reason rather than restating the label.
-- Review whole decision surfaces, not only the touched runtime, provider, channel, harness, plugin seam, or context path. Check sibling Codex/Pi-style runtimes, provider/model routing, channel delivery, gateway/protocol, plugin SDK, and context-management paths when relevant.
-- One-sided fixes need sibling-surface proof, an explanation for why siblings are unaffected, or explicit follow-up work.
-- Changelog findings: see Docs / Changelog.
-- Public ClawSweeper comments prefer `https://docs.openclaw.ai/...` when a public docs page exists; structured evidence still cites repo files, lines, SHAs.
-- Findings need current source, shipped/current behavior, tests/CI evidence, and dependency contract proof when dependency-backed behavior is involved. Validation is judged against touched and sibling surfaces plus this file's commands; real behavior proof matters for user-visible changes, with Telegram/Desktop proof for Telegram-visible behavior when feasible.
-- Prefer findings for concrete behavior regressions, missing changed-surface proof, owner-boundary violations, security/API contract issues, or docs/config mismatches.
-- Do not file findings for repo policy preference when changed code follows the relevant scoped guide and no user-visible, runtime, security, or maintainer-risk impact is shown.
+- Review workers read this full root `AGENTS.md` plus every scoped `AGENTS.md` owning touched paths; no reliance on search snippets, partial ranges, or truncated copies.
+- Findings need concrete behavior regressions, missing changed-surface proof, owner-boundary violations, security/API contract issues, or docs/config mismatches. No findings for style/policy preference with no user-visible, runtime, security, or maintainer-risk impact.
+- Compatibility-sensitive surfaces (config/default adds/removes, provider/plugin routing, auth/session state, persisted prefs, setup/startup, fallback behavior) are merge risk even with green CI; emit a `reviewMetrics` entry for config/default surface changes when practical.
+- One-sided fixes need sibling-surface proof or an explanation of why sibling surfaces are unaffected.
 
 ## Map
 
@@ -101,75 +93,29 @@ Skills own workflows; root owns hard policy and routing.
 
 ## Validation
 
-- Use `$openclaw-testing` for test/CI choice and `$crabbox` for remote/full/E2E proof.
-- Crabbox request means real scenario proof: install/update/call/repro user path; not just copy tests and run them remotely.
-- Small/narrow tests, lints, format checks, and type probes are fine locally only in a healthy normal checkout.
-- In Codex worktrees, direct local `pnpm test*`, `pnpm check*`, `pnpm crabbox:run`, and `scripts/committer` can trigger pnpm dependency reconciliation or install prompts. Prefer `node` wrappers locally and Crabbox/Testbox for pnpm-gated proof.
-- Full suites, broad changed gates, Docker/package/E2E/live/cross-OS proof, or anything that bogs down the Mac: Crabbox/Testbox.
-- One/few files local. If a local command fans out, stop and move broad proof to Crabbox/Testbox.
-- Before handoff/push: prove touched surface. Before landing to `main`: issue proof plus appropriate full/broad proof unless scope is clearly narrow.
-- Pre-land/pre-commit code changes: use `$autoreview` until no accepted/actionable findings remain, unless equivalent manual review already done, trivial/docs-only, or user opts out.
-- If proof is blocked, say exactly what is missing and why.
-- Do not land related failing format/lint/type/build/tests. If unrelated on latest `origin/main`, say so with scoped proof.
-- Docs/changelog-only and CI/workflow metadata-only: `git diff --check` plus relevant docs/workflow sanity; escalate only if scripts/config/generated/package/runtime behavior changed.
-- Prompt snapshots: CI truth is Linux Node 24. If macOS local passes but CI drifts, reproduce/generate in Linux before rerun.
+- Test/CI choice: `$openclaw-testing`. Remote/full/E2E proof: `$crabbox` — real scenario proof (install/update/call/repro user path), not copied tests.
+- One/few files may run locally in a healthy checkout; anything that fans out or bogs down the Mac goes to Crabbox/Testbox.
+- Do not land related failing format/lint/type/build/tests. If proof is blocked, say exactly what is missing and why.
 
 ## GitHub / PRs
 
-- Use `$openclaw-pr-maintainer` immediately for maintainer-side OpenClaw issue/PR review, triage, duplicates, labels, comments, close, land, or evidence. Contributor PR creation/refresh follows the requested contributor workflow; linked refs alone do not require maintainer archive tooling.
-- Pasted GitHub issue/PR: first `git status -sb`; if dirty, yell; then `git push` + `git pull --ff-only`.
-- PR refs: `gh pr view/diff` or `gh api`, not web search. Prefer `gitcrawl` for maintainer discovery; missing/stale `gitcrawl` falls through to live `gh`, not contributor setup. Verify live with `gh` before mutation.
-- Bare issue/PR URL/number means review/report in chat. Suggest comment/close/merge when appropriate; mutate only when asked.
-- No unsolicited PR comments/reviews/labels/retitles/rebases/fixups/landing. Exception: close/duplicate action that needs a reason comment after explicit close/sweep/landing request.
-- Maintainer decision closes the cluster: if deciding reported behavior/proposed fix is not planned, comment+close all directly associated open issues/PRs unless explicitly told to keep one open. Associated means linked PRs/issues, duplicates, companion workaround PRs, and the canonical issue for the rejected behavior.
-- Do not leave associated issues open for hypothetical future repros. Close with rationale; ask for a new issue or reopen only if concrete new evidence appears. Close comment states: decision, why, supported alternative, and what evidence would change the decision.
-- PR review answer: bug/behavior, URL(s), affected surface, provenance for regressions when traceable, best-fix judgment, evidence from code/tests/CI/current or shipped behavior.
-- Issue/PR final answer: last line is the full GitHub URL.
-- PR verification: before merge, post exact local commands, CI/Testbox run IDs, before/after proof when used, and known proof gaps.
-- Issue fixed on `main` with proof: comment proof + commit/PR, then close.
-- After landing or requested close/sweep: search duplicates; comment proof + canonical commit/PR/release before closing.
-- After landing/ship final: include 2-5 sentence recap of what landed: behavior change, key files/surface, proof run, issue/PR state. Do not answer with only status/links.
-- `ship` that fixes an issue: after push, comment proof + commit link, then close the issue.
-- GH comments with backticks, `$`, or shell snippets: use heredoc/body file, not inline double-quoted `--body`.
-- PR create: real body required. Include Summary + Verification; mention refs, behavior, and proof.
-- PR create/refresh: keep PR branches takeover-ready. Use a branch maintainers can push to, or for fork PRs ensure `maintainer_can_modify` / GitHub's `Allow edits by maintainers` is enabled unless explicitly told otherwise or GitHub's Actions/secrets warning makes that unsafe.
-- GitHub issue/PR create: read `$agent-transcript`; ask about sanitized transcript logs when available.
-- Real behavior proof section is parsed. Use exact `field: value` labels: `Behavior addressed`, `Real environment tested`, `Exact steps or command run after this patch`, `Evidence after fix`, `Observed result after fix`, `What was not tested`.
-- PR artifacts/screenshots: attach to PR/comment/external artifact store. Never push screenshots, videos, proof images, or proof assets to OpenClaw or any product repo branch, including temp artifact branches. Use Crabbox artifact publishing plus the manifest URL. Do not commit `.github/pr-assets`.
-- CI polling: exact SHA, relevant checks only, minimal fields. Skip routine noise (`Auto response`, `Labeler`, docs agents, performance/stale). Logs only after failure/completion or concrete need.
-- Maintainers: may skip/ignore `Real behavior proof` when local tests or Crabbox verified behavior; record proof in PR verification.
-- `/landpr`: use `~/.codex/prompts/landpr.md`; do not idle on `auto-response` or `check-docs`.
+- Maintainer-side OpenClaw issue/PR work: use `$openclaw-pr-maintainer` immediately. PR refs via `gh pr view/diff` / `gh api`, never web search; verify live before mutation.
+- Bare issue/PR URL/number = review/report in chat only; mutate only when asked. No unsolicited PR comments/reviews/labels/retitles/rebases/fixups/landing.
+- Maintainer decision closes the cluster: comment+close all directly associated open issues/PRs with rationale (decision, why, supported alternative, what evidence would change it); do not leave them open for hypothetical future repros.
+- Landing/close/sweep requires evidence: comment proof + canonical commit/PR before closing. Final answers end with the full GitHub URL.
+- PR create/refresh: real body (Summary + Verification); takeover-ready branch, `maintainer_can_modify` for forks. Issue/PR create: read `$agent-transcript`.
+- Never push screenshots/videos/proof assets to product repo branches; use Crabbox artifact publishing plus manifest URL.
 
 ## Code
 
-- TS ESM, strict. Avoid `any`; prefer real types, `unknown`, narrow adapters.
-- No `@ts-nocheck`. Lint suppressions only intentional + explained.
-- External boundaries: prefer `zod` or existing schema helpers.
-- Runtime branching: discriminated unions/closed codes over freeform strings. Avoid semantic sentinels (`?? 0`, empty object/string).
-- Cross-function state: when valid combos matter, return a closed mode/result shape. Avoid parallel nullable fields or derived booleans that callers must keep in sync; make impossible states unrepresentable.
-- Formatter-friendly shape: when oxfmt explodes an expression vertically, extract named booleans, payloads, or small helpers. Do not change width or use format-ignore for local compactness.
-- Calls should be boring: complex decisions happen above; call args/object fields are names, literals, or simple property reads.
-- Prefer early returns over nested condition pyramids. Split code into gather -> normalize -> decide -> act.
-- Use named intermediates only for domain meaning or readability; avoid temp-variable soup.
-- Code size matters. Prefer small clear code; maintainability includes not growing LOC without payoff.
-- Refactors should delete about as much local complexity as they add. If LOC grows, the new ownership/API needs to clearly pay for it.
-- Before adding helpers/files, check whether existing code can absorb the behavior with less new surface.
-- Keep APIs narrow: export only current caller needs; keep types/helpers local by default.
-- Return the smallest useful shape. Avoid broad result objects, flags, metadata unless callers use them.
-- Avoid adapter layers that only rename fields. Move real responsibility or leave code local.
-- Inline simple one-use objects/spreads when clearer. Extract only when it removes duplication or hard logic.
-- Tests prove behavior/regressions, not every internal branch.
-- For non-trivial refactors, check `git diff --numstat` before closeout. If LOC grew, trim or explain why.
-- Prefer existing narrow helpers over repeated casts/guards. Add local helpers when 2+ nearby call sites share real boundary logic.
-- Prefer ctor parameter properties for injected deps/config. Do not ban them for erasable-syntax purity.
-- Prefer `satisfies` for registries/config maps; derive types from schemas when a runtime schema already exists.
-- Table-drive repetitive tests when it reduces code and keeps failure names clear.
+- TS ESM, strict. Avoid `any`; prefer real types, `unknown`, narrow adapters. No `@ts-nocheck`.
+- External boundaries: prefer `zod` or existing schema helpers. Runtime branching: discriminated unions/closed codes over freeform strings; avoid semantic sentinels (`?? 0`, empty object/string).
+- Make impossible states unrepresentable: closed mode/result shapes over parallel nullable fields callers must keep in sync.
+- Keep old behavior only for explicit contracts (public API/config/plugin SDK, tagged upgrade path, security/migration boundary, dependency contract, observed prod state). Refactor default: one canonical path; delete the old path.
+- Lean code: no internal shims, aliases, legacy names, broad fallbacks, or defensive branches just to reduce diff. Handle real production states; hypothetical malformed input gets none.
 - Dynamic import: no static+dynamic import for same prod module. Use `*.runtime.ts` lazy boundary. After edits: `pnpm build`; check `[INEFFECTIVE_DYNAMIC_IMPORT]`.
 - Cycles: keep `pnpm check:import-cycles` + architecture/madge green.
-- Classes: no prototype mixins/mutations. Prefer inheritance/composition. Tests prefer per-instance stubs.
-- Split files around ~700 LOC when clarity/testability improves.
-- Naming: **OpenClaw** product/docs; `openclaw` CLI/package/path/config.
-- English: American spelling.
+- Naming: **OpenClaw** product/docs; `openclaw` CLI/package/path/config. American spelling.
 
 ## Tests
 
@@ -216,117 +162,13 @@ Skills own workflows; root owns hard policy and routing.
 
 ## Platform / Ops
 
-- Before simulator/emulator testing, check real iOS/Android devices.
-- "restart iOS/Android apps" = rebuild/reinstall/relaunch, not kill/launch.
-- SwiftUI: Observation (`@Observable`, `@Bindable`) over new `ObservableObject`.
-- Mac gateway: dev watch = `pnpm gateway:watch`; managed installs = `openclaw gateway restart/status --deep`; logs = `./scripts/clawlog.sh`. No launchd/ad-hoc tmux.
-- Mac app permission testing: stable app path + real signing identity required. No `--no-sign`, `SIGN_IDENTITY=-`, or raw debug binary; TCC prompts/listing won't stick.
-- Version bump surfaces live in `$release-openclaw-maintainer`.
-- Parallels: `$openclaw-parallels-smoke`; Discord roundtrip: `$parallels-discord-roundtrip`.
-- Crabbox/WebVNC human demos: keep remote desktop visible/windowed; no fullscreen remote browser unless video/capture-style output.
-- ClawSweeper ops: `$clawsweeper`. Deployed hook sessions may post one concise `#clawsweeper` note only when surprising/actionable/risky; if using message tool, reply exactly `NO_REPLY`.
-- Memory wiki prompt digest stays tiny; prefer `wiki_search` / `wiki_get`; verify contact data before use; source-class provenance for generated people facts.
+- Real devices before simulator/emulator testing. Platform-specific rules live in scoped guides and skills: macOS `$release-openclaw-maintainer` / `$openclaw-parallels-smoke` / `$parallels-discord-roundtrip`; ClawSweeper ops `$clawsweeper`.
 - Rebrand/migration/config warnings: run `openclaw doctor`.
-- Never edit `node_modules`.
-- Local-only `.agents` ignores: `.git/info/exclude`, not repo `.gitignore`.
+- Never edit `node_modules`. Local-only `.agents` ignores go in `.git/info/exclude`, not repo `.gitignore`.
 - Provider tool schemas: prefer flat string enum helpers over `Type.Union([Type.Literal(...)])`; some providers reject `anyOf`.
 - External messaging: no token-delta channel messages. Follow `docs/concepts/streaming.md`.
 
-## Code Exploration Policy
+## Code Exploration
 
-Always use jCodemunch-MCP tools for code navigation. Never fall back to Read, Grep, Glob, or Bash for code exploration.
-**Exception:** Use `Read` when you need to edit a file — the agent harness requires a `Read` before `Edit`/`Write` will succeed. Use jCodemunch tools to *find and understand* code, then `Read` only the specific file you're about to modify.
-
-**Start any session:**
-1. `resolve_repo { "path": "." }` — confirm the project is indexed. If not: `index_folder { "path": "." }`
-2. `suggest_queries` — when the repo is unfamiliar
-
-**Finding code:**
-- symbol by name → `search_symbols` (add `kind=`, `language=`, `file_pattern=`, `decorator=` to narrow)
-- decorator-aware queries → `search_symbols(decorator="X")` to find symbols with a specific decorator (e.g. `@property`, `@route`); combine with set-difference to find symbols *lacking* a decorator (e.g. "which endpoints lack CSRF protection?")
-- string, comment, config value → `search_text` (supports regex, `context_lines`)
-- database columns (dbt/SQLMesh) → `search_columns`
-
-**Reading code:**
-- before opening any file → `get_file_outline` first
-- one or more symbols → `get_symbol_source` (single ID → flat object; array → batch)
-- symbol + its imports → `get_context_bundle`
-- specific line range only → `get_file_content` (last resort)
-
-**Repo structure:**
-- `get_repo_outline` → dirs, languages, symbol counts
-- `get_file_tree` → file layout, filter with `path_prefix`
-
-**Relationships & impact:**
-- what imports this file → `find_importers`
-- where is this name used → `find_references`
-- is this identifier used anywhere → `check_references`
-- file dependency graph → `get_dependency_graph`
-- what breaks if I change X → `get_blast_radius`
-- what symbols actually changed since last commit → `get_changed_symbols`
-- find unreachable/dead code → `find_dead_code`
-- class hierarchy → `get_class_hierarchy`
-
-## Session-Aware Routing
-
-**Opening move for any task:**
-1. `plan_turn { "repo": "...", "query": "your task description", "model": "<your-model-id>" }` — get confidence + recommended files; the `model` parameter narrows the exposed tool list to match your capabilities at zero extra requests.
-2. Obey the confidence level:
-   - `high` → go directly to recommended symbols, max 2 supplementary reads
-   - `medium` → explore recommended files, max 5 supplementary reads
-   - `low` → the feature likely doesn't exist. Report the gap to the user. Do NOT search further hoping to find it.
-
-**Interpreting search results:**
-- If `search_symbols` returns `negative_evidence` with `verdict: "no_implementation_found"`:
-  - Do NOT re-search with different terms hoping to find it
-  - Do NOT assume a related file (e.g. auth middleware) implements the missing feature (e.g. CSRF)
-  - DO report: "No existing implementation found for X. This would need to be created."
-  - DO check `related_existing` files — they show what's nearby, not what exists
-- If `verdict: "low_confidence_matches"`: examine the matches critically before assuming they implement the feature
-
-**After editing files:**
-- If PostToolUse hooks are installed (Claude Code only), edited files are auto-reindexed
-- Otherwise, call `register_edit` with edited file paths to invalidate caches and keep the index fresh
-- For bulk edits (5+ files), always use `register_edit` with all paths to batch-invalidate
-
-**Token efficiency:**
-- If `_meta` contains `budget_warning`: stop exploring and work with what you have
-- If `auto_compacted: true` appears: results were automatically compressed due to turn budget
-- Use `get_session_context` to check what you've already read — avoid re-reading the same files
-
-## Model-Driven Tool Tiering
-
-Your jcodemunch-mcp server narrows the exposed tool list based on the model you are running as. To avoid wasting requests on primitives when a composite would do, always include `model="<your-model-id>"` in your opening `plan_turn` call.
-
-Replace `<your-model-id>` with your active model:
-- Claude Opus variants → `claude-opus-4-7` (or any `claude-opus-*`)
-- Claude Sonnet variants → `claude-sonnet-4-6`
-- Claude Haiku variants → `claude-haiku-4-5`
-- GPT-4o / GPT-5 / o1 / Llama → use the model id as printed by your runner
-
-The `model=` parameter rides on the existing `plan_turn` call — it does **not** add a separate tool invocation. If `plan_turn` is not appropriate for a non-code task, call `announce_model(model="...")` once instead.
-
-
-## TypeScript Navigation (typegraph-mcp)
-
-Where suitable, use the `ts_*` MCP tools instead of grep/glob for navigating TypeScript code. They resolve through barrel files, re-exports, and project references and return semantic results instead of string matches.
-
-- Point queries: `ts_find_symbol`, `ts_definition`, `ts_references`, `ts_type_info`, `ts_navigate_to`, `ts_trace_chain`, `ts_blast_radius`, `ts_module_exports`
-- Graph queries: `ts_dependency_tree`, `ts_dependents`, `ts_import_cycles`, `ts_shortest_path`, `ts_subgraph`, `ts_module_boundary`
-
-Start with the navigation tools before reading entire files. Use direct file reads only after the MCP tools identify the exact symbols or lines that matter.
-
-For quick architectural insight, prefer composition modules and entrypoints over top-level barrel files. If `ts_module_exports` on an `index.ts` or other barrel looks empty or uninformative, pivot to the app entrypoint, router, handler, service composition root, or API module that wires real behavior together.
-
-Use `rg` or `grep` when semantic symbol navigation is not the right tool, especially for:
-
-- docs, config, SQL, migrations, JSON, env vars, route strings, and other non-TypeScript assets
-- broad text discovery when you do not yet know the symbol name
-- exact string matching across the repo
-- validating wording or finding repeated plan/document references
-
-Practical rule:
-
-- use `ts_*` first for TypeScript symbol definition, references, types, and dependency analysis
-- use `rg`/`grep` for text search and non-TypeScript exploration
-- combine both when a task spans TypeScript code and surrounding docs/config
+- Code navigation: prefer jcodemunch MCP tools (the server injects its own usage guide at connect); TS symbol navigation may also use typegraph MCP `ts_*` tools. `rg`/grep for non-TS assets, docs, and text search.
+- `Read` is still required before `Edit`/`Write` (harness requirement); use MCP tools to find and understand code, then Read only the file being modified.
