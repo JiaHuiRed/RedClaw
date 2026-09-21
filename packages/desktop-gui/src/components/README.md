@@ -42,6 +42,14 @@ ChatPanel
 - **断线清残留**：`onStatus(false)` 时清 segments/reasoning/isGenerating；
   重连后 App 层 `loadHistory` 对齐真相。不要在这里做更重的恢复逻辑。
 
+## 右栏面板（App.tsx rightPanel）
+
+- `ActivityPanel`（秋秋动态）：上半是后台活动（心跳上次时间 + cron.runs scope=all
+  最近运行流，含定时任务与梦境），下半是实时工具轨迹（App 层 onTool 订阅的
+  toolOutputs 镜像）。它是"秋秋在活着"的可视化，不是代码编辑器；新后台活动
+  数据源优先接这里。
+- 其余右栏：TodoPanel / UsagePanel / CronPanel（管理面），互不共享数据源。
+
 ## 主题与色值规则
 
 - UI 颜色一律用 `var(--*)` 语义变量（`--accent`、`--bg-tertiary`、`--danger`…），

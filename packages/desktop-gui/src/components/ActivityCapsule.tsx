@@ -8,18 +8,18 @@ interface ActivityCapsuleProps {
   elapsed: number;
   thinkingChars: number;
   tools: ToolCallEvent[];
-  onOpenCode: () => void;
+  onOpenActivity: () => void;
 }
 
 // 运行期胶囊面板（借鉴 ZCode/Codex 右侧悬浮胶囊）：折叠成一枚状态 pill，
-// 展开为实时工具/思考监视卡。只在生成期间出现；完整输出仍在消息与代码面板，
+// 展开为实时工具/思考监视卡。只在生成期间出现；完整输出仍在消息与动态面板，
 // 侧栏不需要为了"瞟一眼进度"而常开。
 export default function ActivityCapsule({
   visible,
   elapsed,
   thinkingChars,
   tools,
-  onOpenCode,
+  onOpenActivity,
 }: ActivityCapsuleProps) {
   const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -80,12 +80,12 @@ export default function ActivityCapsule({
             )}
           </div>
           <button
-            onClick={onOpenCode}
+            onClick={onOpenActivity}
             className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2 text-[11px] border-t hover:opacity-80"
             style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
           >
             <PanelRight size={11} />
-            查看完整输出
+            查看动态
           </button>
         </div>
       </div>

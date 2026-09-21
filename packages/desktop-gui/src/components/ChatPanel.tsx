@@ -87,7 +87,7 @@ const PANEL_TINTS = {
     background: "color-mix(in srgb, var(--violet-9) 12%, var(--bg-secondary))",
     color: "var(--violet-9)",
   },
-  code: {
+  activity: {
     background: "color-mix(in srgb, var(--amber-9) 14%, var(--bg-secondary))",
     color: "var(--amber-9)",
   },
@@ -274,7 +274,7 @@ interface ChatPanelProps {
   sessions: ChatSession[];
   currentSessionKey: string;
   onSelectSession: (sessionKey: string) => void;
-  onToggleCode: () => void;
+  onToggleActivity: () => void;
   onToggleTodo: () => void;
   onToggleUsage: () => void;
   onToggleCron: () => void;
@@ -296,7 +296,7 @@ function ChatPanel({
   sessions,
   currentSessionKey,
   onSelectSession,
-  onToggleCode,
+  onToggleActivity,
   onToggleTodo,
   onToggleUsage,
   onToggleCron,
@@ -597,7 +597,7 @@ function ChatPanel({
   useEffect(() => {
     const unsubMsg = gateway.onMessage((msg) => {
       // 该轮工具卡随 final 消息持久化：流式分段清空前的快照挂到消息上，
-      // 之后翻历史也能看到这一轮的工具轨迹（右栏 CodePanel 是另一路镜像）
+      // 之后翻历史也能看到这一轮的工具轨迹（右栏 ActivityPanel 是另一路镜像）
       const runTools = segmentsRef.current.flatMap((seg) =>
         seg.kind === "tool" ? [seg.tool] : [],
       );
@@ -1076,12 +1076,13 @@ function ChatPanel({
             定时
           </button>
           <button
-            onClick={onToggleCode}
+            onClick={onToggleActivity}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={PANEL_TINTS.code}
+            style={PANEL_TINTS.activity}
+            title="秋秋动态"
           >
             <PanelRight size={14} />
-            代码
+            动态
           </button>
           <div className="flex items-center gap-0.5 relative" ref={gwMenuRef}>
             <button
@@ -1399,7 +1400,7 @@ function ChatPanel({
         elapsed={elapsed}
         thinkingChars={streamingReasoning.length}
         tools={capsuleTools}
-        onOpenCode={onToggleCode}
+        onOpenActivity={onToggleActivity}
       />
 
       {/* 回到底部：上翻后流式继续时出现 */}
