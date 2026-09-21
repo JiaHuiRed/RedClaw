@@ -1,6 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 
 const DEFAULT_SESSION_KEY = "agent:main:main";
+// heartbeat 隔离会话（agents.defaults.heartbeat.isolatedSession 开启后存在）。
+// 它是后台心跳不是聊天会话：Sidebar 不展示，Activity 面板用它判断上次心跳时间。
+export const HEARTBEAT_SESSION_KEY = "agent:main:main:heartbeat";
 const RECONNECT_DELAY = 2000;
 const RECONNECT_DELAY_MAX = 30_000;
 // challenge 已到但 connect 应答未到：网关接受了 TCP 却卡死，按失败走退避重连
@@ -798,6 +801,18 @@ class GatewayClient {
     const res = await this._request("cron.runs", {
       scope: "job",
       id: jobId,
+      limit,
+      sortDir: "desc",
+    });
+    if (!res.ok) throw new Error(res.error?.message ?? "查询运行历史失败");
+    const payload = res.payload as { entries?: CronRunLogEntry[] };
+    return Array.isArray(payload?.entries) ? payload.entries : [];
+  }
+
+  // 跨 job 的最近运行流（scope=all，服务端自动 join jobName）：Activity 面板后台区块用
+  async fetchAllCronRuns(limit = 8): Promise<CronRunLogEntry[]> {
+    const res = await this._request("cron.runs", {
+      scope: "all",
       limit,
       sortDir: "desc",
     });

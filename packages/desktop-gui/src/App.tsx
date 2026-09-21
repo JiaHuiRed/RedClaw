@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import ActivityPanel from "./components/ActivityPanel";
 import ChatPanel from "./components/ChatPanel";
-import CodePanel from "./components/CodePanel";
 import CronPanel from "./components/CronPanel";
 import Sidebar from "./components/Sidebar";
 import TodoPanel from "./components/TodoPanel";
@@ -26,7 +26,9 @@ export default function App() {
   const [connecting, setConnecting] = useState(false);
   const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [rightPanel, setRightPanel] = useState<"none" | "code" | "todo" | "usage" | "cron">("none");
+  const [rightPanel, setRightPanel] = useState<"none" | "activity" | "todo" | "usage" | "cron">(
+    "none",
+  );
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>(gateway.sessionInfo);
   const [commands, setCommands] = useState<CommandEntry[]>(gateway.commands);
   const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
@@ -242,8 +244,8 @@ export default function App() {
     }
   }, []);
 
-  const onToggleCode = useCallback(() => {
-    setRightPanel((p) => (p === "code" ? "none" : "code"));
+  const onToggleActivity = useCallback(() => {
+    setRightPanel((p) => (p === "activity" ? "none" : "activity"));
   }, []);
   const onToggleTodo = useCallback(() => {
     setRightPanel((p) => (p === "todo" ? "none" : "todo"));
@@ -280,15 +282,16 @@ export default function App() {
         sessions={sessions}
         currentSessionKey={currentSessionKey}
         onSelectSession={handleSelectSession}
-        onToggleCode={onToggleCode}
+        onToggleActivity={onToggleActivity}
         onToggleTodo={onToggleTodo}
         onToggleUsage={onToggleUsage}
         onToggleCron={onToggleCron}
         loadingHistory={loadingHistory}
       />
-      {rightPanel === "code" && (
-        <CodePanel
+      {rightPanel === "activity" && (
+        <ActivityPanel
           outputs={toolOutputs}
+          sessions={sessions}
           width={rightPanelWidth}
           onResize={setRightPanelWidth}
           onClose={() => setRightPanel("none")}

@@ -22,7 +22,12 @@ import {
   memo,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { gateway, type ChatSession, type AgentSummary } from "../gateway/client";
+import {
+  gateway,
+  HEARTBEAT_SESSION_KEY,
+  type ChatSession,
+  type AgentSummary,
+} from "../gateway/client";
 import type { ConnectionState } from "../lib/connectionStatus";
 import ConnectionBadge from "./ConnectionBadge";
 import ProjectAreaModal from "./ProjectAreaModal";
@@ -155,6 +160,8 @@ function Sidebar({
     const byId = new Map(agents.map((a) => [a.id, a]));
     const grouped = new Map<string, ChatSession[]>();
     for (const s of sessions) {
+      // heartbeat 隔离会话是后台心跳不是聊天会话，归 Activity 面板展示
+      if (s.sessionKey === HEARTBEAT_SESSION_KEY) continue;
       const id = agentIdOfSession(s.sessionKey);
       const list = grouped.get(id) ?? [];
       list.push(s);
