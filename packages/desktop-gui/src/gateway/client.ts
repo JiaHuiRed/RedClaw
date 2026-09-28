@@ -208,12 +208,26 @@ export interface MemoryOverview {
 export interface CronJobSummary {
   id: string;
   agentId?: string;
+  sessionKey?: string;
   name: string;
   enabled: boolean;
-  schedule: { kind: string; expr?: string; everyMs?: number; tz?: string };
-  payload: { kind: string; message?: string; lightContext?: boolean };
+  schedule: {
+    kind: string;
+    expr?: string;
+    everyMs?: number;
+    tz?: string;
+    at?: string;
+    anchorMs?: number;
+    staggerMs?: number;
+  };
+  payload: { kind: string; message?: string; text?: string; lightContext?: boolean };
   state: { nextRunAtMs?: number; lastRunAtMs?: number; lastRunStatus?: string };
   delivery?: { mode?: string };
+  failureAlert?: false | Record<string, unknown>;
+  sessionTarget?: string;
+  wakeMode?: "now" | "next-heartbeat";
+  description?: string;
+  deleteAfterRun?: boolean;
 }
 
 export interface CronCreateInput {
@@ -388,6 +402,14 @@ class GatewayClient {
 
   get isConnected() {
     return this.connected;
+  }
+
+  async call<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+    const response = await this._request(method, params);
+    if (!response.ok) {
+      throw new Error(response.error?.message ?? `${method} 失败`);
+    }
+    return response.payload as T;
   }
 
   onMessage(fn: Listener) {
