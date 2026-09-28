@@ -16,6 +16,7 @@ import {
   Sparkles,
   Files,
   Activity,
+  Briefcase,
 } from "lucide-react";
 import {
   useState,
@@ -45,9 +46,10 @@ const COLLAPSED_WIDTH = 48;
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 
-export type SidebarView = "chat" | "sessions" | "skills" | "files" | "operations";
+export type SidebarView = "work" | "chat" | "sessions" | "skills" | "files" | "operations";
 
 const WORKSPACE_VIEWS = [
+  { id: "work", label: "工作台", icon: Briefcase },
   { id: "chat", label: "聊天", icon: MessageCircle },
   { id: "sessions", label: "会话管理", icon: ListFilter },
   { id: "skills", label: "技能", icon: Sparkles },

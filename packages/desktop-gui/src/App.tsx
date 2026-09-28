@@ -10,6 +10,7 @@ import type { SidebarView } from "./components/Sidebar";
 import SkillsWorkspace from "./components/SkillsWorkspace";
 import TodoPanel from "./components/TodoPanel";
 import UsagePanel from "./components/UsagePanel";
+import WorkHome from "./components/WorkHome";
 import {
   gateway,
   deriveSessionTitle,
@@ -271,6 +272,19 @@ export default function App() {
     setRightPanel((p) => (p === "cron" ? "none" : "cron"));
   }, []);
 
+  // 工作台交办：路由进对应项目区的默认会话，聊天面板消费 workDraft 直发
+  const [workDraft, setWorkDraft] = useState<{ text: string; nonce: number } | null>(null);
+  const handleWorkSend = useCallback(
+    (text: string, agentId: string) => {
+      const key = `agent:${agentId}:main`;
+      setCurrentSessionKey(key);
+      gateway.setActiveSessionKey(key);
+      handleSelectView("chat");
+      setWorkDraft({ text, nonce: Date.now() });
+    },
+    [handleSelectView],
+  );
+
   return (
     <div className="flex h-screen w-screen">
       <Sidebar
@@ -304,8 +318,20 @@ export default function App() {
           onToggleUsage={onToggleUsage}
           onToggleCron={onToggleCron}
           loadingHistory={loadingHistory}
+          workDraft={workDraft}
+          onWorkDraftConsumed={() => setWorkDraft(null)}
+          onSwitchToWork={() => handleSelectView("work")}
         />
       </div>
+      {visitedViews.has("work") && (
+        <div className={view === "work" ? "flex flex-1 min-w-0" : "hidden"}>
+          <WorkHome
+            connected={connected}
+            onSend={handleWorkSend}
+            onSwitchMode={(mode) => handleSelectView(mode)}
+          />
+        </div>
+      )}
       {visitedViews.has("sessions") && (
         <div className={view === "sessions" ? "flex flex-1 min-w-0" : "hidden"}>
           <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />

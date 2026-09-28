@@ -52,6 +52,7 @@ import {
   toolSegmentKey,
   type StreamSegment,
 } from "./MessageParts";
+import ModeTabs from "./ModeTabs";
 
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
 // v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
@@ -279,6 +280,10 @@ interface ChatPanelProps {
   onToggleUsage: () => void;
   onToggleCron: () => void;
   loadingHistory?: boolean;
+  // 工作台主页发来的消息（Enter 直发路由）；nonce 防重复消费
+  workDraft: { text: string; nonce: number } | null;
+  onWorkDraftConsumed: () => void;
+  onSwitchToWork: () => void;
 }
 
 // streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
@@ -301,6 +306,9 @@ function ChatPanel({
   onToggleUsage,
   onToggleCron,
   loadingHistory,
+  workDraft,
+  onWorkDraftConsumed,
+  onSwitchToWork,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -887,13 +895,31 @@ function ChatPanel({
     [segments],
   );
 
+  // 工作台主页「交办」：nonce 只消费一次；忙时落回输入框不丢字
+  const workDraftNonceRef = useRef(0);
+  useEffect(() => {
+    if (!workDraft || workDraft.nonce === workDraftNonceRef.current) return;
+    workDraftNonceRef.current = workDraft.nonce;
+    if (isGenerating) {
+      setInput(workDraft.text);
+    } else {
+      void handleSend(workDraft.text);
+    }
+    onWorkDraftConsumed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workDraft]);
+
   return (
     <div className="flex-1 flex flex-col min-w-0 relative">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 h-12 border-b shrink-0"
+        className="flex items-center justify-between px-4 h-12 border-b shrink-0 relative"
         style={{ borderColor: "var(--border)" }}
       >
+        {/* 聊天/工作双模式切换：顶栏居中，两侧功能不动 */}
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <ModeTabs mode="chat" onChange={(m) => m === "work" && onSwitchToWork()} />
+        </div>
         <div className="flex items-center gap-2 relative" ref={modelSelectorRef}>
           <span className="text-sm font-medium">RedClaw</span>
           {connected && (
