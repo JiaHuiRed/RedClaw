@@ -12,6 +12,7 @@ import {
   FolderPlus,
   Folder,
   Settings,
+  ListFilter,
 } from "lucide-react";
 import {
   useState,
@@ -41,6 +42,13 @@ const COLLAPSED_WIDTH = 48;
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 
+export type SidebarView = "chat" | "sessions";
+
+const WORKSPACE_VIEWS = [
+  { id: "chat", label: "聊天", icon: MessageCircle },
+  { id: "sessions", label: "会话管理", icon: ListFilter },
+] as const;
+
 interface SidebarProps {
   connected: boolean;
   connectionState: ConnectionState;
@@ -50,6 +58,8 @@ interface SidebarProps {
   onNewSession: () => void;
   onDeleteSession: (sessionKey: string) => void;
   onRenameSession: (sessionKey: string, label: string) => void;
+  view: SidebarView;
+  onSelectView: (view: SidebarView) => void;
 }
 
 interface SessionGroup {
@@ -95,6 +105,8 @@ function Sidebar({
   onNewSession,
   onDeleteSession,
   onRenameSession,
+  view,
+  onSelectView,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
   const [width, setWidth] = useState(() => {
@@ -460,6 +472,28 @@ function Sidebar({
             </div>
           </div>
 
+          <nav
+            className="shrink-0 p-2 space-y-0.5 border-b"
+            style={{ borderColor: "var(--border)" }}
+            aria-label="桌面功能"
+          >
+            {WORKSPACE_VIEWS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => onSelectView(id)}
+                aria-current={view === id ? "page" : undefined}
+                className="w-full flex items-center gap-2.5 text-xs text-left px-3 py-2 rounded-lg transition-colors hover:opacity-80"
+                style={{
+                  background: view === id ? "var(--bg-tertiary)" : "transparent",
+                  color: view === id ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                <Icon size={14} className="shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
+
           {/* 项目区分组会话列表 */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {sessions.length === 0 && (
@@ -651,6 +685,24 @@ function Sidebar({
           >
             <Plus size={16} />
           </button>
+          <nav className="flex flex-col gap-1 mt-2" aria-label="桌面功能">
+            {WORKSPACE_VIEWS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => onSelectView(id)}
+                title={label}
+                aria-label={label}
+                aria-current={view === id ? "page" : undefined}
+                className="p-2 rounded-lg hover:opacity-80"
+                style={{
+                  background: view === id ? "var(--bg-tertiary)" : "transparent",
+                  color: view === id ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                <Icon size={16} />
+              </button>
+            ))}
+          </nav>
         </div>
       </aside>
 
