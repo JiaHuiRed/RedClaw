@@ -3,6 +3,7 @@ import ActivityPanel from "./components/ActivityPanel";
 import AgentFilesWorkspace from "./components/AgentFilesWorkspace";
 import ChatPanel from "./components/ChatPanel";
 import CronPanel from "./components/CronPanel";
+import OperationsWorkspace from "./components/OperationsWorkspace";
 import SessionsWorkspace from "./components/SessionsWorkspace";
 import Sidebar from "./components/Sidebar";
 import type { SidebarView } from "./components/Sidebar";
@@ -318,6 +319,11 @@ export default function App() {
       {visitedViews.has("files") && (
         <div className={view === "files" ? "flex flex-1 min-w-0" : "hidden"}>
           <AgentFilesWorkspace connected={connected} />
+        </div>
+      )}
+      {visitedViews.has("operations") && (
+        <div className={view === "operations" ? "flex flex-1 min-w-0" : "hidden"}>
+          <OperationsWorkspace connected={connected} />
         </div>
       )}
       {view === "chat" && rightPanel === "activity" && (
