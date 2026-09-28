@@ -5,6 +5,7 @@ import CronPanel from "./components/CronPanel";
 import SessionsWorkspace from "./components/SessionsWorkspace";
 import Sidebar from "./components/Sidebar";
 import type { SidebarView } from "./components/Sidebar";
+import SkillsWorkspace from "./components/SkillsWorkspace";
 import TodoPanel from "./components/TodoPanel";
 import UsagePanel from "./components/UsagePanel";
 import {
@@ -306,6 +307,11 @@ export default function App() {
       {visitedViews.has("sessions") && (
         <div className={view === "sessions" ? "flex flex-1 min-w-0" : "hidden"}>
           <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />
+        </div>
+      )}
+      {visitedViews.has("skills") && (
+        <div className={view === "skills" ? "flex flex-1 min-w-0" : "hidden"}>
+          <SkillsWorkspace connected={connected} />
         </div>
       )}
       {view === "chat" && rightPanel === "activity" && (

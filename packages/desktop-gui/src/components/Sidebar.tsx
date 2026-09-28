@@ -13,6 +13,7 @@ import {
   Folder,
   Settings,
   ListFilter,
+  Sparkles,
 } from "lucide-react";
 import {
   useState,
@@ -42,11 +43,12 @@ const COLLAPSED_WIDTH = 48;
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 
-export type SidebarView = "chat" | "sessions";
+export type SidebarView = "chat" | "sessions" | "skills";
 
 const WORKSPACE_VIEWS = [
   { id: "chat", label: "聊天", icon: MessageCircle },
   { id: "sessions", label: "会话管理", icon: ListFilter },
+  { id: "skills", label: "技能", icon: Sparkles },
 ] as const;
 
 interface SidebarProps {
