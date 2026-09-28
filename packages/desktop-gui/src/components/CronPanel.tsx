@@ -4,6 +4,8 @@ import {
   ChevronDown,
   Play,
   Plus,
+  Pencil,
+  Copy,
   RefreshCw,
   Trash2,
   X,
@@ -37,6 +39,9 @@ function scheduleLabel(job: CronJobSummary): string {
     const min = Math.round(job.schedule.everyMs / 60000);
     return min % 60 === 0 ? `每 ${min / 60} 小时` : `每 ${min} 分钟`;
   }
+  if (job.schedule?.kind === "at" && job.schedule.at) {
+    return new Date(job.schedule.at).toLocaleString();
+  }
   return job.schedule?.kind ?? "";
 }
 
@@ -53,6 +58,10 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [editingJob, setEditingJob] = useState<CronJobSummary | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [error, setError] = useState<string | null>(null);
   // 运行历史：展开哪个 job + 对应 runs（首次展开懒加载）
   const [historyJobId, setHistoryJobId] = useState<string | null>(null);
   const [runs, setRuns] = useState<CronRunLogEntry[] | null>(null);
@@ -81,7 +90,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
     try {
       setJobs(await gateway.fetchCronJobs());
     } catch (err) {
-      console.error("[CronPanel] list failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -98,7 +107,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
     try {
       await gateway.cronSetEnabled(job.id, !job.enabled);
     } catch (err) {
-      console.error("[CronPanel] toggle failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
       void refresh();
     }
   }
@@ -106,8 +115,10 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
   async function runNow(job: CronJobSummary) {
     try {
       await gateway.cronRunNow(job.id);
+      setError(null);
+      if (historyJobId === job.id) setRuns(await gateway.fetchCronRuns(job.id, 10));
     } catch (err) {
-      console.error("[CronPanel] run failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -121,7 +132,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
       await gateway.cronRemove(job.id);
       setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
     } catch (err) {
-      console.error("[CronPanel] remove failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
     }
     setConfirmDelete(null);
   }
@@ -176,6 +187,40 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
         </div>
       </div>
 
+      <div className="px-3 pt-3 space-y-2">
+        <input
+          aria-label="搜索定时任务"
+          placeholder="搜索名称或任务指令"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+          style={{
+            background: "var(--bg-tertiary)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border)",
+          }}
+        />
+        <div className="flex gap-1">
+          {(["all", "enabled", "disabled"] as const).map((value) => (
+            <button
+              key={value}
+              onClick={() => setFilter(value)}
+              className="flex-1 text-[11px] py-1 rounded-md"
+              style={{
+                background: filter === value ? "var(--accent)" : "var(--bg-tertiary)",
+                color: filter === value ? "var(--on-solid)" : "var(--text-secondary)",
+              }}
+            >
+              {{ all: "全部", enabled: "已启用", disabled: "已停用" }[value]}
+            </button>
+          ))}
+        </div>
+        {error && (
+          <div role="alert" className="text-xs" style={{ color: "var(--danger)" }}>
+            {error}
+          </div>
+        )}
+      </div>
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {jobs === null && (
           <div className="text-xs text-center py-10" style={{ color: "var(--text-secondary)" }}>
@@ -187,191 +232,228 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
             暂无定时任务
           </div>
         )}
-        {jobs?.map((job) => {
-          const lastStatus = job.state?.lastRunStatus;
-          return (
-            <div
-              key={job.id}
-              className="rounded-xl p-3 space-y-1.5"
-              style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border)" }}
-            >
-              <div className="flex items-center gap-2">
-                <CalendarClock
-                  size={13}
-                  className="shrink-0"
-                  style={{ color: job.enabled ? "var(--accent)" : "var(--text-secondary)" }}
-                />
-                <span
-                  className="text-xs font-medium truncate flex-1"
-                  style={{ color: job.enabled ? "var(--text-primary)" : "var(--text-secondary)" }}
-                  title={job.payload?.message}
-                >
-                  {job.name}
-                </span>
-                {job.payload?.lightContext === true && (
-                  <span
-                    className="shrink-0 flex items-center gap-0.5 text-[9px] px-1 py-px rounded"
-                    style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
-                    title="轻上下文：不注入认知文件，冷启动省 token"
-                  >
-                    <Zap size={9} />
-                    轻上下文
-                  </span>
-                )}
-                {/* 开关 */}
-                <button
-                  onClick={() => void toggleEnabled(job)}
-                  className="shrink-0 rounded-full relative transition-colors"
-                  style={{
-                    background: job.enabled ? "var(--accent)" : "var(--border)",
-                    width: 32,
-                    height: 18,
-                  }}
-                  title={job.enabled ? "点击停用" : "点击启用"}
-                >
-                  <span
-                    className="absolute rounded-full bg-white"
-                    style={{
-                      top: 2,
-                      width: 14,
-                      height: 14,
-                      left: job.enabled ? 16 : 2,
-                    }}
-                  />
-                </button>
-              </div>
-
+        {jobs
+          ?.filter(
+            (job) =>
+              (filter === "all" || job.enabled === (filter === "enabled")) &&
+              `${job.name} ${job.payload?.message ?? job.payload?.text ?? ""}`
+                .toLowerCase()
+                .includes(search.trim().toLowerCase()),
+          )
+          .map((job) => {
+            const lastStatus = job.state?.lastRunStatus;
+            return (
               <div
-                className="flex items-center gap-2 text-[11px] flex-wrap"
-                style={{ color: "var(--text-secondary)" }}
+                key={job.id}
+                className="rounded-xl p-3 space-y-1.5"
+                style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border)" }}
               >
-                <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
-                  {scheduleLabel(job)}
-                </span>
-                {job.state?.nextRunAtMs && <span>· 下次 {fmtTime(job.state.nextRunAtMs)}</span>}
-                {job.state?.lastRunAtMs && (
-                  <span>
-                    · 上次 {fmtTime(job.state.lastRunAtMs)}
-                    {lastStatus ? `（${RUN_STATUS_LABEL[lastStatus] ?? lastStatus}）` : ""}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5 pt-0.5">
-                <button
-                  onClick={() => void runNow(job)}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
-                  style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
-                  title="立即运行一次"
-                >
-                  <Play size={10} />
-                  运行
-                </button>
-                <button
-                  onClick={() => void toggleHistory(job.id)}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
-                  style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
-                  title="最近运行记录"
-                >
-                  <ChevronDown
-                    size={10}
-                    className={
-                      historyJobId === job.id
-                        ? "rotate-180 transition-transform"
-                        : "transition-transform"
-                    }
+                <div className="flex items-center gap-2">
+                  <CalendarClock
+                    size={13}
+                    className="shrink-0"
+                    style={{ color: job.enabled ? "var(--accent)" : "var(--text-secondary)" }}
                   />
-                  历史
-                </button>
-                <span className="flex-1" />
-                {confirmDelete === job.id ? (
-                  <button
-                    onClick={() => void remove(job)}
-                    className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md"
-                    style={{ background: "var(--danger)", color: "var(--on-solid)" }}
-                    title="再次点击确认删除"
+                  <span
+                    className="text-xs font-medium truncate flex-1"
+                    style={{ color: job.enabled ? "var(--text-primary)" : "var(--text-secondary)" }}
+                    title={job.payload?.message}
                   >
-                    <Check size={10} />
-                    确认删除
-                  </button>
-                ) : (
+                    {job.name}
+                  </span>
+                  {job.payload?.lightContext === true && (
+                    <span
+                      className="shrink-0 flex items-center gap-0.5 text-[9px] px-1 py-px rounded"
+                      style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                      title="轻上下文：不注入认知文件，冷启动省 token"
+                    >
+                      <Zap size={9} />
+                      轻上下文
+                    </span>
+                  )}
+                  {/* 开关 */}
                   <button
-                    onClick={() => void remove(job)}
-                    className="p-1 rounded-md hover:opacity-70"
+                    onClick={() => void toggleEnabled(job)}
+                    className="shrink-0 rounded-full relative transition-colors"
+                    style={{
+                      background: job.enabled ? "var(--accent)" : "var(--border)",
+                      width: 32,
+                      height: 18,
+                    }}
+                    title={job.enabled ? "点击停用" : "点击启用"}
+                  >
+                    <span
+                      className="absolute rounded-full bg-white"
+                      style={{
+                        top: 2,
+                        width: 14,
+                        height: 14,
+                        left: job.enabled ? 16 : 2,
+                      }}
+                    />
+                  </button>
+                </div>
+
+                <div
+                  className="flex items-center gap-2 text-[11px] flex-wrap"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
+                    {scheduleLabel(job)}
+                  </span>
+                  {job.state?.nextRunAtMs && <span>· 下次 {fmtTime(job.state.nextRunAtMs)}</span>}
+                  {job.state?.lastRunAtMs && (
+                    <span>
+                      · 上次 {fmtTime(job.state.lastRunAtMs)}
+                      {lastStatus ? `（${RUN_STATUS_LABEL[lastStatus] ?? lastStatus}）` : ""}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <button
+                    onClick={() => {
+                      setEditingJob(job);
+                      setShowCreate(true);
+                    }}
+                    className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
+                    style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                    title="编辑任务"
+                  >
+                    <Pencil size={10} />
+                    编辑
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingJob({ ...job, id: "", name: `${job.name} 副本` });
+                      setShowCreate(true);
+                    }}
+                    className="p-1 rounded-md hover:opacity-80"
                     style={{ color: "var(--text-secondary)" }}
-                    title="删除定时任务"
+                    title="复制任务"
                   >
-                    <Trash2 size={11} />
+                    <Copy size={11} />
                   </button>
+                  <button
+                    onClick={() => void runNow(job)}
+                    className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
+                    style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                    title="立即运行一次"
+                  >
+                    <Play size={10} />
+                    运行
+                  </button>
+                  <button
+                    onClick={() => void toggleHistory(job.id)}
+                    className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
+                    style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                    title="最近运行记录"
+                  >
+                    <ChevronDown
+                      size={10}
+                      className={
+                        historyJobId === job.id
+                          ? "rotate-180 transition-transform"
+                          : "transition-transform"
+                      }
+                    />
+                    历史
+                  </button>
+                  <span className="flex-1" />
+                  {confirmDelete === job.id ? (
+                    <button
+                      onClick={() => void remove(job)}
+                      className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md"
+                      style={{ background: "var(--danger)", color: "var(--on-solid)" }}
+                      title="再次点击确认删除"
+                    >
+                      <Check size={10} />
+                      确认删除
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void remove(job)}
+                      className="p-1 rounded-md hover:opacity-70"
+                      style={{ color: "var(--text-secondary)" }}
+                      title="删除定时任务"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+
+                {historyJobId === job.id && (
+                  <div
+                    className="rounded-lg px-2.5 py-2 space-y-1"
+                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+                  >
+                    {runsLoading && (
+                      <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                        加载中…
+                      </div>
+                    )}
+                    {!runsLoading && runs?.length === 0 && (
+                      <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                        暂无运行记录
+                      </div>
+                    )}
+                    {runs?.map((run, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px] min-w-0">
+                        <span
+                          className="shrink-0 font-medium"
+                          style={{
+                            color:
+                              run.status === "ok"
+                                ? "var(--success)"
+                                : run.status === "error"
+                                  ? "var(--danger)"
+                                  : "var(--text-secondary)",
+                          }}
+                        >
+                          {RUN_STATUS_LABEL[run.status ?? ""] ?? run.status ?? "未知"}
+                        </span>
+                        <span style={{ color: "var(--text-secondary)" }} className="shrink-0">
+                          {fmtTime(run.runAtMs ?? run.ts)}
+                        </span>
+                        {run.durationMs != null && (
+                          <span className="shrink-0" style={{ color: "var(--text-secondary)" }}>
+                            {(run.durationMs / 1000).toFixed(1)}s
+                          </span>
+                        )}
+                        {run.summary && (
+                          <span className="truncate min-w-0" title={run.summary}>
+                            {run.summary}
+                          </span>
+                        )}
+                        {run.error && (
+                          <span
+                            className="truncate min-w-0"
+                            style={{ color: "var(--danger)" }}
+                            title={run.error}
+                          >
+                            {run.error}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {historyJobId === job.id && (
-                <div
-                  className="rounded-lg px-2.5 py-2 space-y-1"
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
-                >
-                  {runsLoading && (
-                    <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-                      加载中…
-                    </div>
-                  )}
-                  {!runsLoading && runs?.length === 0 && (
-                    <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-                      暂无运行记录
-                    </div>
-                  )}
-                  {runs?.map((run, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[11px] min-w-0">
-                      <span
-                        className="shrink-0 font-medium"
-                        style={{
-                          color:
-                            run.status === "ok"
-                              ? "var(--success)"
-                              : run.status === "error"
-                                ? "var(--danger)"
-                                : "var(--text-secondary)",
-                        }}
-                      >
-                        {RUN_STATUS_LABEL[run.status ?? ""] ?? run.status ?? "未知"}
-                      </span>
-                      <span style={{ color: "var(--text-secondary)" }} className="shrink-0">
-                        {fmtTime(run.runAtMs ?? run.ts)}
-                      </span>
-                      {run.durationMs != null && (
-                        <span className="shrink-0" style={{ color: "var(--text-secondary)" }}>
-                          {(run.durationMs / 1000).toFixed(1)}s
-                        </span>
-                      )}
-                      {run.summary && (
-                        <span className="truncate min-w-0" title={run.summary}>
-                          {run.summary}
-                        </span>
-                      )}
-                      {run.error && (
-                        <span
-                          className="truncate min-w-0"
-                          style={{ color: "var(--danger)" }}
-                          title={run.error}
-                        >
-                          {run.error}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       {showCreate && (
         <CronCreateForm
-          onClose={() => setShowCreate(false)}
+          key={editingJob?.id ?? "new"}
+          job={editingJob}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingJob(null);
+          }}
           onCreated={() => {
             setShowCreate(false);
+            setEditingJob(null);
             void refresh();
           }}
         />
@@ -380,27 +462,68 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
   );
 }
 
-function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [name, setName] = useState("");
+function CronCreateForm({
+  job,
+  onClose,
+  onCreated,
+}: {
+  job: CronJobSummary | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState(job?.name ?? "");
   const [schedule, setSchedule] = useState<ScheduleResult | null>(null);
-  const [message, setMessage] = useState("");
-  const [lightContext, setLightContext] = useState(true);
+  const [message, setMessage] = useState(job?.payload.message ?? job?.payload.text ?? "");
+  const [lightContext, setLightContext] = useState(job?.payload.lightContext ?? true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = name.trim().length > 0 && schedule !== null && message.trim().length > 0;
+  const canSubmit =
+    name.trim().length > 0 && (schedule !== null || job !== null) && message.trim().length > 0;
 
   async function submit() {
     if (!canSubmit || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await gateway.cronCreate({
-        name: name.trim(),
-        schedule: schedule!.schedule,
-        message: message.trim(),
-        lightContext,
-      });
+      if (job?.id) {
+        await gateway.call("cron.update", {
+          id: job.id,
+          patch: {
+            name: name.trim(),
+            ...(schedule ? { schedule: schedule.schedule } : {}),
+            payload:
+              job.payload.kind === "systemEvent"
+                ? { kind: "systemEvent", text: message.trim() }
+                : { ...job.payload, message: message.trim(), lightContext },
+          },
+        });
+      } else if (job) {
+        await gateway.call("cron.add", {
+          name: name.trim(),
+          schedule: schedule?.schedule ?? job.schedule,
+          payload:
+            job.payload.kind === "systemEvent"
+              ? { kind: "systemEvent", text: message.trim() }
+              : { ...job.payload, message: message.trim(), lightContext },
+          sessionTarget: job.sessionTarget ?? "isolated",
+          wakeMode: job.wakeMode ?? "now",
+          delivery: job.delivery ?? { mode: "none" },
+          enabled: job.enabled,
+          ...(job.agentId ? { agentId: job.agentId } : {}),
+          ...(job.sessionKey ? { sessionKey: job.sessionKey } : {}),
+          ...(job.description ? { description: job.description } : {}),
+          ...(job.deleteAfterRun !== undefined ? { deleteAfterRun: job.deleteAfterRun } : {}),
+          ...(job.failureAlert !== undefined ? { failureAlert: job.failureAlert } : {}),
+        });
+      } else {
+        await gateway.cronCreate({
+          name: name.trim(),
+          schedule: schedule!.schedule,
+          message: message.trim(),
+          lightContext,
+        });
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -426,7 +549,9 @@ function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">新建定时任务</span>
+          <span className="text-sm font-medium">
+            {job?.id ? "编辑定时任务" : job ? "复制定时任务" : "新建定时任务"}
+          </span>
           <button
             onClick={onClose}
             className="p-1 rounded hover:opacity-70"
@@ -456,7 +581,11 @@ function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated
           </span>
           <SchedulePicker onChange={setSchedule} />
           <span className="text-[10px] block" style={{ color: "var(--text-secondary)" }}>
-            {schedule ? `已选：${schedule.summary}` : "选择频率后自动生成调度（Asia/Hong_Kong）"}
+            {schedule
+              ? `已选：${schedule.summary}`
+              : job
+                ? `当前：${scheduleLabel(job)}（不修改频率则保留）`
+                : "选择频率后自动生成调度（Asia/Hong_Kong）"}
           </span>
         </div>
 
@@ -499,7 +628,7 @@ function CronCreateForm({ onClose, onCreated }: { onClose: () => void; onCreated
             className="text-xs px-3.5 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-30"
             style={{ background: "var(--accent)", color: "var(--on-solid)" }}
           >
-            {busy ? "创建中…" : "创建"}
+            {busy ? "保存中…" : job?.id ? "保存" : "创建"}
           </button>
         </div>
       </div>
