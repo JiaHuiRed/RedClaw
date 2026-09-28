@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ActivityPanel from "./components/ActivityPanel";
+import AgentFilesWorkspace from "./components/AgentFilesWorkspace";
 import ChatPanel from "./components/ChatPanel";
 import CronPanel from "./components/CronPanel";
 import SessionsWorkspace from "./components/SessionsWorkspace";
@@ -312,6 +313,11 @@ export default function App() {
       {visitedViews.has("skills") && (
         <div className={view === "skills" ? "flex flex-1 min-w-0" : "hidden"}>
           <SkillsWorkspace connected={connected} />
+        </div>
+      )}
+      {visitedViews.has("files") && (
+        <div className={view === "files" ? "flex flex-1 min-w-0" : "hidden"}>
+          <AgentFilesWorkspace connected={connected} />
         </div>
       )}
       {view === "chat" && rightPanel === "activity" && (
