@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ActivityPanel from "./components/ActivityPanel";
 import ChatPanel from "./components/ChatPanel";
 import CronPanel from "./components/CronPanel";
+import SessionsWorkspace from "./components/SessionsWorkspace";
 import Sidebar from "./components/Sidebar";
+import type { SidebarView } from "./components/Sidebar";
 import TodoPanel from "./components/TodoPanel";
 import UsagePanel from "./components/UsagePanel";
 import {
@@ -26,6 +28,8 @@ export default function App() {
   const [connecting, setConnecting] = useState(false);
   const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [view, setView] = useState<SidebarView>("chat");
+  const [visitedViews, setVisitedViews] = useState<Set<SidebarView>>(() => new Set(["chat"]));
   const [rightPanel, setRightPanel] = useState<"none" | "activity" | "todo" | "usage" | "cron">(
     "none",
   );
@@ -203,9 +207,16 @@ export default function App() {
   const handleSelectSession = useCallback((sessionKey: string) => {
     setCurrentSessionKey(sessionKey);
     gateway.setActiveSessionKey(sessionKey);
+    setView("chat");
+  }, []);
+
+  const handleSelectView = useCallback((next: SidebarView) => {
+    setVisitedViews((previous) => new Set(previous).add(next));
+    setView(next);
   }, []);
 
   const handleNewSession = useCallback(async () => {
+    setView("chat");
     setMessages([]);
     try {
       const key = await gateway.createSession();
@@ -268,27 +279,36 @@ export default function App() {
         onNewSession={handleNewSession}
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
+        view={view}
+        onSelectView={handleSelectView}
       />
-      <ChatPanel
-        connected={connected}
-        setConnected={handleConnectedChange}
-        connecting={connecting}
-        setConnecting={setConnecting}
-        connectionState={connectionState}
-        messages={messages}
-        setMessages={setMessages}
-        sessionInfo={sessionInfo}
-        commands={commands}
-        sessions={sessions}
-        currentSessionKey={currentSessionKey}
-        onSelectSession={handleSelectSession}
-        onToggleActivity={onToggleActivity}
-        onToggleTodo={onToggleTodo}
-        onToggleUsage={onToggleUsage}
-        onToggleCron={onToggleCron}
-        loadingHistory={loadingHistory}
-      />
-      {rightPanel === "activity" && (
+      <div className={view === "chat" ? "flex flex-1 min-w-0" : "hidden"}>
+        <ChatPanel
+          connected={connected}
+          setConnected={handleConnectedChange}
+          connecting={connecting}
+          setConnecting={setConnecting}
+          connectionState={connectionState}
+          messages={messages}
+          setMessages={setMessages}
+          sessionInfo={sessionInfo}
+          commands={commands}
+          sessions={sessions}
+          currentSessionKey={currentSessionKey}
+          onSelectSession={handleSelectSession}
+          onToggleActivity={onToggleActivity}
+          onToggleTodo={onToggleTodo}
+          onToggleUsage={onToggleUsage}
+          onToggleCron={onToggleCron}
+          loadingHistory={loadingHistory}
+        />
+      </div>
+      {visitedViews.has("sessions") && (
+        <div className={view === "sessions" ? "flex flex-1 min-w-0" : "hidden"}>
+          <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />
+        </div>
+      )}
+      {view === "chat" && rightPanel === "activity" && (
         <ActivityPanel
           outputs={toolOutputs}
           sessions={sessions}
@@ -297,21 +317,21 @@ export default function App() {
           onClose={() => setRightPanel("none")}
         />
       )}
-      {rightPanel === "todo" && (
+      {view === "chat" && rightPanel === "todo" && (
         <TodoPanel
           width={rightPanelWidth}
           onResize={setRightPanelWidth}
           onClose={() => setRightPanel("none")}
         />
       )}
-      {rightPanel === "usage" && (
+      {view === "chat" && rightPanel === "usage" && (
         <UsagePanel
           width={rightPanelWidth}
           onResize={setRightPanelWidth}
           onClose={() => setRightPanel("none")}
         />
       )}
-      {rightPanel === "cron" && (
+      {view === "chat" && rightPanel === "cron" && (
         <CronPanel
           width={rightPanelWidth}
           onResize={setRightPanelWidth}
