@@ -1,11 +1,20 @@
-import { Briefcase, ArrowUp } from "lucide-react";
+import { Briefcase, ArrowUp, MessagesSquare, CalendarClock, ListTodo } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { gateway, type AgentSummary } from "../gateway/client";
+import {
+  gateway,
+  HEARTBEAT_SESSION_KEY,
+  type AgentSummary,
+  type ChatSession,
+  type CronJobSummary,
+  type Todo,
+} from "../gateway/client";
 import ModeTabs, { type AppMode } from "./ModeTabs";
 
 interface WorkHomeProps {
   connected: boolean;
+  sessions: ChatSession[];
   onSend: (text: string, agentId: string) => void;
+  onOpenSession: (sessionKey: string) => void;
   onSwitchMode: (mode: AppMode) => void;
 }
 
@@ -18,11 +27,39 @@ function greeting(): string {
   return "晚上好";
 }
 
-// 工作台主页：居中输入 + 项目区选择（参考 ChatGPT Work/Codex 布局骨架）
-export default function WorkHome({ connected, onSend, onSwitchMode }: WorkHomeProps) {
+function fmtRel(ts?: number): string {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  if (diff < 60000) return "刚刚";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
+  const d = new Date(ts);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function fmtNext(ms?: number): string {
+  if (!ms) return "待排程";
+  const diff = ms - Date.now();
+  if (diff <= 0) return "即将运行";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟后`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时后`;
+  const d = new Date(ms);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+// 工作台主页：居中输入 + 项目区选择 + 进行中聚合（参考 ChatGPT Work/Codex 布局骨架）
+export default function WorkHome({
+  connected,
+  sessions,
+  onSend,
+  onOpenSession,
+  onSwitchMode,
+}: WorkHomeProps) {
   const [text, setText] = useState("");
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [agentId, setAgentId] = useState("");
+  const [cronJobs, setCronJobs] = useState<CronJobSummary[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
 
   useEffect(() => {
     if (!connected) return;
@@ -35,10 +72,44 @@ export default function WorkHome({ connected, onSend, onSwitchMode }: WorkHomePr
         setAgentId((prev) => prev || res.defaultId || res.agents[0]?.id || "");
       })
       .catch(() => undefined);
+    // 进行中聚合：定时任务与待办拉一次即可（低频面，不做轮询）
+    void gateway
+      .fetchCronJobs()
+      .then((jobs) => !cancelled && setCronJobs(jobs.filter((j) => j.enabled)))
+      .catch(() => undefined);
+    void gateway
+      .fetchTodos()
+      .then((all) => {
+        if (cancelled) return;
+        setTodos(
+          all
+            .filter((t) => t.status === "open" || t.status === "in_progress")
+            .sort((a, b) => b.updatedAt - a.updatedAt),
+        );
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, [connected]);
+
+  // 最近会话：侧栏同源（status 的 recent），排除心跳隔离会话
+  const recentSessions = useMemo(
+    () =>
+      sessions
+        .filter((s) => s.sessionKey !== HEARTBEAT_SESSION_KEY)
+        .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+        .slice(0, 4),
+    [sessions],
+  );
+  const nextCron = useMemo(
+    () =>
+      [...cronJobs]
+        .sort((a, b) => (a.state.nextRunAtMs ?? Infinity) - (b.state.nextRunAtMs ?? Infinity))
+        .slice(0, 4),
+    [cronJobs],
+  );
+  const openTodos = useMemo(() => todos.slice(0, 4), [todos]);
 
   const selected = useMemo(() => agents.find((a) => a.id === agentId), [agents, agentId]);
 
@@ -48,6 +119,9 @@ export default function WorkHome({ connected, onSend, onSwitchMode }: WorkHomePr
     onSend(msg, agentId);
     setText("");
   }
+
+  const hasActivity =
+    connected && (recentSessions.length > 0 || nextCron.length > 0 || openTodos.length > 0);
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -126,7 +200,6 @@ export default function WorkHome({ connected, onSend, onSwitchMode }: WorkHomePr
             </div>
           </div>
 
-          {/* 进行中的工作聚合区：下一步接入 */}
           {selected?.workspace && (
             <div
               className="text-center text-[11px] mt-3"
@@ -135,8 +208,113 @@ export default function WorkHome({ connected, onSend, onSwitchMode }: WorkHomePr
               {selected.workspace}
             </div>
           )}
+
+          {/* 进行中聚合：最近会话 / 定时任务 / 待办 */}
+          {hasActivity && (
+            <div className="grid grid-cols-3 gap-3 mt-10">
+              <div>
+                <div
+                  className="flex items-center gap-1.5 text-[11px] font-medium mb-2 px-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <MessagesSquare size={12} />
+                  最近会话
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {recentSessions.length === 0 && <EmptyHint text="暂无会话" />}
+                  {recentSessions.map((s) => (
+                    <button
+                      key={s.sessionKey}
+                      onClick={() => onOpenSession(s.sessionKey)}
+                      className="text-left rounded-xl border px-3 py-2 transition-all duration-300 ease-out hover:shadow-sm hover:-translate-y-0.5"
+                      style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
+                    >
+                      <div className="text-xs truncate" style={{ color: "var(--text-primary)" }}>
+                        {s.title || s.model || s.sessionKey}
+                      </div>
+                      <div
+                        className="text-[10px] mt-0.5"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {fmtRel(s.updatedAt)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div
+                  className="flex items-center gap-1.5 text-[11px] font-medium mb-2 px-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <CalendarClock size={12} />
+                  定时任务
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {nextCron.length === 0 && <EmptyHint text="暂无启用的任务" />}
+                  {nextCron.map((j) => (
+                    <div
+                      key={j.id}
+                      className="rounded-xl border px-3 py-2"
+                      style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
+                      title={j.description || j.name}
+                    >
+                      <div className="text-xs truncate" style={{ color: "var(--text-primary)" }}>
+                        {j.name}
+                      </div>
+                      <div
+                        className="text-[10px] mt-0.5"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {fmtNext(j.state.nextRunAtMs)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div
+                  className="flex items-center gap-1.5 text-[11px] font-medium mb-2 px-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <ListTodo size={12} />
+                  待办
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {openTodos.length === 0 && <EmptyHint text="暂无待办" />}
+                  {openTodos.map((t) => (
+                    <div
+                      key={t.id}
+                      className="rounded-xl border px-3 py-2"
+                      style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
+                      title={t.notes || t.title}
+                    >
+                      <div className="text-xs truncate" style={{ color: "var(--text-primary)" }}>
+                        {t.status === "in_progress" ? "▶ " : ""}
+                        {t.title}
+                      </div>
+                      <div
+                        className="text-[10px] mt-0.5"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        {fmtRel(t.updatedAt)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmptyHint({ text }: { text: string }) {
+  return (
+    <div className="text-[11px] px-1 py-1" style={{ color: "var(--text-secondary)" }}>
+      {text}
     </div>
   );
 }

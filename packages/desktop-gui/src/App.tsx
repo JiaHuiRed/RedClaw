@@ -327,7 +327,9 @@ export default function App() {
         <div className={view === "work" ? "flex flex-1 min-w-0" : "hidden"}>
           <WorkHome
             connected={connected}
+            sessions={sessions}
             onSend={handleWorkSend}
+            onOpenSession={handleSelectSession}
             onSwitchMode={(mode) => handleSelectView(mode)}
           />
         </div>
