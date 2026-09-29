@@ -921,7 +921,6 @@ function ChatPanel({
           <ModeTabs mode="chat" onChange={(m) => m === "work" && onSwitchToWork()} />
         </div>
         <div className="flex items-center gap-2 relative" ref={modelSelectorRef}>
-          <span className="text-sm font-medium">RedClaw</span>
           {connected && (
             <button
               onClick={() => setShowModelSelector((v) => !v)}
