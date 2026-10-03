@@ -11,11 +11,13 @@ import {
 import { createMergePatch, projectSourceOntoRuntimeShape } from "../../config/io.write-prepare.js";
 import { formatConfigIssueLines } from "../../config/issue-format.js";
 import { applyMergePatch } from "../../config/merge-patch.js";
+import { collectConfigOrigins } from "../../config/origins.js";
 import {
   redactConfigObject,
   redactConfigSnapshot,
   restoreRedactedValues,
 } from "../../config/redact-snapshot.js";
+import { getConfigOverrides } from "../../config/runtime-overrides.js";
 import { loadGatewayRuntimeConfigSchema } from "../../config/runtime-schema.js";
 import { lookupConfigSchema, type ConfigSchemaResponse } from "../../config/schema.js";
 import type { ConfigValidationIssue, OpenClawConfig } from "../../config/types.openclaw.js";
@@ -386,7 +388,19 @@ export const configHandlers: GatewayRequestHandlers = {
     }
     const snapshot = await readConfigFileSnapshot();
     const schema = loadSchemaWithPlugins();
-    respond(true, redactConfigSnapshot(snapshot, schema.uiHints), undefined);
+    const { origins, truncated } = collectConfigOrigins(
+      snapshot.sourceConfig,
+      getConfigOverrides(),
+    );
+    respond(
+      true,
+      {
+        ...redactConfigSnapshot(snapshot, schema.uiHints),
+        origins,
+        originsTruncated: truncated,
+      },
+      undefined,
+    );
   },
   "config.schema": ({ params, respond }) => {
     if (!assertValidParams(params, validateConfigSchemaParams, "config.schema", respond)) {
@@ -703,18 +717,15 @@ export const configHandlers: GatewayRequestHandlers = {
       respond(true, { ok: true, path: configPath }, undefined);
     } catch (error) {
       const errorMessage = formatConfigOpenError(error);
-      const isHeadlessError = errorMessage.includes("xdg-open") && errorMessage.includes("no method available");
+      const isHeadlessError =
+        errorMessage.includes("xdg-open") && errorMessage.includes("no method available");
       const detailedError = isHeadlessError
         ? `Cannot open file in headless environment. File path: ${configPath}. This environment appears to lack a graphical or terminal browser handler.`
         : `Failed to open config file: ${errorMessage}`;
       context?.logGateway?.warn(
         `config.openFile failed path=${sanitizeLookupPathForLog(configPath)}: ${errorMessage}`,
       );
-      respond(
-        true,
-        { ok: false, path: configPath, error: detailedError },
-        undefined,
-      );
+      respond(true, { ok: false, path: configPath, error: detailedError }, undefined);
     }
   },
 };
