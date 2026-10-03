@@ -665,4 +665,35 @@ describe("gateway server sessions", () => {
     expect(stored["agent:ops:work"]?.thinkingLevel).toBe("medium");
     expect(stored.main).toBeUndefined();
   });
+
+  it("returns per-path config origins that are unique, sorted, and override-aware", async () => {
+    const current = await rpcReq<{
+      origins?: { path: string; source: string }[];
+      originsTruncated?: boolean;
+      sourceConfig?: Record<string, unknown>;
+    }>(requireWs(), "config.get", {});
+    expect(current.ok).toBe(true);
+
+    const origins = current.payload?.origins ?? [];
+    expect(Array.isArray(origins)).toBe(true);
+    expect(current.payload?.originsTruncated).toBe(false);
+    for (const entry of origins) {
+      expect(typeof entry.path).toBe("string");
+      expect(entry.path.length).toBeGreaterThan(0);
+      expect(["file", "override"]).toContain(entry.source);
+    }
+
+    // 路径唯一且字典序稳定：前端按路径前缀归集来源依赖这个约定
+    const paths = origins.map((entry) => entry.path);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect([...paths].sort()).toEqual(paths);
+
+    // 测试环境未注入运行时 override，来源应全部是文件层
+    expect(origins.some((entry) => entry.source === "override")).toBe(false);
+
+    const sourceConfig = current.payload?.sourceConfig;
+    if (sourceConfig && Object.keys(sourceConfig).length > 0) {
+      expect(origins.length).toBeGreaterThan(0);
+    }
+  });
 });

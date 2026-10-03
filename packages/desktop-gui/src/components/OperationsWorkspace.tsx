@@ -1,5 +1,5 @@
 import { RefreshCw, Save } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { gateway } from "../gateway/client";
 
 type Section = "overview" | "devices" | "nodes" | "approvals" | "dreams" | "logs" | "config";
@@ -17,12 +17,15 @@ type Node = {
   connected?: boolean;
   paired?: boolean;
 };
+type ConfigOriginEntry = { path: string; source: string };
 type ConfigSnapshot = {
   hash?: string;
   sourceConfig?: Record<string, unknown>;
   config?: Record<string, unknown>;
   valid?: boolean;
   issues?: { path: string; message: string }[];
+  origins?: ConfigOriginEntry[];
+  originsTruncated?: boolean;
 };
 type LogTail = { lines?: string[]; file?: string };
 type DreamDiary = { found?: boolean; content?: string; path?: string };
@@ -33,6 +36,21 @@ type ExecApprovalsSnapshot = {
   file: Record<string, unknown>;
 };
 
+function OriginBadge({ source }: { source: string | undefined }) {
+  if (!source) return null;
+  const isOverride = source === "override";
+  return (
+    <span
+      className="shrink-0 text-[9px] leading-4 px-1 rounded"
+      style={{
+        background: "var(--bg-tertiary)",
+        color: isOverride ? "var(--accent)" : "var(--text-secondary)",
+      }}
+    >
+      {isOverride ? "覆盖" : "自定义"}
+    </span>
+  );
+}
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "overview", label: "运行概况" },
   { id: "devices", label: "设备配对" },
@@ -143,6 +161,19 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
     }
   }
 
+  // Origins from config.get: paths in sourceConfig are user-authored, runtime
+  // overrides win, anything absent comes from defaults. Rolled up to top-level
+  // keys for the sidebar badges.
+  const topKeyOrigins = useMemo(() => {
+    const byTop = new Map<string, string>();
+    for (const entry of config?.origins ?? []) {
+      const top = entry.path.split(".")[0] ?? entry.path;
+      if (byTop.get(top) === "override") continue;
+      if (entry.source === "override") byTop.set(top, "override");
+      else if (!byTop.has(top)) byTop.set(top, "file");
+    }
+    return byTop;
+  }, [config]);
   function chooseConfigKey(key: string) {
     if (draft !== original && !window.confirm("此处有未保存修改，确定切换配置项？")) return;
     setConfigKey(key);
@@ -539,7 +570,8 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
           <div className="space-y-3">
             <p className="text-xs" style={muted}>
               选择配置项编辑 JSON；保存前会确认。敏感字段由 Gateway
-              隐去，修改其他字段不会覆盖隐藏值。
+              隐去，修改其他字段不会覆盖隐藏值。标签「自定义」= 配置文件中的值，「覆盖」=
+              运行时覆盖，无标签为默认值。
             </p>
             {config?.valid === false && (
               <p role="alert" className="text-xs" style={{ color: "var(--danger)" }}>
@@ -555,13 +587,14 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                     <button
                       key={key}
                       onClick={() => chooseConfigKey(key)}
-                      className="block w-full text-left text-xs px-2 py-1.5 rounded-md truncate"
+                      className="flex items-center justify-between gap-1 w-full text-left text-xs px-2 py-1.5 rounded-md"
                       style={{
                         background: configKey === key ? "var(--accent)" : "var(--bg-secondary)",
                         color: configKey === key ? "var(--on-solid)" : "var(--text-secondary)",
                       }}
                     >
-                      {key}
+                      <span className="truncate">{key}</span>
+                      <OriginBadge source={topKeyOrigins.get(key)} />
                     </button>
                   ))}
               </div>
@@ -569,8 +602,9 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                 {configKey ? (
                   <>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">
+                      <span className="flex items-center gap-1.5 text-sm">
                         {configKey}
+                        <OriginBadge source={topKeyOrigins.get(configKey)} />
                         {draft !== original ? " · 未保存" : ""}
                       </span>
                       <button
