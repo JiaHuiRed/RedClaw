@@ -26,6 +26,7 @@ import {
   Power,
   RotateCw,
   Rocket,
+  Clock,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import {
@@ -75,6 +76,15 @@ function shortModel(m: string | null): string {
 }
 
 // 顶栏面板按钮分色：同排按钮一眼可辨（色阶 -9 淡染背景 + 同色文字，随主题切换）
+// 忙时入队的待发消息：快照发送时刻的文本/附件/模型/生图参数
+type QueuedMessage = {
+  id: string;
+  text: string;
+  attachments?: OutgoingImageAttachment[];
+  model?: string;
+  imageMode?: boolean;
+  imageSize?: string;
+};
 const PANEL_TINTS = {
   todo: {
     background: "color-mix(in srgb, var(--blue-9) 12%, var(--bg-secondary))",
@@ -312,6 +322,8 @@ function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  // 生成中发送的消息先入队，流结束后依次自动派出（借鉴 codex ext/queue）
+  const [sendQueue, setSendQueue] = useState<QueuedMessage[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [streamingReasoning, setStreamingReasoning] = useState("");
   // 流式分段（文本/工具交错）。ref 与 state 同步维护：onMessage 等
@@ -761,10 +773,54 @@ function ChatPanel({
 
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
-    if ((!msg && pendingImages.length === 0) || !connected || isGenerating) return;
+    if ((!msg && pendingImages.length === 0) || !connected) return;
+
+    // 生成中：入队而非丢弃；流结束后由下面的派发 effect 依次发出
+    if (isGenerating) {
+      const attachments: OutgoingImageAttachment[] = pendingImages.map((p) => ({
+        type: "image",
+        mimeType: p.mimeType,
+        fileName: p.fileName,
+        content: p.base64,
+      }));
+      setSendQueue((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          text: msg,
+          attachments: attachments.length ? attachments : undefined,
+          model: chatModel ?? undefined,
+          imageMode,
+          imageSize,
+        },
+      ]);
+      setInput("");
+      setShowCmdPalette(false);
+      setPendingImages([]);
+      return;
+    }
+
+    await sendNow({
+      id: crypto.randomUUID(),
+      text: msg,
+      attachments: pendingImages.map((p) => ({
+        type: "image",
+        mimeType: p.mimeType,
+        fileName: p.fileName,
+        content: p.base64,
+      })),
+      model: chatModel ?? undefined,
+      imageMode,
+      imageSize,
+    });
+  }
+
+  async function sendNow(item: QueuedMessage) {
+    const msg = item.text;
+    if (!msg && !item.attachments?.length) return;
 
     const userMsg: Message = {
-      id: crypto.randomUUID(),
+      id: item.id,
       role: "user",
       content: msg,
       timestamp: Date.now(),
@@ -783,23 +839,16 @@ function ChatPanel({
     setInput("");
     setShowCmdPalette(false);
     clearSegments();
-
-    const attachments: OutgoingImageAttachment[] = pendingImages.map((p) => ({
-      type: "image",
-      mimeType: p.mimeType,
-      fileName: p.fileName,
-      content: p.base64,
-    }));
     setPendingImages([]);
 
     // 生图模式：把请求发给秋秋 agent，由她调用 image_generate 工具生成
     // （直接传原文给工具会被模型当字面 prompt，中文描述如"自己的立绘"
     //  得不到理解；经 agent 能构造出准确的英文 prompt）
-    if (imageMode) {
+    if (item.imageMode) {
       setImagePending(true);
       setIsGenerating(true);
       try {
-        await gateway.sendMessage(`请用生图工具生成一张图片（尺寸 ${imageSize}）：${msg}`);
+        await gateway.sendMessage(`请用生图工具生成一张图片（尺寸 ${item.imageSize}）：${msg}`);
       } catch (err) {
         console.error("generate image failed:", err);
         setImagePending(false);
@@ -811,14 +860,29 @@ function ChatPanel({
     setIsGenerating(true);
     try {
       await gateway.sendMessage(msg, {
-        attachments: attachments.length ? attachments : undefined,
-        model: chatModel ?? undefined,
+        attachments: item.attachments?.length ? item.attachments : undefined,
+        model: item.model,
       });
     } catch (err) {
       console.error("send failed:", err);
       setIsGenerating(false);
     }
   }
+
+  // 队列派发：流结束（isGenerating 翻 false）后依次发出下一条。
+  // sendNowRef 每次渲染后指向最新实现，避免把每渲染重建的函数塞进依赖数组；
+  // 未连接时不派发，队列保留到重连后继续（断线不应吞掉排队消息）。
+  const sendNowRef = useRef<((item: QueuedMessage) => Promise<void>) | null>(null);
+  useEffect(() => {
+    sendNowRef.current = sendNow;
+  });
+  useEffect(() => {
+    if (!connected || isGenerating || sendQueue.length === 0) return;
+    const next = sendQueue[0];
+    if (!next) return;
+    setSendQueue((prev) => prev.slice(1));
+    void sendNowRef.current?.(next);
+  }, [connected, isGenerating, sendQueue]);
 
   async function handleStop() {
     try {
@@ -1506,6 +1570,33 @@ function ChatPanel({
             borderColor: "var(--border)",
           }}
         >
+          {sendQueue.length > 0 && (
+            <div className="flex flex-col gap-1 px-1 pt-1">
+              {sendQueue.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs"
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  <Clock size={11} className="shrink-0" />
+                  <span className="truncate flex-1">
+                    {item.imageMode ? "生图：" : ""}
+                    {item.text}
+                  </span>
+                  <button
+                    onClick={() => setSendQueue((prev) => prev.filter((x) => x.id !== item.id))}
+                    className="shrink-0 opacity-70 hover:opacity-100"
+                    title="移出队列"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {pendingImages.length > 0 && (
             <div className="flex flex-wrap gap-2 px-1 pt-1 pb-0.5">
               {pendingImages.map((p) => (
