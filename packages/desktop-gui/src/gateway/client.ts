@@ -1422,7 +1422,9 @@ class GatewayClient {
       const metaUrl = `${httpBase}/__openclaw__/assistant-media?source=${enc}&meta=1${
         this.token ? `&token=${encodeURIComponent(this.token)}` : ""
       }`;
-      const res = await fetch(metaUrl);
+      // 5s 超时：网关 HTTP 端口半死（TCP 通但不响应）时避免挂住整个历史加载，
+      // 超时走下方 catch 按解析失败返回 null。
+      const res = await fetch(metaUrl, { signal: AbortSignal.timeout(5_000) });
       if (!res.ok) return null;
       const data = await res.json();
       if (data?.available && data?.mediaTicket) {
