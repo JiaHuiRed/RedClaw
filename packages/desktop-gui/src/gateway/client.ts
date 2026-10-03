@@ -1352,10 +1352,10 @@ class GatewayClient {
       const path = m[1].trim();
       if (path) mediaCandidates.push(path);
     }
-    await this._resolveAndNotifyImages(mediaCandidates, content);
+    await this._resolveAndNotifyImages(mediaCandidates, content, message?.id);
   }
 
-  private async _resolveAndNotifyImages(mediaCandidates: string[], text: string) {
+  private async _resolveAndNotifyImages(mediaCandidates: string[], text: string, messageId?: string) {
     let images: MessageImage[] = [];
     // server 可能同时填 mediaUrl + mediaUrls[0]（同一路径双字段），且本地路径
     // 每次解析换新 mediaTicket，按最终 URL 去重会失效——先按原始路径去重，
@@ -1385,7 +1385,8 @@ class GatewayClient {
     }
 
     this._notifyMessage({
-      id: crypto.randomUUID(),
+      // 服务端稳定 id 透传：重复 final 广播（如重连重放）被 _notifyMessage 去重拦截。
+      id: messageId || crypto.randomUUID(),
       role: "assistant",
       content: text,
       timestamp: Date.now(),
