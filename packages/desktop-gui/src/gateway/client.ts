@@ -1177,11 +1177,12 @@ class GatewayClient {
       this.ws.onerror = null;
       this.ws.close();
       this.ws = null;
+      // 调度重连绑定「本次确实关闭了 ws」：challenge 超时回调与 _sendConnect
+      // catch 会先后到达本函数，ws 已为 null 说明断开已在别处（onclose 或
+      // 首次调用）处理过，重复调度只会让退避多翻一档。
+      if (this.running) this._scheduleReconnect();
     }
     this._notifyStatus();
-    if (this.running) {
-      this._scheduleReconnect();
-    }
   }
 
   private async _sendConnect() {
@@ -1355,7 +1356,11 @@ class GatewayClient {
     await this._resolveAndNotifyImages(mediaCandidates, content, message?.id);
   }
 
-  private async _resolveAndNotifyImages(mediaCandidates: string[], text: string, messageId?: string) {
+  private async _resolveAndNotifyImages(
+    mediaCandidates: string[],
+    text: string,
+    messageId?: string,
+  ) {
     let images: MessageImage[] = [];
     // server 可能同时填 mediaUrl + mediaUrls[0]（同一路径双字段），且本地路径
     // 每次解析换新 mediaTicket，按最终 URL 去重会失效——先按原始路径去重，
