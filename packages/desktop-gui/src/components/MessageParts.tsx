@@ -9,10 +9,14 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch (err) {
+          console.error("复制失败", err);
+        }
       }}
       className="shrink-0 p-1 rounded opacity-0 group-hover/code:opacity-100 transition-opacity"
       style={{ color: "var(--text-secondary)" }}
