@@ -20,6 +20,10 @@ const ALLOWED = {
     reason: "canvas fillStyle 背景填充，非 UI 颜色",
     values: ["#fff"],
   },
+  "TrafficLights.tsx": {
+    reason: "macOS 交通灯固定原生色：红黄绿三点是苹果系统控件配色，不随主题切换",
+    values: ["#ff5f57", "#febc2e", "#28c840"],
+  },
 };
 
 // 阴影墨色统一放行：boxShadow 的 rgba(0,0,0,α) 是主题无关的投影，不参与主题切换

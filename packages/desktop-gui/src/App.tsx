@@ -3,6 +3,7 @@ import ActivityPanel from "./components/ActivityPanel";
 import AgentFilesWorkspace from "./components/AgentFilesWorkspace";
 import ChatHome from "./components/ChatHome";
 import ChatPanel from "./components/ChatPanel";
+import ConnectionBadge from "./components/ConnectionBadge";
 import CronPanel from "./components/CronPanel";
 import OperationsWorkspace from "./components/OperationsWorkspace";
 import SessionsWorkspace from "./components/SessionsWorkspace";
@@ -10,6 +11,7 @@ import Sidebar from "./components/Sidebar";
 import type { SidebarView } from "./components/Sidebar";
 import SkillsWorkspace from "./components/SkillsWorkspace";
 import TodoPanel from "./components/TodoPanel";
+import { TrafficLights } from "./components/TrafficLights";
 import UsagePanel from "./components/UsagePanel";
 import WorkHome from "./components/WorkHome";
 import {
@@ -299,124 +301,139 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen">
-      <Sidebar
-        connected={connected}
-        connectionState={connectionState}
-        sessions={sessions}
-        currentSessionKey={currentSessionKey}
-        onSelectSession={handleSelectSession}
-        onNewSession={handleNewSession}
-        onDeleteSession={handleDeleteSession}
-        onRenameSession={handleRenameSession}
-        view={view}
-        onSelectView={handleSelectView}
-      />
-      <div className={view === "chat" && inSession ? "flex flex-1 min-w-0" : "hidden"}>
-        <ChatPanel
+    <div className="flex flex-col h-screen w-screen">
+      {/* 全局标题栏（decorations:false 自绘）：只有交通灯+品牌，横贯全窗可拖拽；
+          其余操作按钮和页面 tab 都在下方内容区 */}
+      <div
+        className="flex items-center gap-2.5 px-3 h-12 border-b shrink-0"
+        style={{ borderColor: "var(--border)" }}
+        data-tauri-drag-region
+      >
+        <TrafficLights />
+        <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+          RedClaw
+        </span>
+        <ConnectionBadge state={connectionState} />
+      </div>
+      <div className="flex flex-1 min-h-0">
+        <Sidebar
           connected={connected}
-          setConnected={handleConnectedChange}
           connecting={connecting}
           setConnecting={setConnecting}
           connectionState={connectionState}
-          messages={messages}
-          setMessages={setMessages}
-          sessionInfo={sessionInfo}
-          commands={commands}
           sessions={sessions}
           currentSessionKey={currentSessionKey}
           onSelectSession={handleSelectSession}
-          onToggleActivity={onToggleActivity}
-          onToggleTodo={onToggleTodo}
-          onToggleUsage={onToggleUsage}
-          onToggleCron={onToggleCron}
-          loadingHistory={loadingHistory}
-          workDraft={workDraft}
-          onWorkDraftConsumed={() => setWorkDraft(null)}
-          onBackHome={handleBackHome}
+          onNewSession={handleNewSession}
+          onDeleteSession={handleDeleteSession}
+          onRenameSession={handleRenameSession}
+          view={view}
+          onSelectView={handleSelectView}
         />
-      </div>
-      {view === "chat" && !inSession && (
-        <ChatHome connected={connected} onSend={handleWorkSend} onSwitchMode={handleSelectView} />
-      )}
-      {visitedViews.has("work") && (
-        <div className={view === "work" ? "flex flex-1 min-w-0" : "hidden"}>
-          <WorkHome
+        <div className={view === "chat" && inSession ? "flex flex-1 min-w-0" : "hidden"}>
+          <ChatPanel
             connected={connected}
+            setConnected={handleConnectedChange}
+            setConnecting={setConnecting}
+            messages={messages}
+            setMessages={setMessages}
+            sessionInfo={sessionInfo}
+            commands={commands}
             sessions={sessions}
-            onSend={handleWorkSend}
-            onOpenSession={handleSelectSession}
-            onSwitchMode={(mode) => handleSelectView(mode)}
+            currentSessionKey={currentSessionKey}
+            onSelectSession={handleSelectSession}
+            onToggleActivity={onToggleActivity}
+            onToggleTodo={onToggleTodo}
+            onToggleUsage={onToggleUsage}
+            onToggleCron={onToggleCron}
+            loadingHistory={loadingHistory}
+            workDraft={workDraft}
+            onWorkDraftConsumed={() => setWorkDraft(null)}
+            onBackHome={handleBackHome}
           />
         </div>
-      )}
-      {visitedViews.has("sessions") && (
-        <div className={view === "sessions" ? "flex flex-1 min-w-0" : "hidden"}>
-          <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />
-        </div>
-      )}
-      {visitedViews.has("skills") && (
-        <div className={view === "skills" ? "flex flex-1 min-w-0" : "hidden"}>
-          <SkillsWorkspace connected={connected} />
-        </div>
-      )}
-      {visitedViews.has("files") && (
-        <div className={view === "files" ? "flex flex-1 min-w-0" : "hidden"}>
-          <AgentFilesWorkspace connected={connected} />
-        </div>
-      )}
-      {visitedViews.has("operations") && (
-        <div className={view === "operations" ? "flex flex-1 min-w-0" : "hidden"}>
-          <OperationsWorkspace connected={connected} />
-        </div>
-      )}
-      {view === "chat" && rightPanel === "activity" && (
-        <ActivityPanel
-          outputs={toolOutputs}
-          sessions={sessions}
-          width={rightPanelWidth}
-          onResize={setRightPanelWidth}
-          onClose={() => setRightPanel("none")}
-        />
-      )}
-      {view === "chat" && rightPanel === "todo" && (
-        <TodoPanel
-          width={rightPanelWidth}
-          onResize={setRightPanelWidth}
-          onClose={() => setRightPanel("none")}
-        />
-      )}
-      {view === "chat" && rightPanel === "usage" && (
-        <UsagePanel
-          width={rightPanelWidth}
-          onResize={setRightPanelWidth}
-          onClose={() => setRightPanel("none")}
-        />
-      )}
-      {view === "chat" && rightPanel === "cron" && (
-        <CronPanel
-          width={rightPanelWidth}
-          onResize={setRightPanelWidth}
-          onClose={() => setRightPanel("none")}
-        />
-      )}
-      {toasts.length > 0 && (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
-          {toasts.map((t) => (
-            <div
-              key={t.id}
-              className="px-4 py-2.5 rounded-lg text-sm shadow-lg"
-              style={{
-                background: "var(--bg-secondary)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              {t.message}
-            </div>
-          ))}
-        </div>
-      )}
+        {view === "chat" && !inSession && (
+          <ChatHome connected={connected} onSend={handleWorkSend} onSwitchMode={handleSelectView} />
+        )}
+        {visitedViews.has("work") && (
+          <div className={view === "work" ? "flex flex-1 min-w-0" : "hidden"}>
+            <WorkHome
+              connected={connected}
+              sessions={sessions}
+              onSend={handleWorkSend}
+              onOpenSession={handleSelectSession}
+              onSwitchMode={(mode) => handleSelectView(mode)}
+            />
+          </div>
+        )}
+        {visitedViews.has("sessions") && (
+          <div className={view === "sessions" ? "flex flex-1 min-w-0" : "hidden"}>
+            <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />
+          </div>
+        )}
+        {visitedViews.has("skills") && (
+          <div className={view === "skills" ? "flex flex-1 min-w-0" : "hidden"}>
+            <SkillsWorkspace connected={connected} />
+          </div>
+        )}
+        {visitedViews.has("files") && (
+          <div className={view === "files" ? "flex flex-1 min-w-0" : "hidden"}>
+            <AgentFilesWorkspace connected={connected} />
+          </div>
+        )}
+        {visitedViews.has("operations") && (
+          <div className={view === "operations" ? "flex flex-1 min-w-0" : "hidden"}>
+            <OperationsWorkspace connected={connected} />
+          </div>
+        )}
+        {view === "chat" && rightPanel === "activity" && (
+          <ActivityPanel
+            outputs={toolOutputs}
+            sessions={sessions}
+            width={rightPanelWidth}
+            onResize={setRightPanelWidth}
+            onClose={() => setRightPanel("none")}
+          />
+        )}
+        {view === "chat" && rightPanel === "todo" && (
+          <TodoPanel
+            width={rightPanelWidth}
+            onResize={setRightPanelWidth}
+            onClose={() => setRightPanel("none")}
+          />
+        )}
+        {view === "chat" && rightPanel === "usage" && (
+          <UsagePanel
+            width={rightPanelWidth}
+            onResize={setRightPanelWidth}
+            onClose={() => setRightPanel("none")}
+          />
+        )}
+        {view === "chat" && rightPanel === "cron" && (
+          <CronPanel
+            width={rightPanelWidth}
+            onResize={setRightPanelWidth}
+            onClose={() => setRightPanel("none")}
+          />
+        )}
+        {toasts.length > 0 && (
+          <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+            {toasts.map((t) => (
+              <div
+                key={t.id}
+                className="px-4 py-2.5 rounded-lg text-sm shadow-lg"
+                style={{
+                  background: "var(--bg-secondary)",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {t.message}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
