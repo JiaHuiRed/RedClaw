@@ -130,6 +130,7 @@ export default function WorkHome({
       <div
         className="flex items-center h-12 border-b shrink-0 relative"
         style={{ borderColor: "var(--border)" }}
+        data-tauri-drag-region
       >
         <div className="absolute left-1/2 -translate-x-1/2">
           <ModeTabs mode="work" onChange={onSwitchMode} />

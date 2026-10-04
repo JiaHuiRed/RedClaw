@@ -114,6 +114,7 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
     <section
       className="flex-1 min-w-0 overflow-y-auto px-8 py-7"
       style={{ color: "var(--text-primary)" }}
+      data-tauri-drag-region
     >
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex items-center justify-between">
