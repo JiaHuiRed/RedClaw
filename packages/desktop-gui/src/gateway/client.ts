@@ -107,6 +107,9 @@ export interface ChatSession {
   title?: string;
   updatedAt?: number;
   messageCount?: number;
+  // server 端 classifySessionKey 的分类（cron/direct/group/...），
+  // cron 等后台会话靠它从侧栏过滤掉
+  kind?: string;
 }
 
 export interface ModelEntry {
@@ -328,6 +331,10 @@ class GatewayClient {
   private streamEndListeners: StreamEndListener[] = [];
   private thinkingListeners: ThinkingListener[] = [];
   private toolListeners: ToolListener[] = [];
+
+  // sessions.changed 节流：cron/心跳/聊天会话的生命周期广播可能密集到达，
+  // 每次都全量 status 会打爆 RPC；窗口内的多次广播合并成一次刷新
+  private sessionsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   get sessionInfo() {
     return this._sessionInfo;
@@ -644,6 +651,7 @@ class GatewayClient {
           title: s.title,
           updatedAt: s.updatedAt,
           messageCount: s.messageCount,
+          kind: s.kind,
         }));
         this._notifySessionList();
       } else if (res.ok && res.payload?.model) {
@@ -654,6 +662,15 @@ class GatewayClient {
     } catch (err) {
       console.error("[Gateway] fetchSessionInfo failed:", err);
     }
+  }
+
+  // sessions.changed 的节流出口：窗口内多次广播合并成一次 status 拉取
+  private _scheduleSessionsRefresh() {
+    if (this.sessionsRefreshTimer) return;
+    this.sessionsRefreshTimer = setTimeout(() => {
+      this.sessionsRefreshTimer = null;
+      if (this.connected) this.fetchSessionInfo();
+    }, 500);
   }
 
   async fetchAgentIdentity(agentId?: string) {
@@ -1253,6 +1270,13 @@ class GatewayClient {
       // agent events (thinking/tool/... broadcast) and session.tool events
       if (frame.event === "agent" || frame.event === "session.tool") {
         this._handleAgentEvent(frame.payload);
+        return;
+      }
+      // 会话生命周期广播（创建/更新/删除）：server 在会话变化时主动推送，
+      // 消费它才能让新会话在首条消息发出后立刻出现在侧栏，
+      // 而不是干等整条回复 final 后的兜底刷新
+      if (frame.event === "sessions.changed") {
+        this._scheduleSessionsRefresh();
         return;
       }
       return;

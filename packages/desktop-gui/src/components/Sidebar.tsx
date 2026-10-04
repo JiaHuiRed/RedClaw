@@ -11,7 +11,6 @@ import {
   ChevronRight,
   FolderPlus,
   Folder,
-  Settings,
   ListFilter,
   Sparkles,
   Files,
@@ -35,7 +34,6 @@ import {
 import type { ConnectionState } from "../lib/connectionStatus";
 import ConnectionBadge from "./ConnectionBadge";
 import ProjectAreaModal from "./ProjectAreaModal";
-import SettingsModal from "./SettingsModal";
 
 const COLLAPSED_KEY = "redclaw:sidebarCollapsed";
 const WIDTH_KEY = "redclaw:sidebarWidth";
@@ -131,7 +129,6 @@ function Sidebar({
     mode: "create" | "edit";
     agent?: AgentSummary;
   } | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
   // 拖拽调宽期间关掉宽度过渡，否则动画追手会有延迟感
   const [dragging, setDragging] = useState(false);
   const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,6 +176,9 @@ function Sidebar({
     for (const s of sessions) {
       // heartbeat 隔离会话是后台心跳不是聊天会话，归 Activity 面板展示
       if (s.sessionKey === HEARTBEAT_SESSION_KEY) continue;
+      // cron/dreaming 等后台任务会话同理（server 端 kind 分类），混进列表会冒出
+      // 一堆「N分钟前」的匿名会话；会话管理页保留全量
+      if (s.kind === "cron") continue;
       const id = agentIdOfSession(s.sessionKey);
       const list = grouped.get(id) ?? [];
       list.push(s);
@@ -646,14 +646,6 @@ function Sidebar({
               新建项目区
             </button>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-1.5 rounded-md hover:opacity-80"
-                style={{ color: "var(--text-secondary)" }}
-                title="设置（主题 / 连接）"
-              >
-                <Settings size={14} />
-              </button>
               <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 v{__REDCLAW_VERSION__}
               </div>
@@ -731,8 +723,6 @@ function Sidebar({
           onSaved={(agentId, created) => void handleAreaSaved(agentId, created)}
         />
       )}
-
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>
   );
 }

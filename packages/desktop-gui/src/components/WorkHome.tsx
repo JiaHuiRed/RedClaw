@@ -94,11 +94,11 @@ export default function WorkHome({
     };
   }, [connected]);
 
-  // 最近会话：侧栏同源（status 的 recent），排除心跳隔离会话
+  // 最近会话：侧栏同源（status 的 recent），排除心跳与 cron/dreaming 后台会话
   const recentSessions = useMemo(
     () =>
       sessions
-        .filter((s) => s.sessionKey !== HEARTBEAT_SESSION_KEY)
+        .filter((s) => s.sessionKey !== HEARTBEAT_SESSION_KEY && s.kind !== "cron")
         .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
         .slice(0, 4),
     [sessions],
