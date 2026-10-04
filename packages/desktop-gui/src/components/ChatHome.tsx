@@ -1,5 +1,7 @@
 import { ArrowUp } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { gateway, type ModelEntry } from "../gateway/client";
+import { ModelPicker } from "./ModelPicker";
 import ModeTabs, { type AppMode } from "./ModeTabs";
 
 interface ChatHomeProps {
@@ -8,11 +10,40 @@ interface ChatHomeProps {
   onSwitchMode: (mode: AppMode) => void;
 }
 
+const CHAT_MODEL_KEY = "redclaw:chatModel:v1";
+const CHAT_THINKING_KEY = "redclaw:chatThinking:v1";
+
 // 主页聊天态：与工作台主页（WorkHome）同骨架的入口页。
 // 发送即进入与秋秋的默认会话（agent:main:main，家人感连续上下文），
 // 之后就是纯会话界面——主页才区分聊天/工作，会话中不区分。
+// 输入卡与会话内输入框同一套工具行（共享 ModelPicker，模型/思考档
+// 写同一 localStorage key，进会话后由 ChatPanel 无缝接管）。
 export default function ChatHome({ connected, onSend, onSwitchMode }: ChatHomeProps) {
   const [text, setText] = useState("");
+  const [models, setModels] = useState<ModelEntry[]>(gateway.models);
+  const [chatModel, setChatModel] = useState<string | null>(() =>
+    localStorage.getItem(CHAT_MODEL_KEY),
+  );
+  const [chatThinking, setChatThinking] = useState<string | null>(() =>
+    localStorage.getItem(CHAT_THINKING_KEY),
+  );
+
+  useEffect(() => {
+    const unsub = gateway.onModelList((list) => setModels(list));
+    return unsub;
+  }, []);
+
+  function pickModel(id: string | null) {
+    setChatModel(id);
+    if (id) localStorage.setItem(CHAT_MODEL_KEY, id);
+    else localStorage.removeItem(CHAT_MODEL_KEY);
+  }
+
+  function pickThinking(level: string | null) {
+    setChatThinking(level);
+    if (level) localStorage.setItem(CHAT_THINKING_KEY, level);
+    else localStorage.removeItem(CHAT_THINKING_KEY);
+  }
 
   function submit() {
     const msg = text.trim();
@@ -27,6 +58,7 @@ export default function ChatHome({ connected, onSend, onSwitchMode }: ChatHomePr
       <div
         className="flex items-center h-12 border-b shrink-0 relative"
         style={{ borderColor: "var(--border)" }}
+        data-tauri-drag-region
       >
         <div className="absolute left-1/2 -translate-x-1/2">
           <ModeTabs mode="chat" onChange={onSwitchMode} />
@@ -52,7 +84,7 @@ export default function ChatHome({ connected, onSend, onSwitchMode }: ChatHomePr
             </div>
           </div>
 
-          {/* 大输入卡：与工作台主页同款，聚焦光晕由 input-shell 类负责 */}
+          {/* 大输入卡：与会话内输入框同构——文本区在上，工具行在下（模型/思考档+发送） */}
           <div
             className="input-shell rounded-2xl border shadow-sm transition-all duration-300 ease-out"
             style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
@@ -73,7 +105,15 @@ export default function ChatHome({ connected, onSend, onSwitchMode }: ChatHomePr
               className="w-full resize-none bg-transparent outline-none text-[15px] leading-relaxed px-5 pt-5 rounded-t-2xl disabled:opacity-50"
               style={{ color: "var(--text-primary)" }}
             />
-            <div className="flex items-center justify-end px-3.5 pb-3 pt-1">
+            <div className="flex items-center justify-between px-3 pb-3 pt-1">
+              <ModelPicker
+                models={models}
+                model={chatModel}
+                thinking={chatThinking}
+                onPickModel={pickModel}
+                onPickThinking={pickThinking}
+                disabled={!connected}
+              />
               <button
                 onClick={submit}
                 disabled={!connected || !text.trim()}
