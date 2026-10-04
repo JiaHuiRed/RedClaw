@@ -42,6 +42,21 @@ const ConfigApplyLikeParamsSchema = Type.Object(
 export const ConfigApplyParamsSchema = ConfigApplyLikeParamsSchema;
 export const ConfigPatchParamsSchema = ConfigApplyLikeParamsSchema;
 
+export const ConfigProviderUpsertParamsSchema = Type.Object(
+  {
+    baseUrl: NonEmptyString,
+    modelId: NonEmptyString,
+    apiKey: Type.Optional(Type.String()),
+    compatibility: Type.Optional(Type.Union([Type.Literal("openai"), Type.Literal("anthropic")])),
+    providerId: Type.Optional(Type.String()),
+    alias: Type.Optional(Type.String()),
+    supportsImageInput: Type.Optional(Type.Boolean()),
+    baseHash: Type.Optional(NonEmptyString),
+    note: Type.Optional(Type.String()),
+    restartDelayMs: Type.Optional(Type.Integer({ minimum: 0 })),
+  },
+  { additionalProperties: false },
+);
 export const ConfigSchemaParamsSchema = Type.Object({}, { additionalProperties: false });
 
 export const ConfigSchemaLookupParamsSchema = Type.Object(

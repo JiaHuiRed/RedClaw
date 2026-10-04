@@ -2,7 +2,15 @@ import { RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { gateway } from "../gateway/client";
 
-type Section = "overview" | "devices" | "nodes" | "approvals" | "dreams" | "logs" | "config";
+type Section =
+  | "overview"
+  | "devices"
+  | "nodes"
+  | "approvals"
+  | "dreams"
+  | "logs"
+  | "providers"
+  | "config";
 type Device = {
   deviceId: string;
   displayName?: string;
@@ -26,6 +34,15 @@ type ConfigSnapshot = {
   issues?: { path: string; message: string }[];
   origins?: ConfigOriginEntry[];
   originsTruncated?: boolean;
+};
+type ProviderRow = { id: string; baseUrl?: string; api?: string; modelCount: number };
+type ProviderForm = {
+  baseUrl: string;
+  modelId: string;
+  apiKey: string;
+  compatibility: "openai" | "anthropic";
+  providerId: string;
+  alias: string;
 };
 type LogTail = { lines?: string[]; file?: string };
 type DreamDiary = { found?: boolean; content?: string; path?: string };
@@ -58,6 +75,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "approvals", label: "执行审批" },
   { id: "dreams", label: "梦境与记忆" },
   { id: "logs", label: "日志" },
+  { id: "providers", label: "模型供应商" },
   { id: "config", label: "高级配置" },
 ];
 
@@ -83,6 +101,15 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
   const [configKey, setConfigKey] = useState("");
   const [original, setOriginal] = useState("");
   const [draft, setDraft] = useState("");
+  const [showProviderForm, setShowProviderForm] = useState(false);
+  const [providerForm, setProviderForm] = useState<ProviderForm>({
+    baseUrl: "",
+    modelId: "",
+    apiKey: "",
+    compatibility: "openai",
+    providerId: "",
+    alias: "",
+  });
 
   const load = useCallback(async () => {
     if (!connected) return;
@@ -129,7 +156,7 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
         setDiary(nextDiary);
       } else if (section === "logs") {
         setLogs(await gateway.call<LogTail>("logs.tail", { limit: 200, maxBytes: 128000 }));
-      } else {
+      } else if (section === "config" || section === "providers") {
         const snapshot = await gateway.call<ConfigSnapshot>("config.get");
         setConfig(snapshot);
         setConfigKey("");
@@ -184,6 +211,74 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
     );
     setDraft(value);
     setOriginal(value);
+  }
+
+  const providerRows = useMemo<ProviderRow[]>(() => {
+    const root = (config?.sourceConfig ?? config?.config ?? {}) as Record<string, unknown>;
+    const modelsBlock = root.models as Record<string, unknown> | undefined;
+    const providers = modelsBlock?.providers as Record<string, Record<string, unknown>> | undefined;
+    if (!providers) return [];
+    return Object.entries(providers).map(([id, p]) => ({
+      id,
+      baseUrl: typeof p.baseUrl === "string" ? p.baseUrl : undefined,
+      api: typeof p.api === "string" ? p.api : undefined,
+      modelCount: Array.isArray(p.models) ? p.models.length : 0,
+    }));
+  }, [config]);
+
+  async function submitProvider() {
+    if (!config?.hash || busy) return;
+    if (!providerForm.baseUrl.trim() || !providerForm.modelId.trim()) {
+      setError("Base URL 和模型 ID 必填。");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await gateway.call<{ providerId: string }>("config.providers.upsert", {
+        baseUrl: providerForm.baseUrl.trim(),
+        modelId: providerForm.modelId.trim(),
+        ...(providerForm.apiKey.trim() ? { apiKey: providerForm.apiKey.trim() } : {}),
+        compatibility: providerForm.compatibility,
+        ...(providerForm.providerId.trim() ? { providerId: providerForm.providerId.trim() } : {}),
+        ...(providerForm.alias.trim() ? { alias: providerForm.alias.trim() } : {}),
+        baseHash: config.hash,
+        note: "Desktop GUI: provider add",
+      });
+      setNotice(`供应商 ${res.providerId} 已保存，网关热重载后生效`);
+      setProviderForm({
+        baseUrl: "",
+        modelId: "",
+        apiKey: "",
+        compatibility: "openai",
+        providerId: "",
+        alias: "",
+      });
+      setShowProviderForm(false);
+      setConfig(await gateway.call<ConfigSnapshot>("config.get"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "添加供应商失败。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeProvider(id: string) {
+    if (!config?.hash || busy) return;
+    if (!window.confirm(`删除供应商「${id}」？Gateway 将重载配置。`)) return;
+    setBusy(true);
+    try {
+      await gateway.call("config.patch", {
+        baseHash: config.hash,
+        raw: JSON.stringify({ models: { providers: { [id]: null } } }),
+        note: `Desktop GUI: remove provider ${id}`,
+      });
+      setNotice(`供应商 ${id} 已删除，网关热重载后生效`);
+      setConfig(await gateway.call<ConfigSnapshot>("config.get"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除供应商失败。");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveConfig() {
@@ -564,6 +659,144 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
             <pre className="text-[11px] font-mono whitespace-pre-wrap break-all mt-3 max-h-[65vh] overflow-auto">
               {logs?.lines?.join("\n") || "暂无日志"}
             </pre>
+          </div>
+        )}
+        {section === "providers" && connected && (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center gap-3">
+              <p className="text-xs" style={muted}>
+                添加自定义 API 供应商（OpenAI / Anthropic
+                兼容）。保存后网关热重载，新模型即可在对话中使用。
+              </p>
+              <button
+                onClick={() => setShowProviderForm((v) => !v)}
+                className="text-xs px-3 py-1.5 rounded-md shrink-0"
+                style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+              >
+                {showProviderForm ? "收起表单" : "添加供应商"}
+              </button>
+            </div>
+            {showProviderForm && (
+              <div className="rounded-xl p-4 space-y-3" style={surface}>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs space-y-1 block" style={muted}>
+                    Base URL *
+                    <input
+                      value={providerForm.baseUrl}
+                      onChange={(e) => setProviderForm((f) => ({ ...f, baseUrl: e.target.value }))}
+                      placeholder="https://api.example.com/v1"
+                      className="w-full rounded-md px-2 py-1.5 text-xs outline-none mt-1 block"
+                      style={input}
+                    />
+                  </label>
+                  <label className="text-xs space-y-1 block" style={muted}>
+                    模型 ID *
+                    <input
+                      value={providerForm.modelId}
+                      onChange={(e) => setProviderForm((f) => ({ ...f, modelId: e.target.value }))}
+                      placeholder="deepseek-v4"
+                      className="w-full rounded-md px-2 py-1.5 text-xs outline-none mt-1 block"
+                      style={input}
+                    />
+                  </label>
+                  <label className="text-xs space-y-1 block" style={muted}>
+                    API Key
+                    <input
+                      type="password"
+                      value={providerForm.apiKey}
+                      onChange={(e) => setProviderForm((f) => ({ ...f, apiKey: e.target.value }))}
+                      placeholder="sk-…"
+                      className="w-full rounded-md px-2 py-1.5 text-xs outline-none mt-1 block"
+                      style={input}
+                    />
+                  </label>
+                  <label className="text-xs space-y-1 block" style={muted}>
+                    兼容模式
+                    <select
+                      value={providerForm.compatibility}
+                      onChange={(e) =>
+                        setProviderForm((f) => ({
+                          ...f,
+                          compatibility: e.target.value as "openai" | "anthropic",
+                        }))
+                      }
+                      className="w-full rounded-md px-2 py-1.5 text-xs outline-none mt-1 block"
+                      style={input}
+                    >
+                      <option value="openai">OpenAI 兼容</option>
+                      <option value="anthropic">Anthropic 兼容</option>
+                    </select>
+                  </label>
+                  <label className="text-xs space-y-1 block" style={muted}>
+                    供应商 ID（可选，默认从 URL 生成）
+                    <input
+                      value={providerForm.providerId}
+                      onChange={(e) =>
+                        setProviderForm((f) => ({ ...f, providerId: e.target.value }))
+                      }
+                      placeholder="custom-…"
+                      className="w-full rounded-md px-2 py-1.5 text-xs outline-none mt-1 block"
+                      style={input}
+                    />
+                  </label>
+                  <label className="text-xs space-y-1 block" style={muted}>
+                    模型别名（可选）
+                    <input
+                      value={providerForm.alias}
+                      onChange={(e) => setProviderForm((f) => ({ ...f, alias: e.target.value }))}
+                      placeholder="my-model"
+                      className="w-full rounded-md px-2 py-1.5 text-xs outline-none mt-1 block"
+                      style={input}
+                    />
+                  </label>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => void submitProvider()}
+                    disabled={busy || !providerForm.baseUrl.trim() || !providerForm.modelId.trim()}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md disabled:opacity-40"
+                    style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+                  >
+                    <Save size={13} />
+                    保存并热重载
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="rounded-xl p-4" style={surface}>
+              {providerRows.length === 0 ? (
+                <p className="text-xs py-6 text-center" style={muted}>
+                  暂无自定义供应商；点「添加供应商」，或到「高级配置」编辑 models.providers。
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {providerRows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center gap-3 text-xs px-2 py-1.5 rounded-md"
+                      style={{ background: "var(--bg-secondary)" }}
+                    >
+                      <span className="font-medium shrink-0">{row.id}</span>
+                      <span className="truncate flex-1" style={muted}>
+                        {row.baseUrl ?? "—"}
+                        {row.api ? ` · ${row.api}` : ""}
+                      </span>
+                      <span className="shrink-0" style={muted}>
+                        {row.modelCount} 模型
+                      </span>
+                      <button
+                        onClick={() => void removeProvider(row.id)}
+                        disabled={busy}
+                        className="shrink-0 px-2 py-0.5 rounded disabled:opacity-40"
+                        style={{ color: "var(--danger)" }}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {section === "config" && connected && (

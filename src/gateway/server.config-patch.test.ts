@@ -696,4 +696,70 @@ describe("gateway server sessions", () => {
       expect(origins.length).toBeGreaterThan(0);
     }
   });
+  it("upserts a custom provider end-to-end and redacts the api key", async () => {
+    const current = await rpcReq<{ hash?: string }>(requireWs(), "config.get", {});
+    expect(current.ok).toBe(true);
+    const baseHash = current.payload?.hash;
+    expect(typeof baseHash).toBe("string");
+
+    const res = await rpcReq<{
+      ok?: boolean;
+      providerId?: string;
+      modelId?: string;
+      config?: Record<string, unknown>;
+    }>(requireWs(), "config.providers.upsert", {
+      baseUrl: "https://api.example.com/v1",
+      modelId: "test-model-1",
+      apiKey: "sk-upsert-test-secret",
+      baseHash,
+    });
+    expect(res.ok).toBe(true);
+    expect(res.payload?.providerId).toBe("custom-api-example-com");
+    expect(res.payload?.modelId).toBe("test-model-1");
+
+    const config = requireConfigObject(res.payload?.config, "upserted config");
+    const providers = requireConfigObject(
+      requireConfigObject(config.models as Record<string, unknown>, "models").providers as Record<
+        string,
+        unknown
+      >,
+      "providers",
+    );
+    const provider = requireConfigObject(providers["custom-api-example-com"], "upserted provider");
+    expect(provider.baseUrl).toBe("https://api.example.com/v1");
+    // 响应必须走 redact：明文 key 不允许出现在返回体里
+    expect(JSON.stringify(res.payload)).not.toContain("sk-upsert-test-secret");
+  });
+
+  it("re-upserting the same provider is a noop", async () => {
+    const current = await rpcReq<{ hash?: string }>(requireWs(), "config.get", {});
+    const res = await rpcReq<{ ok?: boolean; noop?: boolean; providerId?: string }>(
+      requireWs(),
+      "config.providers.upsert",
+      {
+        baseUrl: "https://api.example.com/v1",
+        modelId: "test-model-1",
+        apiKey: "sk-upsert-test-secret",
+        baseHash: current.payload?.hash,
+      },
+    );
+    expect(res.ok).toBe(true);
+    expect(res.payload?.noop).toBe(true);
+    expect(res.payload?.providerId).toBe("custom-api-example-com");
+  });
+
+  it("rejects invalid base urls for config.providers.upsert", async () => {
+    const current = await rpcReq<{ hash?: string }>(requireWs(), "config.get", {});
+    const res = await rpcReq<{ ok?: boolean; error?: { message?: string } }>(
+      requireWs(),
+      "config.providers.upsert",
+      {
+        baseUrl: "not-a-url",
+        modelId: "m",
+        baseHash: current.payload?.hash,
+      },
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error?.message ?? "").toContain("base URL");
+  });
 });

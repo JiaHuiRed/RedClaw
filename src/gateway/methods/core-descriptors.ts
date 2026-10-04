@@ -46,6 +46,7 @@ export const CORE_GATEWAY_METHOD_SPECS: readonly CoreGatewayMethodSpec[] = [
   { name: "config.set", scope: "operator.admin" },
   { name: "config.apply", scope: "operator.admin", controlPlaneWrite: true },
   { name: "config.patch", scope: "operator.admin", controlPlaneWrite: true },
+  { name: "config.providers.upsert", scope: "operator.admin", controlPlaneWrite: true },
   { name: "config.schema", scope: "operator.admin" },
   { name: "config.schema.lookup", scope: "operator.read" },
   { name: "exec.approvals.get", scope: "operator.admin" },
