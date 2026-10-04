@@ -29,7 +29,7 @@ import {
   Clock,
   ArrowLeft,
 } from "lucide-react";
-import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo, type ChangeEvent } from "react";
 import {
   gateway,
   deriveSessionTitle,
@@ -323,6 +323,10 @@ function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  // 无活动检测：run 事件（delta/thinking/tool/message）最后到达时间
+  const STALL_AFTER_MS = 90_000;
+  const lastActivityAtRef = useRef(Date.now());
+  const [stalled, setStalled] = useState(false);
   // 生成中发送的消息先入队，流结束后依次自动派出（借鉴 codex ext/queue）
   const [sendQueue, setSendQueue] = useState<QueuedMessage[]>([]);
   const [elapsed, setElapsed] = useState(0);
@@ -609,14 +613,26 @@ function ChatPanel({
   useEffect(() => {
     if (!isGenerating) {
       setElapsed(0);
+      setStalled(false);
       return;
     }
-    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    // 无活动兜底：run 若在流式中途死亡（final/aborted 事件丢失），「响应中」
+    // 会无限空转（observed 261004：秋秋后台扫描已死，GUI 假等 30 分钟）。
+    // 超过 STALL_AFTER_MS 无任何事件就亮出「无响应」提示 + 手动重新同步。
+    lastActivityAtRef.current = Date.now();
+    const t = setInterval(() => {
+      setElapsed((e) => e + 1);
+      setStalled(Date.now() - lastActivityAtRef.current > STALL_AFTER_MS);
+    }, 1000);
     return () => clearInterval(t);
   }, [isGenerating]);
 
   useEffect(() => {
+    const markActivity = () => {
+      lastActivityAtRef.current = Date.now();
+    };
     const unsubMsg = gateway.onMessage((msg) => {
+      markActivity();
       // 该轮工具卡随 final 消息持久化：流式分段清空前的快照挂到消息上，
       // 之后翻历史也能看到这一轮的工具轨迹（右栏 ActivityPanel 是另一路镜像）
       const runTools = segmentsRef.current.flatMap((seg) =>
@@ -635,6 +651,7 @@ function ChatPanel({
 
     const unsubDelta = gateway.onDelta((text, _reasoning, replace) => {
       if (!text) return;
+      markActivity();
       updateSegments((prev) => {
         const last = prev[prev.length - 1];
         if (replace) {
@@ -662,12 +679,14 @@ function ChatPanel({
     });
 
     const unsubThinking = gateway.onThinking((evt) => {
+      markActivity();
       // data.text is always the full accumulated reasoning; replace when
       // the server flags a non-prefix change, otherwise just overwrite.
       setStreamingReasoning(evt.text);
     });
 
     const unsubTool = gateway.onTool((tool) => {
+      markActivity();
       const key = toolSegmentKey(tool);
       if (!key) return;
       updateSegments((prev) => {
@@ -973,6 +992,26 @@ function ChatPanel({
     onWorkDraftConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workDraft]);
+
+  // 无响应手动恢复：final/aborted 事件丢失时，transcript 里可能已落库新消息。
+  // 历史比当前多出新内容才替换并熄掉「响应中」；历史未变说明 run 还在跑，
+  // 保持等待，不误杀正常的长流式。
+  const resyncSession = useCallback(async () => {
+    try {
+      const history = await gateway.fetchHistory(currentSessionKey, 200);
+      const lastId = history[history.length - 1]?.id;
+      const curLastId = messages[messages.length - 1]?.id;
+      if (!lastId || lastId === curLastId) return;
+      setMessages(history);
+      setStreamingReasoning("");
+      clearSegments();
+      setIsGenerating(false);
+      setImagePending(false);
+    } catch {
+      // 拉取失败保持现状，stalled 提示仍在
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSessionKey, messages]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 relative">
@@ -1490,7 +1529,23 @@ function ChatPanel({
                       borderTopColor: "var(--accent)",
                     }}
                   />
-                  响应中... {elapsed}s
+                  {stalled ? (
+                    <>
+                      <span style={{ color: "var(--danger)" }}>长时间无响应</span>
+                      <span className="opacity-60">·</span>
+                      <span className="opacity-60">{elapsed}s</span>
+                      <button
+                        onClick={() => void resyncSession()}
+                        className="ml-1 underline underline-offset-2 hover:opacity-80"
+                        style={{ color: "var(--accent)" }}
+                        title="重新拉取会话历史；若回复已落库将直接显示"
+                      >
+                        重新同步
+                      </button>
+                    </>
+                  ) : (
+                    <>响应中... {elapsed}s</>
+                  )}
                 </div>
               </div>
             )}

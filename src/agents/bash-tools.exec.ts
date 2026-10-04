@@ -1665,9 +1665,13 @@ export function createExecTool(
             content: [
               {
                 type: "text",
+                // Model-facing contract: backgrounded commands have no wake-up.
+                // Models have repeatedly read this state as "I'll keep watching"
+                // and ended their turn, leaving the user with a dead run and an
+                // orphaned process (observed 261004: 30-min silent wait).
                 text: `${getWarningText()}Command still running (session ${run.session.id}, pid ${
                   run.session.pid ?? "n/a"
-                }). Use process (list/poll/log/write/send-keys/submit/paste/kill/clear/remove) for follow-up.`,
+                }). Your turn ENDS when you return this result — nothing will wake you up automatically, so do NOT say you will "keep watching" it. Either poll the background session now with process (list/poll/log/write/send-keys/submit/paste/kill/clear/remove) until it finishes, or tell the user explicitly that the command runs in the background and they should ask you to check on it later.`,
               },
             ],
             details: {
