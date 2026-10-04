@@ -1,8 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Send,
-  Plug,
-  PlugZap,
   PanelRight,
   Slash,
   Copy,
@@ -21,12 +19,6 @@ import {
   ImagePlus,
   X,
   AlertCircle,
-  Cpu,
-  ChevronDown,
-  Brain,
-  Power,
-  RotateCw,
-  Rocket,
   Clock,
   ArrowLeft,
 } from "lucide-react";
@@ -43,11 +35,9 @@ import {
   type OutgoingImageAttachment,
 } from "../gateway/client";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
-import { CONNECTION_COLOR, type ConnectionState } from "../lib/connectionStatus";
 import ActivityCapsule from "./ActivityCapsule";
 import ChatEmptyState from "./ChatEmptyState";
 import CommandPalette from "./CommandPalette";
-import { EffortSlider } from "./EffortSlider";
 import ErrorBoundary from "./ErrorBoundary";
 import {
   AssistantParts,
@@ -64,13 +54,8 @@ const USER_AVATAR_KEY = "redclaw:userAvatar:v1";
 const CHAT_MODEL_KEY = "redclaw:chatModel:v1";
 const CHAT_THINKING_KEY = "redclaw:chatThinking:v1";
 // per-message 思考档全集（chat.send thinking one-shot；不传 = 跟随模型默认）
-const THINKING_STEPS = ["minimal", "low", "medium", "high"] as const;
-const THINKING_LABELS: Record<string, string> = {
-  minimal: "最轻",
-  low: "低",
-  medium: "中",
-  high: "高",
-};
+
+import { ModelPicker } from "./ModelPicker";
 const AVATAR_SIZE = 256;
 
 function fmt(n: number | null): string {
@@ -287,9 +272,7 @@ function EditableAvatar({
 interface ChatPanelProps {
   connected: boolean;
   setConnected: (v: boolean) => void;
-  connecting: boolean;
   setConnecting: (v: boolean) => void;
-  connectionState: ConnectionState;
   messages: Message[];
   setMessages: (fn: Message[] | ((prev: Message[]) => Message[])) => void;
   sessionInfo: SessionInfo;
@@ -314,9 +297,7 @@ interface ChatPanelProps {
 function ChatPanel({
   connected,
   setConnected,
-  connecting,
   setConnecting,
-  connectionState,
   messages,
   setMessages,
   sessionInfo,
@@ -373,6 +354,14 @@ function ChatPanel({
     { id: string; dataUrl: string; base64: string; mimeType: string; fileName: string }[]
   >([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
+  const autoTitledRef = useRef<Set<string>>(new Set());
+  const listRef = useRef<HTMLDivElement>(null);
+  // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
+  // 用户上翻看历史时不被拉回底部。
+  const nearBottomRef = useRef(true);
+  const scrollRafRef = useRef<number | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [agentAvatar, setAgentAvatar] = useState<string | null>(null);
   const [agentAvatarStatus, setAgentAvatarStatus] = useState<string>("none");
   const [avatarBusy, setAvatarBusy] = useState<"user" | "agent" | null>(null);
@@ -403,82 +392,6 @@ function ChatPanel({
   const [chatThinking, setChatThinking] = useState<string | null>(() =>
     localStorage.getItem(CHAT_THINKING_KEY),
   );
-  const [showChatModelSelector, setShowChatModelSelector] = useState(false);
-  // 弹层两态：false = 概览（模型+滑杆），true = 模型列表
-  const [chatModelPicking, setChatModelPicking] = useState(false);
-  const [chatModelSearch, setChatModelSearch] = useState("");
-  const chatModelSelectorRef = useRef<HTMLDivElement>(null);
-  // 网关生命周期菜单（启动/重启/停止进程）
-  const [showGwMenu, setShowGwMenu] = useState(false);
-  const gwMenuRef = useRef<HTMLDivElement>(null);
-  // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
-  const autoTitledRef = useRef<Set<string>>(new Set());
-  const listRef = useRef<HTMLDivElement>(null);
-  // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
-  // 用户上翻看历史时不被拉回底部。
-  const nearBottomRef = useRef(true);
-  const scrollRafRef = useRef<number | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  // Close model selector on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        chatModelSelectorRef.current &&
-        !chatModelSelectorRef.current.contains(e.target as Node)
-      ) {
-        setShowChatModelSelector(false);
-        setChatModelSearch("");
-        setChatModelPicking(false);
-      }
-      if (gwMenuRef.current && !gwMenuRef.current.contains(e.target as Node)) {
-        setShowGwMenu(false);
-      }
-    }
-    if (showChatModelSelector || showGwMenu) {
-      document.addEventListener("mousedown", handleClick);
-    }
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showChatModelSelector, showGwMenu]);
-
-  // 启动网关进程：spawn 后立即试连一次，不等退避计时
-  async function handleGatewaySpawn() {
-    setShowGwMenu(false);
-    try {
-      await gateway.spawnGatewayProcess();
-      setConnecting(true);
-      gateway.start();
-      gateway.retryNow();
-    } catch {
-      // 错误已由 client 层 toast
-    }
-  }
-
-  // 重启网关：已连接走 RPC 自重启（GUI 重连自动接上）；未连接退化为拉起进程
-  async function handleGatewayRestart() {
-    setShowGwMenu(false);
-    try {
-      if (connected) {
-        setConnecting(true);
-        await gateway.restartGateway();
-      } else {
-        await handleGatewaySpawn();
-      }
-    } catch {
-      // 错误已由 client 层 toast
-    }
-  }
-
-  // 停止网关进程：仅对 GUI 拉起的进程有效；终端自启的不归 GUI 管
-  async function handleGatewayStop() {
-    setShowGwMenu(false);
-    try {
-      const stopped = await gateway.stopGatewayProcess();
-      if (!stopped) console.info("[ChatPanel] 当前网关非 GUI 启动，跳过停止");
-    } catch {
-      // 错误已由 client 层 toast
-    }
-  }
 
   const paletteItems = useMemo(
     () => getVisibleItems(commands, input, cmdCategory),
@@ -514,42 +427,11 @@ function ChatPanel({
     }
   }
 
-  // 输入框模型选择器：按 provider 分组（过滤时保留有命中的组）
-  const groupedChatModels = useMemo(() => {
-    const map = new Map<string, ModelEntry[]>();
-    for (const m of availableModels) {
-      const list = map.get(m.provider) ?? [];
-      list.push(m);
-      map.set(m.provider, list);
-    }
-    return [...map.entries()];
-  }, [availableModels]);
-
-  const filteredChatModelGroups = useMemo(() => {
-    if (!chatModelSearch) return groupedChatModels;
-    const q = chatModelSearch.toLowerCase();
-    return groupedChatModels
-      .map(
-        ([provider, models]) =>
-          [
-            provider,
-            models.filter(
-              (m) => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q),
-            ),
-          ] as const,
-      )
-      .filter(([, models]) => models.length > 0);
-  }, [groupedChatModels, chatModelSearch]);
-
+  // 模型/思考档选择与持久化（弹层 UI 在共享 ModelPicker 组件里）
   function pickChatModel(modelId: string | null) {
     setChatModel(modelId);
     if (modelId) localStorage.setItem(CHAT_MODEL_KEY, modelId);
     else localStorage.removeItem(CHAT_MODEL_KEY);
-    // 新模型不支持推理时保留档位没有意义（one-shot thinking 会被拒/忽略）
-    if (modelId && availableModels.find((m) => m.id === modelId)?.reasoning === false) {
-      pickChatThinking(null);
-    }
-    setChatModelPicking(false);
   }
 
   function pickChatThinking(level: string | null) {
@@ -765,15 +647,6 @@ function ChatPanel({
       }
     };
   }, [messages, segments, streamingReasoning]);
-
-  async function handleConnect() {
-    if (connected) {
-      gateway.stop();
-      return;
-    }
-    setConnecting(true);
-    gateway.start();
-  }
 
   async function addPendingImages(files: File[]) {
     for (const file of files.slice(0, 4)) {
@@ -994,12 +867,6 @@ function ChatPanel({
   }
 
   const { model, totalTokens, contextTokens, percentUsed } = sessionInfo;
-  // 本条消息实际生效的模型条目（per-message 覆盖优先，回落会话默认）；
-  // 推理滑杆只对明确支持推理的模型显示
-  const effectiveModelEntry = useMemo(
-    () => availableModels.find((m) => m.id === (chatModel ?? model)),
-    [availableModels, chatModel, model],
-  );
   const hasStreaming = segments.length > 0;
   // 胶囊监视面的工具序列 = 当前流式分段里的工具段（保序）
   const capsuleTools = useMemo(
@@ -1047,6 +914,7 @@ function ChatPanel({
       <div
         className="flex items-center justify-between px-4 h-12 border-b shrink-0 relative"
         style={{ borderColor: "var(--border)" }}
+        data-tauri-drag-region
       >
         {/* Codex 式会话态顶栏：返回主页 + 会话标题，不再有聊天/工作模式切换 */}
         <div className="flex items-center gap-1.5 min-w-0">
@@ -1102,86 +970,6 @@ function ChatPanel({
             <PanelRight size={14} />
             动态
           </button>
-          <div className="flex items-center gap-0.5 relative" ref={gwMenuRef}>
-            <button
-              onClick={() => setShowGwMenu((v) => !v)}
-              disabled={connecting}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80 disabled:opacity-50"
-              style={{
-                // Idle keeps the accent color (it's still an inviting call to
-                // action, not a passive status readout) - connecting/connected/
-                // error defer to the shared map so the button and the Sidebar
-                // badge never disagree about what those three actually mean.
-                background:
-                  connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
-                color: "var(--on-solid)",
-              }}
-              title="网关连接与管理"
-            >
-              {connecting ? (
-                <>连接中…</>
-              ) : connected ? (
-                <>
-                  <PlugZap size={14} /> 已连接
-                </>
-              ) : (
-                <>
-                  <Plug size={14} /> 连接
-                </>
-              )}
-              <ChevronDown size={12} className="opacity-70" />
-            </button>
-            {showGwMenu && (
-              <div
-                className="absolute top-full right-0 mt-1 w-56 rounded-xl border shadow-lg z-50 overflow-hidden py-1"
-                style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
-              >
-                {!connected && !connecting && (
-                  <button
-                    onClick={() => void handleConnect()}
-                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    <PlugZap size={13} style={{ color: "var(--accent)" }} />
-                    <span className="flex-1">连接网关</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => void handleGatewaySpawn()}
-                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  <Rocket size={13} style={{ color: "var(--accent)" }} />
-                  <span className="flex-1">启动网关进程</span>
-                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
-                    后台
-                  </span>
-                </button>
-                <button
-                  onClick={() => void handleGatewayRestart()}
-                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  <RotateCw size={13} style={{ color: "var(--violet-9)" }} />
-                  <span className="flex-1">重启网关</span>
-                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
-                    {connected ? "热重启" : "拉起"}
-                  </span>
-                </button>
-                <button
-                  onClick={() => void handleGatewayStop()}
-                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  <Power size={13} style={{ color: "var(--danger)" }} />
-                  <span className="flex-1">停止网关进程</span>
-                  <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
-                    GUI 托管
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -1601,202 +1389,16 @@ function ChatPanel({
                 e.target.value = "";
               }}
             />
-            {/* per-message 模型+思考档（RedCode 式两态弹层）：覆盖仅对本条消息生效 */}
-            <div className="relative shrink-0" ref={chatModelSelectorRef}>
-              <button
-                onClick={() => setShowChatModelSelector((v) => !v)}
-                disabled={!connected}
-                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors disabled:opacity-30 max-w-44"
-                style={{
-                  background:
-                    chatModel || chatThinking
-                      ? "color-mix(in srgb, var(--accent) 14%, var(--bg-secondary))"
-                      : "var(--bg-tertiary)",
-                  color: chatModel || chatThinking ? "var(--accent)" : "var(--text-secondary)",
-                }}
-                title={chatModel ? `本条消息将使用 ${chatModel}` : "本条消息跟随会话模型"}
-              >
-                <Cpu size={13} className="shrink-0" />
-                <span className="truncate">{chatModel ? shortModel(chatModel) : "模型"}</span>
-                {chatThinking && (
-                  <>
-                    <span className="opacity-50">·</span>
-                    <span className="capitalize">
-                      {THINKING_LABELS[chatThinking] ?? chatThinking}
-                    </span>
-                  </>
-                )}
-                <ChevronDown size={12} className="shrink-0 opacity-60" />
-              </button>
-              {showChatModelSelector && (
-                <div
-                  className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border shadow-lg z-50 overflow-hidden"
-                  style={{
-                    background: "var(--bg-secondary)",
-                    borderColor: "var(--border)",
-                  }}
-                >
-                  {chatModelPicking ? (
-                    <>
-                      <div
-                        className="px-3 py-2 border-b flex items-center gap-2"
-                        style={{ borderColor: "var(--border)" }}
-                      >
-                        <button
-                          onClick={() => setChatModelPicking(false)}
-                          className="text-xs shrink-0 hover:opacity-80"
-                          style={{ color: "var(--text-secondary)" }}
-                          title="返回"
-                        >
-                          ←
-                        </button>
-                        <input
-                          className="flex-1 text-xs px-2 py-1.5 rounded-md outline-none"
-                          style={{
-                            background: "var(--bg-tertiary)",
-                            color: "var(--text-primary)",
-                          }}
-                          placeholder="搜索模型…"
-                          value={chatModelSearch}
-                          onChange={(e) => setChatModelSearch(e.target.value)}
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-64 overflow-y-auto">
-                        <button
-                          onClick={() => pickChatModel(null)}
-                          className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center justify-between border-b"
-                          style={{
-                            color: "var(--text-primary)",
-                            background: chatModel ? "transparent" : "var(--bg-tertiary)",
-                            borderColor: "var(--border)",
-                          }}
-                        >
-                          <span>
-                            跟随会话设置
-                            <span
-                              className="block text-[10px] mt-0.5"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              {model ? shortModel(model) : "默认模型"}
-                            </span>
-                          </span>
-                          {!chatModel && (
-                            <span
-                              className="text-[10px] shrink-0"
-                              style={{ color: "var(--accent)" }}
-                            >
-                              当前
-                            </span>
-                          )}
-                        </button>
-                        {filteredChatModelGroups.length === 0 && (
-                          <div
-                            className="px-3 py-4 text-xs text-center"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            {chatModelSearch ? "未找到匹配模型" : "暂无可用模型"}
-                          </div>
-                        )}
-                        {filteredChatModelGroups.map(([provider, models]) => (
-                          <div key={provider}>
-                            <div
-                              className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider"
-                              style={{ color: "var(--text-secondary)" }}
-                            >
-                              {provider}
-                            </div>
-                            {models.map((m) => {
-                              const active = m.id === chatModel;
-                              return (
-                                <button
-                                  key={m.id}
-                                  onClick={() => pickChatModel(m.id)}
-                                  className="w-full text-left px-3 py-2 text-xs hover:opacity-80 flex items-center gap-2"
-                                  style={{
-                                    color: "var(--text-primary)",
-                                    background: active ? "var(--bg-tertiary)" : "transparent",
-                                  }}
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium truncate">{m.name || m.id}</div>
-                                    <div
-                                      className="text-[10px] mt-0.5 truncate"
-                                      style={{ color: "var(--text-secondary)" }}
-                                    >
-                                      {m.id}
-                                    </div>
-                                  </div>
-                                  {active && (
-                                    <span
-                                      className="text-[10px] shrink-0"
-                                      style={{ color: "var(--accent)" }}
-                                    >
-                                      本条消息
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="px-4 pt-4 pb-3 flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <Brain
-                          size={14}
-                          className="shrink-0"
-                          style={{ color: "var(--text-secondary)" }}
-                        />
-                        <span
-                          className="text-sm font-medium capitalize"
-                          style={{ color: "var(--accent)" }}
-                        >
-                          {chatThinking
-                            ? (THINKING_LABELS[chatThinking] ?? chatThinking)
-                            : "跟随模型默认"}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setChatModelPicking(true)}
-                        className="flex items-center justify-center gap-1 text-xs hover:opacity-80"
-                        style={{ color: "var(--text-secondary)" }}
-                        title="选择模型"
-                      >
-                        <span className="truncate">
-                          {chatModel
-                            ? shortModel(chatModel)
-                            : model
-                              ? shortModel(model)
-                              : "默认模型"}
-                        </span>
-                        <ChevronDown size={12} className="shrink-0 opacity-60" />
-                      </button>
-                      {effectiveModelEntry?.reasoning === true && (
-                        <>
-                          <EffortSlider
-                            steps={THINKING_STEPS}
-                            current={chatThinking ?? undefined}
-                            label={(v) => THINKING_LABELS[v] ?? v}
-                            unselectedLabel="跟随模型默认"
-                            onChange={(v) => pickChatThinking(v)}
-                          />
-                          <div
-                            className="flex items-center justify-between text-[10px]"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            <span>更快</span>
-                            <span>更聪明</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* per-message 模型+思考档（共享 ModelPicker）：覆盖仅对本条消息生效 */}
+            <ModelPicker
+              models={availableModels}
+              model={chatModel}
+              sessionModel={model}
+              thinking={chatThinking}
+              onPickModel={pickChatModel}
+              onPickThinking={pickChatThinking}
+              disabled={!connected}
+            />
             {imageMode && (
               <select
                 value={imageSize}

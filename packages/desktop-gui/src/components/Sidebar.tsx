@@ -32,7 +32,7 @@ import {
   type AgentSummary,
 } from "../gateway/client";
 import type { ConnectionState } from "../lib/connectionStatus";
-import ConnectionBadge from "./ConnectionBadge";
+import { GatewayMenu } from "./GatewayMenu";
 import ProjectAreaModal from "./ProjectAreaModal";
 
 const COLLAPSED_KEY = "redclaw:sidebarCollapsed";
@@ -54,6 +54,8 @@ const WORKSPACE_VIEWS = [
 
 interface SidebarProps {
   connected: boolean;
+  connecting: boolean;
+  setConnecting: (v: boolean) => void;
   connectionState: ConnectionState;
   sessions: ChatSession[];
   currentSessionKey: string;
@@ -101,6 +103,8 @@ function agentIdOfSession(sessionKey: string): string {
 
 function Sidebar({
   connected,
+  connecting,
+  setConnecting,
   connectionState,
   sessions,
   currentSessionKey,
@@ -328,7 +332,7 @@ function Sidebar({
           className="mt-0.5 shrink-0"
           style={{ color: "var(--text-secondary)" }}
         />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 group-hover:pr-14 transition-[padding] duration-150">
           {isEditing ? (
             <div className="flex items-center gap-1">
               <input
@@ -446,26 +450,31 @@ function Sidebar({
           }`}
           style={{ width, transition: dragging ? "none" : "opacity 150ms ease" }}
         >
-          {/* Header */}
+          {/* Header：品牌与交通灯在全局标题栏；新建主按钮 + 连接入口（断连时任何界面可达） */}
           <div
             className="flex items-center justify-between px-3 h-12 border-b shrink-0"
             style={{ borderColor: "var(--border)" }}
+            data-tauri-drag-region
           >
-            <div className="flex items-center gap-2">
-              <ConnectionBadge state={connectionState} />
-              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                RedClaw
-              </span>
-            </div>
+            <button
+              onClick={onNewSession}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md font-medium hover:opacity-80"
+              style={{
+                background: "color-mix(in srgb, var(--accent) 12%, var(--bg-secondary))",
+                color: "var(--accent)",
+              }}
+              title="新建会话"
+            >
+              <Plus size={14} />
+              新建会话
+            </button>
             <div className="flex items-center gap-1">
-              <button
-                onClick={onNewSession}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
-                style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
-                title="新建会话"
-              >
-                <Plus size={14} />
-              </button>
+              <GatewayMenu
+                connected={connected}
+                connecting={connecting}
+                setConnecting={setConnecting}
+                connectionState={connectionState}
+              />
               <button
                 onClick={() => setCollapsed(true)}
                 className="p-1.5 rounded-md hover:opacity-80"
@@ -664,6 +673,7 @@ function Sidebar({
           <div
             className="w-full h-12 flex items-center justify-center border-b shrink-0"
             style={{ borderColor: "var(--border)" }}
+            data-tauri-drag-region
           >
             <button
               onClick={() => setCollapsed(false)}
