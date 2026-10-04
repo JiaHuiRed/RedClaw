@@ -1104,9 +1104,9 @@ function ChatPanel({
           </button>
           <div className="flex items-center gap-0.5 relative" ref={gwMenuRef}>
             <button
-              onClick={handleConnect}
+              onClick={() => setShowGwMenu((v) => !v)}
               disabled={connecting}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-l-md hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80 disabled:opacity-50"
               style={{
                 // Idle keeps the accent color (it's still an inviting call to
                 // action, not a passive status readout) - connecting/connected/
@@ -1116,6 +1116,7 @@ function ChatPanel({
                   connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
                 color: "var(--on-solid)",
               }}
+              title="网关连接与管理"
             >
               {connecting ? (
                 <>连接中…</>
@@ -1128,25 +1129,23 @@ function ChatPanel({
                   <Plug size={14} /> 连接
                 </>
               )}
-            </button>
-            <button
-              onClick={() => setShowGwMenu((v) => !v)}
-              className="flex items-center px-1 py-1.5 rounded-r-md hover:opacity-80 border-l"
-              style={{
-                background:
-                  connectionState === "idle" ? "var(--accent)" : CONNECTION_COLOR[connectionState],
-                color: "var(--on-solid)",
-                borderColor: "color-mix(in srgb, var(--on-solid) 35%, transparent)",
-              }}
-              title="网关进程管理"
-            >
-              <ChevronDown size={12} />
+              <ChevronDown size={12} className="opacity-70" />
             </button>
             {showGwMenu && (
               <div
                 className="absolute top-full right-0 mt-1 w-56 rounded-xl border shadow-lg z-50 overflow-hidden py-1"
                 style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
               >
+                {!connected && !connecting && (
+                  <button
+                    onClick={() => void handleConnect()}
+                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    <PlugZap size={13} style={{ color: "var(--accent)" }} />
+                    <span className="flex-1">连接网关</span>
+                  </button>
+                )}
                 <button
                   onClick={() => void handleGatewaySpawn()}
                   className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80"
