@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ActivityPanel from "./components/ActivityPanel";
 import AgentFilesWorkspace from "./components/AgentFilesWorkspace";
+import ChatHome from "./components/ChatHome";
 import ChatPanel from "./components/ChatPanel";
 import CronPanel from "./components/CronPanel";
 import OperationsWorkspace from "./components/OperationsWorkspace";
@@ -33,6 +34,9 @@ export default function App() {
   const [hasRecentError, setHasRecentError] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [view, setView] = useState<SidebarView>("chat");
+  // Codex 式双态：主页（view=chat/work，顶部保留模式切换）vs 会话态（进会话后
+  // 就是纯会话界面，不再有聊天/工作之分）。任何进会话的路径都置 true。
+  const [inSession, setInSession] = useState(false);
   const [visitedViews, setVisitedViews] = useState<Set<SidebarView>>(() => new Set(["chat"]));
   const [rightPanel, setRightPanel] = useState<"none" | "activity" | "todo" | "usage" | "cron">(
     "none",
@@ -212,11 +216,20 @@ export default function App() {
     setCurrentSessionKey(sessionKey);
     gateway.setActiveSessionKey(sessionKey);
     setView("chat");
+    setInSession(true);
   }, []);
 
   const handleSelectView = useCallback((next: SidebarView) => {
     setVisitedViews((previous) => new Set(previous).add(next));
+    // 右栏面板只挂在会话态顶栏的开关上，离开会话态时一并收起
+    setRightPanel("none");
     setView(next);
+  }, []);
+
+  // 从会话返回主页（保留 view=chat，主页聊天态接管渲染）
+  const handleBackHome = useCallback(() => {
+    setRightPanel("none");
+    setInSession(false);
   }, []);
 
   const handleNewSession = useCallback(async () => {
@@ -225,12 +238,14 @@ export default function App() {
     try {
       const key = await gateway.createSession();
       setCurrentSessionKey(key);
+      setInSession(true);
     } catch (err) {
       console.error("createSession failed:", err);
       pushToast("新建会话失败，已切换到默认会话");
       // client._activeSessionKey 与 UI 同步回落，否则发送仍打到失败的旧 key
       setCurrentSessionKey(DEFAULT_SESSION_KEY);
       gateway.setActiveSessionKey(DEFAULT_SESSION_KEY);
+      setInSession(true);
     }
   }, [pushToast]);
 
@@ -272,18 +287,16 @@ export default function App() {
     setRightPanel((p) => (p === "cron" ? "none" : "cron"));
   }, []);
 
-  // 工作台交办：路由进对应项目区的默认会话，聊天面板消费 workDraft 直发
+  // 工作台/主页聊天交办：路由进对应项目区的默认会话，聊天面板消费 workDraft 直发
   const [workDraft, setWorkDraft] = useState<{ text: string; nonce: number } | null>(null);
-  const handleWorkSend = useCallback(
-    (text: string, agentId: string) => {
-      const key = `agent:${agentId}:main`;
-      setCurrentSessionKey(key);
-      gateway.setActiveSessionKey(key);
-      handleSelectView("chat");
-      setWorkDraft({ text, nonce: Date.now() });
-    },
-    [handleSelectView],
-  );
+  const handleWorkSend = useCallback((text: string, agentId: string) => {
+    const key = `agent:${agentId}:main`;
+    setCurrentSessionKey(key);
+    gateway.setActiveSessionKey(key);
+    setView("chat");
+    setInSession(true);
+    setWorkDraft({ text, nonce: Date.now() });
+  }, []);
 
   return (
     <div className="flex h-screen w-screen">
@@ -299,7 +312,7 @@ export default function App() {
         view={view}
         onSelectView={handleSelectView}
       />
-      <div className={view === "chat" ? "flex flex-1 min-w-0" : "hidden"}>
+      <div className={view === "chat" && inSession ? "flex flex-1 min-w-0" : "hidden"}>
         <ChatPanel
           connected={connected}
           setConnected={handleConnectedChange}
@@ -320,9 +333,12 @@ export default function App() {
           loadingHistory={loadingHistory}
           workDraft={workDraft}
           onWorkDraftConsumed={() => setWorkDraft(null)}
-          onSwitchToWork={() => handleSelectView("work")}
+          onBackHome={handleBackHome}
         />
       </div>
+      {view === "chat" && !inSession && (
+        <ChatHome connected={connected} onSend={handleWorkSend} onSwitchMode={handleSelectView} />
+      )}
       {visitedViews.has("work") && (
         <div className={view === "work" ? "flex flex-1 min-w-0" : "hidden"}>
           <WorkHome

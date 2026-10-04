@@ -1,8 +1,10 @@
-import { RefreshCw, Save } from "lucide-react";
+import { RefreshCw, Save, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { gateway } from "../gateway/client";
+import { useTheme } from "../theme/useTheme";
 
 type Section =
+  | "general"
   | "overview"
   | "devices"
   | "nodes"
@@ -69,6 +71,7 @@ function OriginBadge({ source }: { source: string | undefined }) {
   );
 }
 const SECTIONS: { id: Section; label: string }[] = [
+  { id: "general", label: "通用设置" },
   { id: "overview", label: "运行概况" },
   { id: "devices", label: "设备配对" },
   { id: "nodes", label: "节点" },
@@ -79,8 +82,15 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: "config", label: "高级配置" },
 ];
 
+// 旧侧栏底部齿轮（SettingsModal）已并入这里：主题 + 连接是仅有的全局设置
+const GATEWAY_URL_KEY = "redclaw:gatewayUrl:v2";
+const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
+
 export default function OperationsWorkspace({ connected }: { connected: boolean }) {
-  const [section, setSection] = useState<Section>("overview");
+  const [section, setSection] = useState<Section>("general");
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+  const [gwUrl, setGwUrl] = useState(() => localStorage.getItem(GATEWAY_URL_KEY) ?? "");
+  const [gwToken, setGwToken] = useState(() => localStorage.getItem(GATEWAY_TOKEN_KEY) ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -281,6 +291,19 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
     }
   }
 
+  // 主题/连接保存：连接信息落 localStorage 后 stop/start 重连（原 SettingsModal 行为）
+  function saveConnection() {
+    const nextUrl = gwUrl.trim();
+    const nextToken = gwToken.trim();
+    if (nextUrl) localStorage.setItem(GATEWAY_URL_KEY, nextUrl);
+    else localStorage.removeItem(GATEWAY_URL_KEY);
+    if (nextToken) localStorage.setItem(GATEWAY_TOKEN_KEY, nextToken);
+    else localStorage.removeItem(GATEWAY_TOKEN_KEY);
+    gateway.configure(nextUrl || undefined, nextToken);
+    gateway.stop();
+    gateway.start();
+  }
+
   async function saveConfig() {
     if (!configKey || !config?.hash || draft === original) return;
     let parsed: unknown;
@@ -437,6 +460,80 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
           <p className="text-xs" style={muted}>
             加载中…
           </p>
+        )}
+        {section === "general" && (
+          <div className="space-y-3">
+            <div className="rounded-xl p-4 space-y-3" style={surface}>
+              <h3 className="text-sm font-medium flex items-center gap-1.5">
+                <Settings size={14} />
+                主题
+              </h3>
+              <div className="flex gap-1 max-w-xs">
+                {(
+                  [
+                    ["light", "浅色"],
+                    ["dark", "深色"],
+                    ["system", "跟随系统"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = themePreference === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setThemePreference(value)}
+                      className="flex-1 text-xs py-1.5 rounded-md font-medium transition-colors hover:opacity-80"
+                      style={{
+                        background: active ? "var(--accent)" : "var(--bg-tertiary)",
+                        color: active ? "var(--on-solid)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="rounded-xl p-4 space-y-2" style={surface}>
+              <h3 className="text-sm font-medium">Gateway 连接</h3>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider mb-1" style={muted}>
+                  URL
+                </div>
+                <input
+                  className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                  style={input}
+                  placeholder="ws://127.0.0.1:18789"
+                  value={gwUrl}
+                  onChange={(e) => setGwUrl(e.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider mb-1" style={muted}>
+                  Token
+                </div>
+                <input
+                  type="password"
+                  className="w-full text-xs px-2 py-1.5 rounded-md outline-none"
+                  style={input}
+                  placeholder="gateway.auth.token"
+                  value={gwToken}
+                  onChange={(e) => setGwToken(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={saveConnection}
+                className="w-full text-xs py-1.5 rounded-md font-medium hover:opacity-80"
+                style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+              >
+                保存并重连
+              </button>
+              <p className="text-[10px] flex items-center gap-1.5" style={muted}>
+                <Settings size={11} />
+                涉及密钥的全局配置仍走 gateway 工具 / CLI
+              </p>
+            </div>
+          </div>
         )}
         {section === "overview" && health && (
           <div className="space-y-3">

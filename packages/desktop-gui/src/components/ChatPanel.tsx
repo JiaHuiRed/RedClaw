@@ -27,6 +27,7 @@ import {
   RotateCw,
   Rocket,
   Clock,
+  ArrowLeft,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, memo, type ChangeEvent } from "react";
 import {
@@ -53,7 +54,6 @@ import {
   toolSegmentKey,
   type StreamSegment,
 } from "./MessageParts";
-import ModeTabs from "./ModeTabs";
 
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
 // v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
@@ -293,7 +293,8 @@ interface ChatPanelProps {
   // 工作台主页发来的消息（Enter 直发路由）；nonce 防重复消费
   workDraft: { text: string; nonce: number } | null;
   onWorkDraftConsumed: () => void;
-  onSwitchToWork: () => void;
+  // Codex 式会话态：进会话后顶部不再区分聊天/工作，返回按钮回主页
+  onBackHome: () => void;
 }
 
 // streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
@@ -318,7 +319,7 @@ function ChatPanel({
   loadingHistory,
   workDraft,
   onWorkDraftConsumed,
-  onSwitchToWork,
+  onBackHome,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -980,9 +981,23 @@ function ChatPanel({
         className="flex items-center justify-between px-4 h-12 border-b shrink-0 relative"
         style={{ borderColor: "var(--border)" }}
       >
-        {/* 聊天/工作双模式切换：顶栏居中，两侧功能不动 */}
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <ModeTabs mode="chat" onChange={(m) => m === "work" && onSwitchToWork()} />
+        {/* Codex 式会话态顶栏：返回主页 + 会话标题，不再有聊天/工作模式切换 */}
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            onClick={onBackHome}
+            className="p-1.5 rounded-md hover:opacity-80 shrink-0"
+            style={{ color: "var(--text-secondary)" }}
+            title="返回主页"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div
+            className="text-sm font-medium truncate"
+            style={{ color: "var(--text-primary)" }}
+            title={sessions.find((s) => s.sessionKey === currentSessionKey)?.title}
+          >
+            {sessions.find((s) => s.sessionKey === currentSessionKey)?.title || "新会话"}
+          </div>
         </div>
         <div className="flex items-center gap-2 relative" ref={modelSelectorRef}>
           {connected && (
