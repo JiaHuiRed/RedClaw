@@ -498,7 +498,12 @@ class GatewayClient {
 
   async sendMessage(
     text: string,
-    opts?: { sessionKey?: string; attachments?: OutgoingImageAttachment[]; model?: string },
+    opts?: {
+      sessionKey?: string;
+      attachments?: OutgoingImageAttachment[];
+      model?: string;
+      thinking?: string;
+    },
   ) {
     if (!this.connected) throw new Error("Gateway not connected");
     const key = opts?.sessionKey ?? this._activeSessionKey;
@@ -510,6 +515,8 @@ class GatewayClient {
         ...(opts?.attachments?.length ? { attachments: opts.attachments } : {}),
         // One-shot per-run model override；不传 = 跟随会话当前模型
         ...(opts?.model ? { model: opts.model } : {}),
+        // One-shot per-run thinking level（与 model 同语义，不落会话）
+        ...(opts?.thinking ? { thinking: opts.thinking } : {}),
         deliver: false,
         idempotencyKey,
       });
