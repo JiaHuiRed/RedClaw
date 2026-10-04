@@ -85,6 +85,8 @@ import {
   ConfigGetParamsSchema,
   type ConfigPatchParams,
   ConfigPatchParamsSchema,
+  type ConfigProviderUpsertParams,
+  ConfigProviderUpsertParamsSchema,
   type ConfigSchemaLookupParams,
   ConfigSchemaLookupParamsSchema,
   type ConfigSchemaLookupResult,
@@ -571,6 +573,9 @@ export const validateConfigGetParams = lazyCompile<ConfigGetParams>(ConfigGetPar
 export const validateConfigSetParams = lazyCompile<ConfigSetParams>(ConfigSetParamsSchema);
 export const validateConfigApplyParams = lazyCompile<ConfigApplyParams>(ConfigApplyParamsSchema);
 export const validateConfigPatchParams = lazyCompile<ConfigPatchParams>(ConfigPatchParamsSchema);
+export const validateConfigProviderUpsertParams = lazyCompile<ConfigProviderUpsertParams>(
+  ConfigProviderUpsertParamsSchema,
+);
 export const validateConfigSchemaParams = lazyCompile<ConfigSchemaParams>(ConfigSchemaParamsSchema);
 export const validateConfigSchemaLookupParams = lazyCompile<ConfigSchemaLookupParams>(
   ConfigSchemaLookupParamsSchema,
@@ -832,6 +837,7 @@ export {
   ConfigSetParamsSchema,
   ConfigApplyParamsSchema,
   ConfigPatchParamsSchema,
+  ConfigProviderUpsertParamsSchema,
   ConfigSchemaParamsSchema,
   ConfigSchemaLookupParamsSchema,
   ConfigSchemaResponseSchema,
@@ -946,6 +952,7 @@ export type {
   ConfigSetParams,
   ConfigApplyParams,
   ConfigPatchParams,
+  ConfigProviderUpsertParams,
   ConfigSchemaParams,
   ConfigSchemaResponse,
   WizardStartParams,

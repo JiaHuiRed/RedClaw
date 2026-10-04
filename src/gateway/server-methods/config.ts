@@ -1,5 +1,10 @@
 import { execFile } from "node:child_process";
 import {
+  applyCustomApiConfig,
+  CustomApiError,
+  type CustomApiResult,
+} from "../../commands/onboard-custom-config.js";
+import {
   createConfigIO,
   parseConfigJson5,
   readConfigFileSnapshot,
@@ -37,12 +42,14 @@ import {
   summarizeChangedPaths,
 } from "../control-plane-audit.js";
 import {
+  type ConfigProviderUpsertParams,
   ErrorCodes,
   errorShape,
   formatValidationErrors,
   validateConfigApplyParams,
   validateConfigGetParams,
   validateConfigPatchParams,
+  validateConfigProviderUpsertParams,
   validateConfigSchemaLookupParams,
   validateConfigSchemaLookupResult,
   validateConfigSchemaParams,
@@ -628,6 +635,124 @@ export const configHandlers: GatewayRequestHandlers = {
       true,
       {
         ok: true,
+        path: writeResult.path,
+        config: redactConfigObject(writeResult.config, schemaPatch.uiHints),
+        restart,
+        sentinel: {
+          path: sentinelPath,
+          payload,
+        },
+      },
+      undefined,
+    );
+    writeResult.queueFollowUp();
+  },
+  "config.providers.upsert": async ({ params, respond, client, context }) => {
+    if (
+      !assertValidParams(
+        params,
+        validateConfigProviderUpsertParams,
+        "config.providers.upsert",
+        respond,
+      )
+    ) {
+      return;
+    }
+    const input = params as ConfigProviderUpsertParams;
+    const { snapshot, writeOptions } = await readConfigFileSnapshotForWrite();
+    if (!requireConfigBaseHash(params, snapshot, respond)) {
+      return;
+    }
+    if (!snapshot.valid) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "invalid config; fix before adding providers"),
+      );
+      return;
+    }
+    let result: CustomApiResult;
+    try {
+      result = applyCustomApiConfig({
+        config: snapshot.config,
+        baseUrl: input.baseUrl,
+        modelId: input.modelId,
+        compatibility: input.compatibility ?? "openai",
+        ...(input.apiKey === undefined ? {} : { apiKey: input.apiKey }),
+        ...(input.providerId === undefined ? {} : { providerId: input.providerId }),
+        ...(input.alias === undefined ? {} : { alias: input.alias }),
+        ...(input.supportsImageInput === undefined
+          ? {}
+          : { supportsImageInput: input.supportsImageInput }),
+      });
+    } catch (err) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          err instanceof Error ? err.message : "invalid provider input",
+          { details: { code: err instanceof CustomApiError ? err.code : "invalid_input" } },
+        ),
+      );
+      return;
+    }
+    const schemaPatch = loadSchemaWithPlugins();
+    const preparedSecretsSnapshot = await ensureResolvableSecretRefsOrRespond({
+      config: result.config,
+      respond,
+    });
+    if (!preparedSecretsSnapshot) {
+      return;
+    }
+    const changedPaths = diffConfigPaths(snapshot.config, preparedSecretsSnapshot.config);
+    const actor = resolveControlPlaneActor(client);
+    if (changedPaths.length === 0) {
+      context?.logGateway?.info(
+        `config.providers.upsert noop ${formatControlPlaneActor(actor)} (no changed paths)`,
+      );
+      respond(
+        true,
+        {
+          ok: true,
+          noop: true,
+          providerId: result.providerId,
+          modelId: result.modelId,
+          providerIdRenamedFrom: result.providerIdRenamedFrom,
+          path: resolveGatewayConfigPath(snapshot),
+          config: redactConfigObject(snapshot.config, schemaPatch.uiHints),
+        },
+        undefined,
+      );
+      return;
+    }
+    context?.logGateway?.info(
+      `config.providers.upsert write ${formatControlPlaneActor(actor)} provider=${result.providerId} model=${result.modelId} changedPaths=${summarizeChangedPaths(changedPaths)} restartReason=config.providers.upsert`,
+    );
+    const writeResult = await commitGatewayConfigWrite({
+      snapshot,
+      writeOptions,
+      nextConfig: preparedSecretsSnapshot.config,
+      context,
+    });
+    clearConfigSchemaResponseCache();
+    const { payload, sentinelPath, restart } = await resolveGatewayConfigRestartWriteResult({
+      requestParams: params,
+      kind: "config-patch",
+      mode: "config.patch",
+      configPath: writeResult.path,
+      changedPaths,
+      nextConfig: writeResult.config,
+      actor,
+      context,
+    });
+    respond(
+      true,
+      {
+        ok: true,
+        providerId: result.providerId,
+        modelId: result.modelId,
+        providerIdRenamedFrom: result.providerIdRenamedFrom,
         path: writeResult.path,
         config: redactConfigObject(writeResult.config, schemaPatch.uiHints),
         restart,

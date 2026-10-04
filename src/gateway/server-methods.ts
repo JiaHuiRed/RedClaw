@@ -357,6 +357,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
       "config.set",
       "config.patch",
       "config.apply",
+      "config.providers.upsert",
       "config.openFile",
     ],
     loadHandlers: loadConfigHandlers,
