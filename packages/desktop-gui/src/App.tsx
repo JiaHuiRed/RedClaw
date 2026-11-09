@@ -368,6 +368,7 @@ export default function App() {
             workDraft={workDraft}
             onWorkDraftConsumed={handleWorkDraftConsumed}
             onBackHome={handleBackHome}
+            pushToast={pushToast}
           />
         </div>
         {view === "chat" && !inSession && (

@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Clock,
   ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo, useCallback, memo, type ChangeEvent } from "react";
 import {
@@ -36,6 +37,7 @@ import {
 } from "../gateway/client";
 import { applyStreamDelta } from "../lib/chat-stream";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
+import { useCopy } from "../lib/useCopy";
 import ActivityCapsule from "./ActivityCapsule";
 import ChatEmptyState from "./ChatEmptyState";
 import CommandPalette from "./CommandPalette";
@@ -116,43 +118,80 @@ function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string
   });
 }
 
-// 消息级操作行：hover 显现（朗读中常驻），复制 + 朗读
+// 从乐观消息的 data URL 附件还原 base64 附件：重试/重新生成时服务端
+// attachments 需要原始 base64（服务端投影接管前的本地态只有 data URL）
+function attachmentsOf(msg: Message): OutgoingImageAttachment[] | undefined {
+  const imgs = (msg.images ?? []).filter((i) => i.url.startsWith("data:"));
+  if (imgs.length === 0) return undefined;
+  return imgs.flatMap((i) => {
+    const match = /^data:([^;]+);base64,(.*)$/.exec(i.url);
+    if (!match) return [];
+    return [
+      { type: "image" as const, mimeType: match[1]!, fileName: "image.png", content: match[2]! },
+    ];
+  });
+}
+
+// 消息级操作行：hover 显现（朗读中常驻）。复制通用；朗读/重新生成/编辑
+// 按传入回调按需渲染（assistant=复制+朗读+重新生成，user=复制+编辑）
 function MessageActions({
   text,
   speaking,
   onSpeak,
+  onRegenerate,
+  onEdit,
 }: {
   text: string;
-  speaking: boolean;
-  onSpeak: () => void;
+  speaking?: boolean;
+  onSpeak?: () => void;
+  onRegenerate?: () => void;
+  onEdit?: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   return (
     <div
       className={`mt-1 flex items-center gap-0.5 transition-opacity ${
-        speaking ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        speaking ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
       }`}
     >
       <button
-        onClick={() => {
-          navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }}
+        onClick={() => void copy(text)}
         className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
         style={{ color: copied ? "var(--success)" : "var(--text-secondary)" }}
         title={copied ? "已复制" : "复制"}
       >
         {copied ? <Check size={12} /> : <Copy size={12} />}
       </button>
-      <button
-        onClick={onSpeak}
-        className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-        style={{ color: speaking ? "var(--accent)" : "var(--text-secondary)" }}
-        title={speaking ? "播放中…" : "朗读这条回复"}
-      >
-        <Volume2 size={12} />
-      </button>
+      {onSpeak && (
+        <button
+          onClick={onSpeak}
+          className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ color: speaking ? "var(--accent)" : "var(--text-secondary)" }}
+          title={speaking ? "播放中…" : "朗读这条回复"}
+        >
+          <Volume2 size={12} />
+        </button>
+      )}
+      {onRegenerate && (
+        <button
+          onClick={onRegenerate}
+          className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ color: "var(--text-secondary)" }}
+          title="重新生成这条回复"
+        >
+          <RefreshCw size={12} />
+        </button>
+      )}
+      {onEdit && (
+        <button
+          onClick={onEdit}
+          className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          style={{ color: "var(--text-secondary)" }}
+          title="编辑并重新填入输入框"
+        >
+          <Pencil size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -291,6 +330,8 @@ interface ChatPanelProps {
   onWorkDraftConsumed: () => void;
   // Codex 式会话态：进会话后顶部不再区分聊天/工作，返回按钮回主页
   onBackHome: () => void;
+  // 本地即时反馈通道（图片超限/读取失败等纯前端校验；RPC 错误走 gateway.onError）
+  pushToast: (message: string) => void;
 }
 
 // streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
@@ -314,6 +355,7 @@ function ChatPanel({
   workDraft,
   onWorkDraftConsumed,
   onBackHome,
+  pushToast,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -627,11 +669,19 @@ function ChatPanel({
   }, [messages, segments, streamingReasoning]);
 
   async function addPendingImages(files: File[]) {
+    // 静默丢弃是最伤的「点了没反应」：超量/超限/非图片/读取失败全部显式提示
+    if (files.length > 4) {
+      pushToast(`一次最多带 4 张图，多余的 ${files.length - 4} 张已忽略`);
+    }
+    let skippedNonImage = 0;
     for (const file of files.slice(0, 4)) {
-      if (!file.type.startsWith("image/")) continue;
+      if (!file.type.startsWith("image/")) {
+        skippedNonImage++;
+        continue;
+      }
       // 服务端 chat.attachments 默认上限 20MB，base64 还有 4/3 膨胀，raw 收到 12MB
       if (file.size > 12 * 1024 * 1024) {
-        console.error("[ChatPanel] image too large (cap 12MB), skipped:", file.name, file.size);
+        pushToast(`图片 ${file.name} 超过 12MB 上限，已跳过`);
         continue;
       }
       try {
@@ -648,7 +698,11 @@ function ChatPanel({
         ]);
       } catch (err) {
         console.error("[ChatPanel] read image failed:", err);
+        pushToast(`图片 ${file.name} 读取失败`);
       }
+    }
+    if (skippedNonImage > 0) {
+      pushToast(`已忽略 ${skippedNonImage} 个非图片文件`);
     }
   }
 
@@ -743,6 +797,7 @@ function ChatPanel({
         await gateway.sendMessage(`请用生图工具生成一张图片（尺寸 ${item.imageSize}）：${msg}`);
       } catch (err) {
         console.error("generate image failed:", err);
+        markSendFailed(item.id);
         setImagePending(false);
         setIsGenerating(false);
       }
@@ -758,8 +813,61 @@ function ChatPanel({
       });
     } catch (err) {
       console.error("send failed:", err);
+      // 乐观消息打失败标记：气泡下出「重试」入口，不再石沉大海
+      markSendFailed(item.id);
       setIsGenerating(false);
     }
+  }
+
+  function markSendFailed(id: string) {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, sendFailed: true } : m)));
+  }
+
+  // 发送失败重试：原消息留在时间线上（清失败标记），附件从 data URL 还原重发
+  async function resendMessage(msg: Message) {
+    if (isGenerating || !connected) return;
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, sendFailed: false } : m)));
+    nearBottomRef.current = true;
+    clearSegments();
+    setIsGenerating(true);
+    try {
+      await gateway.sendMessage(msg.content, {
+        attachments: attachmentsOf(msg),
+        model: chatModel ?? undefined,
+        thinking: chatThinking ?? undefined,
+      });
+    } catch (err) {
+      console.error("resend failed:", err);
+      markSendFailed(msg.id);
+      setIsGenerating(false);
+    }
+  }
+
+  // 重新生成：对最后一条用户消息原样重发（server 追加新回复，不裁历史）
+  async function regenerate() {
+    if (isGenerating || !connected) return;
+    const lastUser = [...messages].reverse().find((m) => m.role === "user" && !m.sendFailed);
+    if (!lastUser) return;
+    nearBottomRef.current = true;
+    clearSegments();
+    setIsGenerating(true);
+    try {
+      await gateway.sendMessage(lastUser.content, {
+        attachments: attachmentsOf(lastUser),
+        model: chatModel ?? undefined,
+        thinking: chatThinking ?? undefined,
+      });
+    } catch (err) {
+      console.error("regenerate failed:", err);
+      setIsGenerating(false);
+    }
+  }
+
+  // 编辑用户消息：内容回填输入框（不裁历史，改完即新消息）
+  function editResend(msg: Message) {
+    if (isGenerating) return;
+    setInput(msg.content);
+    inputRef.current?.focus();
   }
 
   // 队列派发：流结束（isGenerating 翻 false）后依次发出下一条。
@@ -852,6 +960,14 @@ function ChatPanel({
     () => segments.flatMap((seg) => (seg.kind === "tool" ? [seg.tool] : [])),
     [segments],
   );
+  // 重新生成入口只挂最后一条 assistant 消息（历史中间的「重新生成」语义不明）
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m && m.role === "assistant") return m.id;
+    }
+    return null;
+  }, [messages]);
 
   // 工作台主页「交办」：nonce 只消费一次；忙时落回输入框不丢字
   const workDraftNonceRef = useRef(0);
@@ -1034,9 +1150,7 @@ function ChatPanel({
                     />
                   )}
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words ${
-                      msg.role === "assistant" ? "group" : ""
-                    }`}
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words group`}
                     style={{
                       background:
                         msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
@@ -1087,7 +1201,37 @@ function ChatPanel({
                         text={msg.content}
                         speaking={speakingMsgId === msg.id}
                         onSpeak={() => handleSpeak(msg)}
+                        onRegenerate={
+                          msg.id === lastAssistantId && !isGenerating
+                            ? () => void regenerate()
+                            : undefined
+                        }
                       />
+                    )}
+                    {msg.role === "user" && (
+                      <MessageActions
+                        text={msg.content}
+                        onEdit={isGenerating ? undefined : () => editResend(msg)}
+                      />
+                    )}
+                    {msg.role === "user" && msg.sendFailed && (
+                      <div
+                        className="mt-1.5 flex items-center gap-1.5 text-xs"
+                        style={{ color: "var(--danger)" }}
+                      >
+                        <AlertCircle size={12} />
+                        发送失败
+                        {!isGenerating && (
+                          <button
+                            onClick={() => void resendMessage(msg)}
+                            className="underline underline-offset-2 hover:opacity-80"
+                            style={{ color: "var(--danger)" }}
+                            title="重新发送这条消息"
+                          >
+                            重试
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   {msg.role === "user" && (
@@ -1419,19 +1563,21 @@ function ChatPanel({
                     ? "描述你想生成的图片…"
                     : "输入消息… （/ 查看命令）"
               }
-              disabled={!connected || imagePending}
+              disabled={!connected}
               rows={1}
               className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
               style={{ color: "var(--text-primary)" }}
             />
             {imagePending ? (
-              <span
-                className="shrink-0 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs"
-                style={{ color: "var(--text-secondary)" }}
+              // 生图可能挂几分钟：保留停止入口（abort 同样有效），允许继续打字排队
+              <button
+                onClick={handleStop}
+                className="shrink-0 rounded-full w-8 h-8 flex items-center justify-center transition-opacity hover:opacity-90"
+                style={{ background: "var(--danger)", color: "var(--on-solid)" }}
+                title="停止生图"
               >
                 <Loader2 size={14} className="animate-spin" />
-                生成中…
-              </span>
+              </button>
             ) : isGenerating ? (
               <button
                 onClick={handleStop}
