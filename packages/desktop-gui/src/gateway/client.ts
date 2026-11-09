@@ -286,7 +286,8 @@ type ThinkingListener = (thinking: ThinkingEvent) => void;
 type ToolListener = (tool: ToolCallEvent) => void;
 type StreamEndListener = () => void;
 
-class GatewayClient {
+// 导出类本身：单测需要可新建实例隔离状态（单例 gateway 供运行时使用）
+export class GatewayClient {
   private ws: WebSocket | null = null;
   private connected = false;
   private running = false;
