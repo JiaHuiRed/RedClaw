@@ -32,6 +32,7 @@ import {
   type AgentSummary,
 } from "../gateway/client";
 import type { ConnectionState } from "../lib/connectionStatus";
+import { SIDEBAR_MIN_WIDTH, clampSidebarWidth, reportSidebarWidth } from "../lib/layout-budget";
 import { GatewayMenu } from "./GatewayMenu";
 import ProjectAreaModal from "./ProjectAreaModal";
 
@@ -40,8 +41,6 @@ const WIDTH_KEY = "redclaw:sidebarWidth";
 const GROUPS_KEY = "redclaw:collapsedGroups";
 const DEFAULT_WIDTH = 260;
 const COLLAPSED_WIDTH = 48;
-const MIN_WIDTH = 160;
-const MAX_WIDTH = 480;
 
 export type SidebarView = "work" | "chat" | "sessions" | "skills" | "files" | "operations";
 
@@ -118,7 +117,7 @@ function Sidebar({
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem(WIDTH_KEY));
-    return Number.isFinite(saved) && saved >= MIN_WIDTH ? saved : DEFAULT_WIDTH;
+    return Number.isFinite(saved) && saved >= SIDEBAR_MIN_WIDTH ? saved : DEFAULT_WIDTH;
   });
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -150,8 +149,12 @@ function Sidebar({
     localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
+  // 拖动中每帧写 localStorage 纯浪费：300ms 尾沿防抖持久化最终值；
+  // 同时上报布局预算，让右栏拖宽能感知侧栏当前宽度
   useEffect(() => {
-    localStorage.setItem(WIDTH_KEY, String(width));
+    reportSidebarWidth(width);
+    const t = setTimeout(() => localStorage.setItem(WIDTH_KEY, String(width)), 300);
+    return () => clearTimeout(t);
   }, [width]);
 
   useEffect(() => {
@@ -205,7 +208,8 @@ function Sidebar({
         emoji: agent?.identity?.emoji || (id === "other" ? "📄" : "📁"),
         workspace: agent?.workspace,
         isDefault: id === defaultAgentId,
-        sessions: grouped.get(id) ?? [],
+        // 组内按最近更新排序：status.recent 的返回顺序不保证，依赖它会话跳位置
+        sessions: (grouped.get(id) ?? []).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)),
       };
     });
   }, [sessions, agents, defaultAgentId]);
@@ -218,9 +222,8 @@ function Sidebar({
       dragRef.current = { startX: e.clientX, startWidth: width };
       const onMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
-        const next = Math.min(
-          MAX_WIDTH,
-          Math.max(MIN_WIDTH, dragRef.current.startWidth + (ev.clientX - dragRef.current.startX)),
+        const next = clampSidebarWidth(
+          dragRef.current.startWidth + (ev.clientX - dragRef.current.startX),
         );
         setWidth(next);
       };
@@ -345,7 +348,7 @@ function Sidebar({
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") commitEdit();
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) commitEdit();
                   if (e.key === "Escape") cancelEdit();
                 }}
                 onBlur={commitEdit}

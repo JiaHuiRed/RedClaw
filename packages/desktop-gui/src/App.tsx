@@ -24,6 +24,7 @@ import {
   type ToolCallEvent,
 } from "./gateway/client";
 import { getConnectionState } from "./lib/connectionStatus";
+import { clampRightPanelWidth, reportRightPanelWidth } from "./lib/layout-budget";
 
 const DEFAULT_SESSION_KEY = "agent:main:main";
 // v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
@@ -57,7 +58,11 @@ export default function App() {
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    localStorage.setItem("redclaw:rightPanelWidth", String(rightPanelWidth));
+    // 拖动中每帧写 localStorage 纯浪费：300ms 尾沿防抖持久化最终值
+    const t = setTimeout(() => {
+      localStorage.setItem("redclaw:rightPanelWidth", String(rightPanelWidth));
+    }, 300);
+    return () => clearTimeout(t);
   }, [rightPanelWidth]);
 
   const connectionState = useMemo(
@@ -299,6 +304,19 @@ export default function App() {
     setInSession(true);
     setWorkDraft({ text, nonce: Date.now() });
   }, []);
+  // 稳定引用是 ChatPanel memo 的前提：内联箭头会让 App 每次重渲染（包括
+  // 右栏拖宽的每一帧）都穿透到整个聊天面板
+  const handleWorkDraftConsumed = useCallback(() => setWorkDraft(null), []);
+  // 右栏拖宽经布局预算 clamp（感知侧栏宽度，给聊天区保底宽度）再落 state
+  const handleRightPanelResize = useCallback((w: number) => {
+    const next = clampRightPanelWidth(w);
+    reportRightPanelWidth(next);
+    setRightPanelWidth(next);
+  }, []);
+  // 右栏开合/宽度变化上报布局预算（关闭时释放占位）
+  useEffect(() => {
+    reportRightPanelWidth(rightPanel === "none" ? 0 : rightPanelWidth);
+  }, [rightPanel, rightPanelWidth]);
 
   return (
     <div className="flex flex-col h-screen w-screen">
@@ -348,7 +366,7 @@ export default function App() {
             onToggleCron={onToggleCron}
             loadingHistory={loadingHistory}
             workDraft={workDraft}
-            onWorkDraftConsumed={() => setWorkDraft(null)}
+            onWorkDraftConsumed={handleWorkDraftConsumed}
             onBackHome={handleBackHome}
           />
         </div>
@@ -391,28 +409,28 @@ export default function App() {
             outputs={toolOutputs}
             sessions={sessions}
             width={rightPanelWidth}
-            onResize={setRightPanelWidth}
+            onResize={handleRightPanelResize}
             onClose={() => setRightPanel("none")}
           />
         )}
         {view === "chat" && rightPanel === "todo" && (
           <TodoPanel
             width={rightPanelWidth}
-            onResize={setRightPanelWidth}
+            onResize={handleRightPanelResize}
             onClose={() => setRightPanel("none")}
           />
         )}
         {view === "chat" && rightPanel === "usage" && (
           <UsagePanel
             width={rightPanelWidth}
-            onResize={setRightPanelWidth}
+            onResize={handleRightPanelResize}
             onClose={() => setRightPanel("none")}
           />
         )}
         {view === "chat" && rightPanel === "cron" && (
           <CronPanel
             width={rightPanelWidth}
-            onResize={setRightPanelWidth}
+            onResize={handleRightPanelResize}
             onClose={() => setRightPanel("none")}
           />
         )}

@@ -119,7 +119,7 @@ export default function TodoPanel({ width, onResize, onClose }: TodoPanelProps) 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleAdd();
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) handleAdd();
             }}
             placeholder="新待办…"
             className="flex-1 bg-transparent text-sm outline-none"
