@@ -173,6 +173,8 @@ export default function UsagePanel({ width, onResize, onClose }: UsagePanelProps
   const [data, setData] = useState<UsageCostSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [memory, setMemory] = useState<MemoryOverview | null>(null);
+  const [memoryError, setMemoryError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
 
   // 服务端首次重建用量缓存可能较慢（扫描会话 transcript），
@@ -181,6 +183,7 @@ export default function UsagePanel({ width, onResize, onClose }: UsagePanelProps
     let cancelled = false;
     let polls = 0;
     setLoading(true);
+    setLoadError(false);
     const load = () => {
       gateway
         .fetchUsageCost(range)
@@ -196,7 +199,11 @@ export default function UsagePanel({ width, onResize, onClose }: UsagePanelProps
           }
         })
         .catch(() => {
-          if (!cancelled) setLoading(false);
+          // 失败与「暂无数据」可区分：全「—」的假空态会让人以为没花钱
+          if (!cancelled) {
+            setLoadError(true);
+            setLoading(false);
+          }
         });
     };
     load();
@@ -207,9 +214,15 @@ export default function UsagePanel({ width, onResize, onClose }: UsagePanelProps
 
   useEffect(() => {
     let cancelled = false;
-    gateway.fetchMemoryOverview().then((m) => {
-      if (!cancelled) setMemory(m);
-    });
+    setMemoryError(false);
+    gateway
+      .fetchMemoryOverview()
+      .then((m) => {
+        if (!cancelled) setMemory(m);
+      })
+      .catch(() => {
+        if (!cancelled) setMemoryError(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -285,6 +298,20 @@ export default function UsagePanel({ width, onResize, onClose }: UsagePanelProps
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        {loadError && (
+          <div
+            className="text-[11px] px-2.5 py-2 rounded-lg flex items-center gap-1.5 flex-wrap"
+            style={{ color: "var(--danger)", background: "var(--bg-tertiary)" }}
+          >
+            用量数据加载失败
+            <button
+              onClick={() => setRefreshTick((t) => t + 1)}
+              className="underline underline-offset-2 hover:opacity-80"
+            >
+              重试
+            </button>
+          </div>
+        )}
         {refreshing && (
           <div
             className="text-[11px] px-2.5 py-1.5 rounded-lg"
@@ -507,6 +534,19 @@ export default function UsagePanel({ width, onResize, onClose }: UsagePanelProps
               </div>
             )}
           </>
+        ) : memoryError ? (
+          <div
+            className="text-[11px] px-2.5 py-2 rounded-lg flex items-center gap-1.5 flex-wrap"
+            style={{ color: "var(--danger)", background: "var(--bg-tertiary)" }}
+          >
+            记忆概览加载失败
+            <button
+              onClick={() => setRefreshTick((t) => t + 1)}
+              className="underline underline-offset-2 hover:opacity-80"
+            >
+              重试
+            </button>
+          </div>
         ) : (
           <div
             className="text-xs text-center py-4 -mt-3"

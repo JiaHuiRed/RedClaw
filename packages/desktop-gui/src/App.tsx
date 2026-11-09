@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ActivityPanel from "./components/ActivityPanel";
 import AgentFilesWorkspace from "./components/AgentFilesWorkspace";
@@ -31,6 +32,8 @@ const DEFAULT_SESSION_KEY = "agent:main:main";
 const GATEWAY_URL_KEY = "redclaw:gatewayUrl:v2";
 const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
 
+type ToastKind = "info" | "error" | "success";
+
 export default function App() {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -49,7 +52,7 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
   const [currentSessionKey, setCurrentSessionKey] = useState(DEFAULT_SESSION_KEY);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
+  const [toasts, setToasts] = useState<{ id: string; kind: ToastKind; message: string }[]>([]);
   const [toolOutputs, setToolOutputs] = useState<ToolCallEvent[]>([]);
   const [rightPanelWidth, setRightPanelWidth] = useState(() => {
     const saved = Number(localStorage.getItem("redclaw:rightPanelWidth"));
@@ -86,9 +89,9 @@ export default function App() {
     }
   }, []);
 
-  const pushToast = useCallback((message: string) => {
+  const pushToast = useCallback((message: string, kind: ToastKind = "info") => {
     const id = crypto.randomUUID();
-    setToasts((prev) => [...prev, { id, message }]);
+    setToasts((prev) => [...prev, { id, kind, message }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
@@ -97,6 +100,7 @@ export default function App() {
   // 请求代际防护：切会话时旧会话的慢历史返回会覆盖新会话内容，
   // 过期响应连同它的 finally（提前熄 loading）一起丢弃
   const historyGenRef = useRef(0);
+  const [historyError, setHistoryError] = useState(false);
   const loadHistory = useCallback(async (sessionKey: string) => {
     const gen = ++historyGenRef.current;
     setLoadingHistory(true);
@@ -105,6 +109,14 @@ export default function App() {
       const history = await gateway.fetchHistory(sessionKey);
       if (gen !== historyGenRef.current) return;
       setMessages(history);
+      setHistoryError(false);
+    } catch (err) {
+      // 拉历史失败必须显式暴露：吞成空数组会让老会话伪装成「全新空会话」，
+      // 对伴侣型产品是情感伤害级误导（以为聊天记录丢了）
+      if (gen === historyGenRef.current) {
+        console.error("[App] loadHistory failed:", err);
+        setHistoryError(true);
+      }
     } finally {
       if (gen === historyGenRef.current) setLoadingHistory(false);
     }
@@ -115,7 +127,7 @@ export default function App() {
     const unsubCmds = gateway.onCommands((cmds) => setCommands(cmds));
     const unsubSessions = gateway.onSessionList((list) => setSessions(list));
     const unsubError = gateway.onError((message) => {
-      pushToast(message);
+      pushToast(message, "error");
       // gateway.onError can fire for failures (e.g. a rejected chat.send)
       // that never touch connection status, so this can't rely solely on
       // handleConnectedChange to clear it - it needs its own timer too.
@@ -239,6 +251,18 @@ export default function App() {
     setInSession(false);
   }, []);
 
+  // Esc 返回主页：仅当焦点不在任何输入/弹层（target 是 body）时生效；
+  // 弹层/输入框内的 Esc 由各自处理（useEscape 在 capture 阶段先吃掉）
+  useEffect(() => {
+    if (!inSession) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.target !== document.body) return;
+      handleBackHome();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [inSession, handleBackHome]);
+
   const handleNewSession = useCallback(async () => {
     setView("chat");
     setMessages([]);
@@ -318,6 +342,10 @@ export default function App() {
     reportRightPanelWidth(rightPanel === "none" ? 0 : rightPanelWidth);
   }, [rightPanel, rightPanelWidth]);
 
+  const retryHistory = useCallback(() => {
+    void loadHistory(currentSessionKey);
+  }, [loadHistory, currentSessionKey]);
+
   return (
     <div className="flex flex-col h-screen w-screen">
       {/* 全局标题栏（decorations:false 自绘）：只有交通灯+品牌，横贯全窗可拖拽；
@@ -350,6 +378,7 @@ export default function App() {
         />
         <div className={view === "chat" && inSession ? "flex flex-1 min-w-0" : "hidden"}>
           <ChatPanel
+            active={view === "chat" && inSession}
             connected={connected}
             setConnected={handleConnectedChange}
             setConnecting={setConnecting}
@@ -365,6 +394,8 @@ export default function App() {
             onToggleUsage={onToggleUsage}
             onToggleCron={onToggleCron}
             loadingHistory={loadingHistory}
+            historyError={historyError}
+            onRetryHistory={retryHistory}
             workDraft={workDraft}
             onWorkDraftConsumed={handleWorkDraftConsumed}
             onBackHome={handleBackHome}
@@ -436,18 +467,34 @@ export default function App() {
           />
         )}
         {toasts.length > 0 && (
-          <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+          <div
+            className="fixed bottom-4 right-4 z-[120] flex flex-col gap-2 max-w-sm"
+            aria-live="polite"
+          >
             {toasts.map((t) => (
               <div
                 key={t.id}
-                className="px-4 py-2.5 rounded-lg text-sm shadow-lg"
+                className="px-4 py-2.5 rounded-lg text-sm shadow-lg flex items-start gap-2"
                 style={{
                   background: "var(--bg-secondary)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border)",
+                  color: t.kind === "error" ? "var(--danger)" : "var(--text-primary)",
+                  border: `1px solid ${
+                    t.kind === "error"
+                      ? "var(--danger)"
+                      : t.kind === "success"
+                        ? "var(--success)"
+                        : "var(--border)"
+                  }`,
                 }}
               >
-                {t.message}
+                <span className="flex-1">{t.message}</span>
+                <button
+                  onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+                  className="shrink-0 opacity-60 hover:opacity-100"
+                  title="关闭"
+                >
+                  <X size={13} />
+                </button>
               </div>
             ))}
           </div>

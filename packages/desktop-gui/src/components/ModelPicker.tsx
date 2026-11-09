@@ -1,6 +1,7 @@
 import { Brain, ChevronDown, Cpu } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ModelEntry } from "../gateway/client";
+import { useEscape } from "../lib/useEscape";
 import { EffortSlider } from "./EffortSlider";
 
 // per-message 思考档全集（chat.send thinking one-shot；不传 = 跟随模型默认）
@@ -46,6 +47,13 @@ export function ModelPicker({
   const [picking, setPicking] = useState(false);
   const [search, setSearch] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Esc 关闭弹层（capture 阶段，先于全局 Esc 行为）
+  useEscape(() => {
+    setShow(false);
+    setSearch("");
+    setPicking(false);
+  }, show);
 
   // 外点关闭
   useEffect(() => {
