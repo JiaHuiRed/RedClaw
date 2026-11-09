@@ -22,6 +22,16 @@ const WEEKDAYS = [
   { value: 0, label: "日" },
 ];
 
+// cron 的 tz 用设备当前时区：写死 Asia/Hong_Kong 恰好对 UTC+8 无感，
+// 换设备时区/海外使用会定时错位
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Hong_Kong";
+
+// datetime-local 的 min 用本地时间串（toISOString 是 UTC，会偏移时区）
+function toLocalInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function hmToCronMinutes(hm: string): { min: number; hour: number } | null {
   const [h, m] = hm.split(":").map((x) => Number.parseInt(x, 10));
   if (!Number.isFinite(h) || !Number.isFinite(m) || h > 23 || m > 59) return null;
@@ -63,12 +73,12 @@ export default function SchedulePicker({ onChange }: SchedulePickerProps) {
     const hm = hmToCronMinutes(time);
     if (next === "daily" && hm) {
       emit({
-        schedule: { kind: "cron", expr: `${hm.min} ${hm.hour} * * *`, tz: "Asia/Hong_Kong" },
+        schedule: { kind: "cron", expr: `${hm.min} ${hm.hour} * * *`, tz: LOCAL_TZ },
         summary: `每天 ${time}`,
       });
     } else if (next === "advanced") {
       emit({
-        schedule: { kind: "cron", expr: advancedExpr, tz: "Asia/Hong_Kong" },
+        schedule: { kind: "cron", expr: advancedExpr, tz: LOCAL_TZ },
         summary: advancedExpr,
       });
     }
@@ -79,7 +89,7 @@ export default function SchedulePicker({ onChange }: SchedulePickerProps) {
     const parts = hmToCronMinutes(hm);
     if (!parts) return;
     emit({
-      schedule: { kind: "cron", expr: `${parts.min} ${parts.hour} * * *`, tz: "Asia/Hong_Kong" },
+      schedule: { kind: "cron", expr: `${parts.min} ${parts.hour} * * *`, tz: LOCAL_TZ },
       summary: `每天 ${hm}`,
     });
   }
@@ -93,7 +103,7 @@ export default function SchedulePicker({ onChange }: SchedulePickerProps) {
       schedule: {
         kind: "cron",
         expr: `${parts.min} ${parts.hour} * * ${ordered.join(",")}`,
-        tz: "Asia/Hong_Kong",
+        tz: LOCAL_TZ,
       },
       summary: `每周 ${ordered.map((d) => WEEKDAYS.find((w) => w.value === d)?.label ?? d).join("、")} ${hm}`,
     });
@@ -106,7 +116,7 @@ export default function SchedulePicker({ onChange }: SchedulePickerProps) {
       schedule: {
         kind: "cron",
         expr: `${parts.min} ${parts.hour} ${day} * *`,
-        tz: "Asia/Hong_Kong",
+        tz: LOCAL_TZ,
       },
       summary: `每月 ${day} 号 ${hm}`,
     });
@@ -236,6 +246,7 @@ export default function SchedulePicker({ onChange }: SchedulePickerProps) {
           type="datetime-local"
           className="w-full text-xs px-2.5 py-2 rounded-lg outline-none"
           style={inputStyle}
+          min={toLocalInputValue(new Date(Date.now() - 60_000))}
           onChange={(e) => buildFromOnce(e.target.value)}
         />
       )}
@@ -251,7 +262,7 @@ export default function SchedulePicker({ onChange }: SchedulePickerProps) {
               const expr = e.target.value.trim();
               if (expr.split(/\s+/).length === 5) {
                 emit({
-                  schedule: { kind: "cron", expr, tz: "Asia/Hong_Kong" },
+                  schedule: { kind: "cron", expr, tz: LOCAL_TZ },
                   summary: expr,
                 });
               }

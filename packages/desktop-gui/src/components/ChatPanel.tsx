@@ -829,7 +829,8 @@ function ChatPanel({
         setCmdSelectedIndex((i) => Math.max(i - 1, 0));
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey) {
+      // 中文 IME 组词中按 Enter 是确认候选词，不能当「发送/选中」处理
+      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
         const item = paletteItems[cmdSelectedIndex];
         if (item) {
           e.preventDefault();
@@ -838,7 +839,7 @@ function ChatPanel({
         }
       }
     }
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSend();
     }
@@ -1033,7 +1034,7 @@ function ChatPanel({
                     />
                   )}
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words ${
                       msg.role === "assistant" ? "group" : ""
                     }`}
                     style={{
@@ -1105,7 +1106,7 @@ function ChatPanel({
             {isGenerating && segments.length > 0 && (
               <div className="flex justify-start">
                 <div
-                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words"
                   style={{
                     background: "var(--assistant-bubble)",
                     color: "var(--text-primary)",
@@ -1134,7 +1135,7 @@ function ChatPanel({
             {isGenerating && streamingReasoning && !hasStreaming && (
               <div className="flex justify-start">
                 <div
-                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed"
+                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed break-words"
                   style={{
                     background: "var(--bg-tertiary)",
                     color: "var(--text-secondary)",
