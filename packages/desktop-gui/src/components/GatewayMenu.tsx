@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { gateway } from "../gateway/client";
 import type { ConnectionState } from "../lib/connectionStatus";
 import { CONNECTION_COLOR } from "../lib/connectionStatus";
+import { useEscape } from "../lib/useEscape";
 
 interface GatewayMenuProps {
   connected: boolean;
@@ -21,6 +22,9 @@ export function GatewayMenu({
 }: GatewayMenuProps) {
   const [show, setShow] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Esc 关闭菜单（capture 阶段）
+  useEscape(() => setShow(false), show);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

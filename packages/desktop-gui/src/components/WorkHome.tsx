@@ -181,10 +181,10 @@ export default function WorkHome({
             <div className="flex items-center justify-end px-3.5 pb-3 pt-1">
               <button
                 onClick={submit}
-                disabled={!connected || !text.trim()}
+                disabled={!connected || !text.trim() || !agentId}
                 className="flex items-center justify-center w-9 h-9 rounded-full transition-all duration-300 ease-out hover:opacity-85 hover:shadow-md disabled:opacity-40"
                 style={{ background: "var(--accent)", color: "var(--on-solid)" }}
-                title="发送（Enter）"
+                title={!agentId ? "项目区列表未加载，稍候再试" : "发送（Enter）"}
               >
                 <ArrowUp size={16} />
               </button>

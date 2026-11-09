@@ -38,6 +38,7 @@ import {
 import { applyStreamDelta } from "../lib/chat-stream";
 import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
 import { useCopy } from "../lib/useCopy";
+import { useEscape } from "../lib/useEscape";
 import ActivityCapsule from "./ActivityCapsule";
 import ChatEmptyState from "./ChatEmptyState";
 import CommandPalette from "./CommandPalette";
@@ -332,6 +333,11 @@ interface ChatPanelProps {
   onBackHome: () => void;
   // 本地即时反馈通道（图片超限/读取失败等纯前端校验；RPC 错误走 gateway.onError）
   pushToast: (message: string) => void;
+  // 历史加载失败显式错误态（区别于「还没有历史」），带重试入口
+  historyError?: boolean;
+  onRetryHistory?: () => void;
+  // 仅会话视图可见时才响应全局快捷键（组件在其他视图保持挂载但隐藏）
+  active?: boolean;
 }
 
 // streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
@@ -352,6 +358,9 @@ function ChatPanel({
   onToggleUsage,
   onToggleCron,
   loadingHistory,
+  historyError,
+  onRetryHistory,
+  active,
   workDraft,
   onWorkDraftConsumed,
   onBackHome,
@@ -544,6 +553,24 @@ function ChatPanel({
     setStreamingReasoning("");
     clearSegments();
   }, [currentSessionKey]);
+
+  // Ctrl+K 唤起命令面板；隐藏挂载（其他视图）时不响应
+  useEffect(() => {
+    if (!active) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowCmdPalette(true);
+        setInput("/");
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [active]);
+
+  // 灯箱 Esc 关闭（capture 阶段，先于全局 Esc 返回主页）
+  useEscape(() => setPreviewImg(null), previewImg !== null);
 
   useEffect(() => {
     if (!isGenerating) {
@@ -1094,6 +1121,30 @@ function ChatPanel({
                   }}
                 />
                 <p className="text-xs mt-2">加载历史消息…</p>
+              </div>
+            </div>
+          ) : historyError ? (
+            // 拉历史失败必须与「全新空会话」可区分：否则像聊天记录丢了
+            <div
+              className="flex items-center justify-center h-full text-sm"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              <div className="text-center space-y-2">
+                <AlertCircle
+                  size={22}
+                  className="inline-block"
+                  style={{ color: "var(--danger)" }}
+                />
+                <p className="text-xs">历史消息加载失败</p>
+                {onRetryHistory && (
+                  <button
+                    onClick={onRetryHistory}
+                    className="text-xs underline underline-offset-2 hover:opacity-80"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    重新加载
+                  </button>
+                )}
               </div>
             </div>
           ) : connected ? (

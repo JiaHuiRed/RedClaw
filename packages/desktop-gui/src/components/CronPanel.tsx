@@ -13,8 +13,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { gateway, type CronJobSummary, type CronRunLogEntry } from "../gateway/client";
+import { friendlyError } from "../lib/friendlyError";
+import { useEscape } from "../lib/useEscape";
 import ResizeHandle from "./ResizeHandle";
-import SchedulePicker, { type ScheduleResult } from "./SchedulePicker";
+import SchedulePicker, { LOCAL_TZ, type ScheduleResult } from "./SchedulePicker";
 
 interface CronPanelProps {
   width: number;
@@ -66,6 +68,24 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
   const [historyJobId, setHistoryJobId] = useState<string | null>(null);
   const [runs, setRuns] = useState<CronRunLogEntry[] | null>(null);
   const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState(false);
+  // 「已触发」反馈：runNow 成功后按钮短暂变字，否则点了没反应
+  const [ranId, setRanId] = useState<string | null>(null);
+
+  async function loadRuns(jobId: string) {
+    setRuns(null);
+    setRunsLoading(true);
+    setRunsError(false);
+    try {
+      setRuns(await gateway.fetchCronRuns(jobId, 10));
+    } catch (err) {
+      console.error("[CronPanel] runs failed:", err);
+      // 失败与「暂无运行记录」可区分，带重试
+      setRunsError(true);
+    } finally {
+      setRunsLoading(false);
+    }
+  }
 
   async function toggleHistory(jobId: string) {
     if (historyJobId === jobId) {
@@ -73,16 +93,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
       return;
     }
     setHistoryJobId(jobId);
-    setRuns(null);
-    setRunsLoading(true);
-    try {
-      setRuns(await gateway.fetchCronRuns(jobId, 10));
-    } catch (err) {
-      console.error("[CronPanel] runs failed:", err);
-      setRuns([]);
-    } finally {
-      setRunsLoading(false);
-    }
+    void loadRuns(jobId);
   }
 
   async function refresh() {
@@ -90,7 +101,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
     try {
       setJobs(await gateway.fetchCronJobs());
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -107,7 +118,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
     try {
       await gateway.cronSetEnabled(job.id, !job.enabled);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
       void refresh();
     }
   }
@@ -116,9 +127,11 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
     try {
       await gateway.cronRunNow(job.id);
       setError(null);
-      if (historyJobId === job.id) setRuns(await gateway.fetchCronRuns(job.id, 10));
+      setRanId(job.id);
+      setTimeout(() => setRanId((cur) => (cur === job.id ? null : cur)), 2000);
+      if (historyJobId === job.id) void loadRuns(job.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
     }
   }
 
@@ -132,7 +145,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
       await gateway.cronRemove(job.id);
       setJobs((prev) => (prev ?? []).filter((j) => j.id !== job.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
     }
     setConfirmDelete(null);
   }
@@ -337,11 +350,23 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
                   <button
                     onClick={() => void runNow(job)}
                     className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:opacity-80"
-                    style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+                    style={{
+                      background: ranId === job.id ? "var(--success)" : "var(--bg-secondary)",
+                      color: ranId === job.id ? "var(--on-solid)" : "var(--text-secondary)",
+                    }}
                     title="立即运行一次"
                   >
-                    <Play size={10} />
-                    运行
+                    {ranId === job.id ? (
+                      <>
+                        <Check size={10} />
+                        已触发
+                      </>
+                    ) : (
+                      <>
+                        <Play size={10} />
+                        运行
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => void toggleHistory(job.id)}
@@ -392,7 +417,21 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
                         加载中…
                       </div>
                     )}
-                    {!runsLoading && runs?.length === 0 && (
+                    {!runsLoading && runsError && (
+                      <div
+                        className="text-[11px] flex items-center gap-1.5"
+                        style={{ color: "var(--danger)" }}
+                      >
+                        运行历史拉取失败
+                        <button
+                          onClick={() => void loadRuns(job.id)}
+                          className="underline underline-offset-2 hover:opacity-80"
+                        >
+                          重试
+                        </button>
+                      </div>
+                    )}
+                    {!runsLoading && !runsError && runs?.length === 0 && (
                       <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
                         暂无运行记录
                       </div>
@@ -478,6 +517,10 @@ function CronCreateForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Esc 关闭弹层（capture 阶段）；长文本表单最怕误触 backdrop 全没，
+  // backdrop 点击保留原行为（与项目区弹层一致）
+  useEscape(onClose);
+
   const canSubmit =
     name.trim().length > 0 && (schedule !== null || job !== null) && message.trim().length > 0;
 
@@ -526,7 +569,7 @@ function CronCreateForm({
       }
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -585,7 +628,7 @@ function CronCreateForm({
               ? `已选：${schedule.summary}`
               : job
                 ? `当前：${scheduleLabel(job)}（不修改频率则保留）`
-                : "选择频率后自动生成调度（Asia/Hong_Kong）"}
+                : "选择频率后自动生成调度（" + LOCAL_TZ + "）"}
           </span>
         </div>
 

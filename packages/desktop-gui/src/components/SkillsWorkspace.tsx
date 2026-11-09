@@ -1,6 +1,8 @@
 import { Download, RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { gateway } from "../gateway/client";
+import { friendlyError } from "../lib/friendlyError";
+import ConfirmButton from "./ConfirmButton";
 
 type Skill = {
   name: string;
@@ -41,7 +43,7 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
       setSkills(response.skills ?? []);
       setError("");
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -65,7 +67,7 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
       setResults(response.results ?? []);
       setError("");
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -79,7 +81,7 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
       setDetail(response);
       setError("");
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
       setDetailSlug("");
     }
   }
@@ -90,28 +92,26 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
       await gateway.call("skills.update", { skillKey: skill.skillKey, enabled: skill.disabled });
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
   }
 
   async function install(slug: string) {
-    if (!window.confirm(`从 ClawHub 安装 ${slug}？请只安装信任的技能。`)) return;
     setBusy(slug);
     try {
       await gateway.call("skills.install", { source: "clawhub", slug });
       setMessage(`已安装 ${slug}`);
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
   }
 
   async function installDependency(skill: Skill, option: { id: string; label: string }) {
-    if (!window.confirm(`为 ${skill.name} 安装依赖「${option.label}」？这会运行安装命令。`)) return;
     setBusy(skill.skillKey);
     try {
       await gateway.call("skills.install", {
@@ -122,7 +122,7 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
       });
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
@@ -138,7 +138,7 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
       setMessage(`${skill.name} 的密钥已保存`);
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
@@ -190,7 +190,7 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void search();
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) void search();
             }}
             placeholder="搜索 ClawHub 技能"
             className="flex-1 min-w-0 px-3 py-2 rounded-lg text-sm outline-none"
@@ -228,15 +228,17 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
                 >
                   详情
                 </button>
-                <button
-                  onClick={() => void install(item.slug)}
+                <ConfirmButton
+                  onConfirm={() => void install(item.slug)}
+                  confirmLabel="确认安装？只装信任的技能"
                   disabled={!!busy}
+                  title="从 ClawHub 安装（二次点击确认）"
                   className="text-xs flex items-center gap-1.5 px-2 py-1.5 rounded-md disabled:opacity-40"
                   style={inputStyle}
                 >
                   <Download size={13} />
                   {busy === item.slug ? "安装中" : "安装"}
-                </button>
+                </ConfirmButton>
               </div>
             ))}
             {results.length === 0 && (
@@ -310,15 +312,17 @@ export default function SkillsWorkspace({ connected }: { connected: boolean }) {
                 </button>
               </div>
               {skill.install?.map((option) => (
-                <button
+                <ConfirmButton
                   key={option.id}
-                  onClick={() => void installDependency(skill, option)}
+                  onConfirm={() => void installDependency(skill, option)}
+                  confirmLabel={`确认安装「${option.label}」？会运行安装命令`}
                   disabled={!!busy}
+                  title="安装依赖（二次点击确认）"
                   className="text-xs px-2 py-1 rounded-md mr-2 disabled:opacity-40"
                   style={inputStyle}
                 >
                   安装依赖：{option.label}
-                </button>
+                </ConfirmButton>
               ))}
               {skill.primaryEnv && (
                 <div className="text-xs" style={{ color: "var(--text-secondary)" }}>

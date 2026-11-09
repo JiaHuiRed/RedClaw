@@ -1,6 +1,8 @@
 import { Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { gateway, type AgentSummary } from "../gateway/client";
+import { friendlyError } from "../lib/friendlyError";
+import { useEscape } from "../lib/useEscape";
 
 interface ProjectAreaModalProps {
   mode: "create" | "edit";
@@ -34,6 +36,9 @@ export default function ProjectAreaModal({
   const isDefault = agent?.id === defaultAgentId;
   const canSubmit = name.trim().length > 0 && (mode === "edit" || workspace.trim().length > 0);
 
+  // Esc 关闭（capture 阶段）
+  useEscape(onClose);
+
   async function submit() {
     if (!canSubmit || busy) return;
     setBusy(true);
@@ -57,7 +62,7 @@ export default function ProjectAreaModal({
         onSaved(agent.id, false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -75,7 +80,7 @@ export default function ProjectAreaModal({
       await gateway.deleteAgent(agent.id);
       onSaved(agent.id, false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(friendlyError(err));
       setBusy(false);
     }
   }

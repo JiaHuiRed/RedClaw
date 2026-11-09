@@ -24,7 +24,7 @@ const WEEKDAYS = [
 
 // cron 的 tz 用设备当前时区：写死 Asia/Hong_Kong 恰好对 UTC+8 无感，
 // 换设备时区/海外使用会定时错位
-const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Hong_Kong";
+export const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Hong_Kong";
 
 // datetime-local 的 min 用本地时间串（toISOString 是 UTC，会偏移时区）
 function toLocalInputValue(d: Date): string {

@@ -1,6 +1,8 @@
 import { RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { gateway, type AgentSummary } from "../gateway/client";
+import { friendlyError } from "../lib/friendlyError";
+import { useEscape } from "../lib/useEscape";
 
 type FileEntry = { name: string; missing: boolean; size?: number; content?: string };
 type FileList = { workspace: string; files: FileEntry[] };
@@ -22,6 +24,22 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // 脏值导航保护：有未保存修改时的离开/切换需要应用内二次确认
+  // （Tauri WebView 下 window.confirm 可用性不稳，可能静默返回 false 直接拦截）
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    message: string;
+    action: () => void;
+  } | null>(null);
+
+  useEscape(() => setPendingConfirm(null), pendingConfirm !== null);
+
+  function guardDirty(message: string, action: () => void) {
+    if (draft !== original) {
+      setPendingConfirm({ message, action });
+      return;
+    }
+    action();
+  }
 
   useEffect(() => {
     if (!connected) return;
@@ -31,7 +49,7 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
         setAgents(result.agents);
         setAgentId((current) => current || result.defaultId);
       })
-      .catch((err: unknown) => setError(String(err)));
+      .catch((err: unknown) => setError(friendlyError(err)));
   }, [connected]);
 
   const refresh = useCallback(async () => {
@@ -42,7 +60,7 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
       setList(result);
       setError("");
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -65,7 +83,7 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
         if (current) setTools(result.groups ?? []);
       })
       .catch((err: unknown) => {
-        if (current) setError(String(err));
+        if (current) setError(friendlyError(err));
       });
     return () => {
       current = false;
@@ -73,7 +91,6 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
   }, [agentId, connected, panel]);
 
   async function selectFile(name: string) {
-    if (draft !== original && !window.confirm("当前文件有未保存的修改，确定离开？")) return;
     setBusy(true);
     try {
       const result = await gateway.call<{ file: FileEntry }>("agents.files.get", { agentId, name });
@@ -84,7 +101,7 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
       setError("");
       setNotice("");
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -99,7 +116,7 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
       setNotice(`${file} 已保存`);
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -138,9 +155,9 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
           aria-label="选择项目区"
           value={agentId}
           onChange={(e) => {
-            if (draft !== original && !window.confirm("当前文件有未保存的修改，确定切换项目区？"))
-              return;
-            setAgentId(e.target.value);
+            guardDirty("当前文件有未保存的修改，确定切换项目区？", () =>
+              setAgentId(e.target.value),
+            );
           }}
           className="text-sm px-3 py-2 rounded-lg outline-none"
           style={inputStyle}
@@ -188,6 +205,36 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
             {error}
           </p>
         )}
+        {pendingConfirm && (
+          <div
+            className="text-xs px-3 py-2 rounded-lg flex items-center gap-2 flex-wrap"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--danger)",
+            }}
+          >
+            {pendingConfirm.message}
+            <button
+              onClick={() => {
+                const action = pendingConfirm.action;
+                setPendingConfirm(null);
+                action();
+              }}
+              className="px-2 py-0.5 rounded-md"
+              style={{ background: "var(--danger)", color: "var(--on-solid)" }}
+            >
+              确认离开
+            </button>
+            <button
+              onClick={() => setPendingConfirm(null)}
+              className="px-2 py-0.5 rounded-md"
+              style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+            >
+              取消
+            </button>
+          </div>
+        )}
         {notice && (
           <p className="text-xs" style={{ color: "var(--success)" }}>
             {notice}
@@ -200,7 +247,12 @@ export default function AgentFilesWorkspace({ connected }: { connected: boolean 
               {list?.files.map((entry) => (
                 <button
                   key={entry.name}
-                  onClick={() => void selectFile(entry.name)}
+                  onClick={() =>
+                    guardDirty(
+                      "当前文件有未保存的修改，确定离开？",
+                      () => void selectFile(entry.name),
+                    )
+                  }
                   disabled={busy}
                   className="w-full text-left text-xs px-3 py-2 rounded-lg truncate disabled:opacity-40"
                   style={{

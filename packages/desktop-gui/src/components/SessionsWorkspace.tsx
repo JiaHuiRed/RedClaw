@@ -1,6 +1,8 @@
 import { RefreshCw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { gateway } from "../gateway/client";
+import { friendlyError } from "../lib/friendlyError";
+import ConfirmButton from "./ConfirmButton";
 
 type SessionRow = {
   key: string;
@@ -59,7 +61,7 @@ export default function SessionsWorkspace({
         setNextOffset(result.nextOffset ?? null);
         setError("");
       } catch (err) {
-        setError(String(err));
+        setError(friendlyError(err));
       } finally {
         setLoading(false);
       }
@@ -88,18 +90,13 @@ export default function SessionsWorkspace({
       });
       setCheckpoints((current) => ({ ...current, [key]: result.checkpoints ?? [] }));
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
   }
 
   async function checkpointAction(method: "branch" | "restore", key: string, checkpointId: string) {
-    const detail =
-      method === "restore"
-        ? "将当前会话恢复到此检查点？后续消息可能不再保留。"
-        : "从此检查点创建新会话？";
-    if (!window.confirm(detail)) return;
     setBusy(checkpointId);
     try {
       const result = await gateway.call<{ key?: string }>(`sessions.compaction.${method}`, {
@@ -110,20 +107,19 @@ export default function SessionsWorkspace({
       await refresh();
       if (method === "branch" && result.key) onOpen(result.key);
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
   }
 
   async function deleteSession(key: string) {
-    if (!window.confirm(`删除会话 ${key}？转录记录也将归档。`)) return;
     setBusy(key);
     try {
       await gateway.call("sessions.delete", { key, deleteTranscript: true });
       await refresh();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy("");
     }
@@ -235,15 +231,16 @@ export default function SessionsWorkspace({
                   >
                     检查点{row.compactionCheckpointCount ? ` ${row.compactionCheckpointCount}` : ""}
                   </button>
-                  <button
-                    onClick={() => void deleteSession(row.key)}
+                  <ConfirmButton
+                    onConfirm={() => void deleteSession(row.key)}
+                    confirmLabel="确认删除？"
                     disabled={!!busy}
-                    title="删除会话"
+                    title="删除会话（转录记录也将归档）"
                     className="p-1.5 rounded-md disabled:opacity-40"
                     style={{ color: "var(--danger)" }}
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </ConfirmButton>
                 </div>
               </div>
               {checkpoints[row.key] && (
@@ -255,24 +252,30 @@ export default function SessionsWorkspace({
                         {new Date(point.createdAt).toLocaleString()} · {point.reason}{" "}
                         {point.summary ? `· ${point.summary}` : ""}
                       </span>
-                      <button
-                        onClick={() => void checkpointAction("branch", row.key, point.checkpointId)}
+                      <ConfirmButton
+                        onConfirm={() =>
+                          void checkpointAction("branch", row.key, point.checkpointId)
+                        }
+                        confirmLabel="确认分支？"
                         disabled={!!busy}
+                        title="从此检查点创建新会话"
                         className="disabled:opacity-40"
                         style={{ color: "var(--accent)" }}
                       >
                         分支
-                      </button>
-                      <button
-                        onClick={() =>
+                      </ConfirmButton>
+                      <ConfirmButton
+                        onConfirm={() =>
                           void checkpointAction("restore", row.key, point.checkpointId)
                         }
+                        confirmLabel="确认恢复？后续消息可能不再保留"
                         disabled={!!busy}
+                        title="将当前会话恢复到此检查点"
                         className="disabled:opacity-40"
                         style={{ color: "var(--danger)" }}
                       >
                         恢复
-                      </button>
+                      </ConfirmButton>
                     </div>
                   ))}
                 </div>

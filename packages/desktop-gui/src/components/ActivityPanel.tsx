@@ -109,13 +109,17 @@ export default function ActivityPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [runs, setRuns] = useState<CronRunLogEntry[] | null>(null);
   const [runsLoading, setRunsLoading] = useState(false);
+  const [runsError, setRunsError] = useState(false);
 
   const loadRuns = useCallback(async () => {
     setRunsLoading(true);
     try {
       setRuns(await gateway.fetchAllCronRuns(8));
+      setRunsError(false);
     } catch (err) {
       console.error("[ActivityPanel] runs failed:", err);
+      // 失败与「暂无后台活动」可区分：空白面板像秋秋失联了一样
+      setRunsError(true);
     } finally {
       setRunsLoading(false);
     }
@@ -254,11 +258,29 @@ export default function ActivityPanel({
               </div>
             );
           })}
-          {!runsLoading && runs !== null && runs.length === 0 && !heartbeat?.updatedAt && (
-            <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-              暂无后台活动
+          {runsError && (
+            <div
+              className="text-[11px] flex items-center gap-1.5 flex-wrap"
+              style={{ color: "var(--danger)" }}
+            >
+              后台活动拉取失败
+              <button
+                onClick={() => void loadRuns()}
+                className="underline underline-offset-2 hover:opacity-80"
+              >
+                重试
+              </button>
             </div>
           )}
+          {!runsLoading &&
+            runs !== null &&
+            runs.length === 0 &&
+            !heartbeat?.updatedAt &&
+            !runsError && (
+              <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                暂无后台活动
+              </div>
+            )}
         </section>
 
         {/* 实时工具轨迹 */}

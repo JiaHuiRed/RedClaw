@@ -1,7 +1,10 @@
 import { RefreshCw, Save, Settings } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { gateway } from "../gateway/client";
+import { friendlyError } from "../lib/friendlyError";
+import { useEscape } from "../lib/useEscape";
 import { useTheme } from "../theme/useTheme";
+import ConfirmButton from "./ConfirmButton";
 
 type Section =
   | "general"
@@ -174,7 +177,7 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
         setOriginal("");
       }
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -184,15 +187,22 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
     void load();
   }, [load]);
 
-  async function act(method: string, params: Record<string, unknown>, confirmMessage: string) {
-    if (!window.confirm(confirmMessage)) return;
+  // 脏值导航/操作确认：应用内二段确认（pendingConfirm 条），替代 window.confirm
+  // ——Tauri WebView 下原生 confirm 可用性不稳，可能静默返回 false 直接拦截
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    message: string;
+    action: () => void;
+  } | null>(null);
+  useEscape(() => setPendingConfirm(null), pendingConfirm !== null);
+
+  async function act(method: string, params: Record<string, unknown>) {
     setBusy(true);
     try {
       await gateway.call(method, params);
       setNotice("操作完成");
       await load();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -212,15 +222,21 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
     return byTop;
   }, [config]);
   function chooseConfigKey(key: string) {
-    if (draft !== original && !window.confirm("此处有未保存修改，确定切换配置项？")) return;
-    setConfigKey(key);
-    const value = JSON.stringify(
-      (config?.sourceConfig ?? config?.config ?? {})[key] ?? {},
-      null,
-      2,
-    );
-    setDraft(value);
-    setOriginal(value);
+    const apply = () => {
+      setConfigKey(key);
+      const value = JSON.stringify(
+        (config?.sourceConfig ?? config?.config ?? {})[key] ?? {},
+        null,
+        2,
+      );
+      setDraft(value);
+      setOriginal(value);
+    };
+    if (draft !== original) {
+      setPendingConfirm({ message: "此处有未保存修改，确定切换配置项？", action: apply });
+      return;
+    }
+    apply();
   }
 
   const providerRows = useMemo<ProviderRow[]>(() => {
@@ -266,7 +282,7 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       setShowProviderForm(false);
       setConfig(await gateway.call<ConfigSnapshot>("config.get"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "添加供应商失败。");
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -274,7 +290,6 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
 
   async function removeProvider(id: string) {
     if (!config?.hash || busy) return;
-    if (!window.confirm(`删除供应商「${id}」？Gateway 将重载配置。`)) return;
     setBusy(true);
     try {
       await gateway.call("config.patch", {
@@ -285,7 +300,7 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       setNotice(`供应商 ${id} 已删除，网关热重载后生效`);
       setConfig(await gateway.call<ConfigSnapshot>("config.get"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "删除供应商失败。");
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -313,7 +328,6 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       setError("配置不是有效的 JSON；未保存。");
       return;
     }
-    if (!window.confirm(`保存「${configKey}」配置？Gateway 可能重载或重新连接。`)) return;
     setBusy(true);
     try {
       await gateway.call("config.patch", {
@@ -333,7 +347,7 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       setDraft(value);
       setError("");
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -349,10 +363,6 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       setError("执行审批配置必须是 JSON 对象；未保存。");
       return;
     }
-    if (
-      !window.confirm("保存执行审批规则？修改后的命令授权可能立即生效，请核对允许列表和安全等级。")
-    )
-      return;
     setBusy(true);
     try {
       await gateway.call(approvalTarget ? "exec.approvals.node.set" : "exec.approvals.set", {
@@ -363,7 +373,7 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       setNotice("执行审批规则已保存");
       await load();
     } catch (err) {
-      setError(String(err));
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -392,18 +402,20 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
           </div>
           <button
             onClick={() => {
-              if (
-                section === "config" &&
-                draft !== original &&
-                !window.confirm("配置有未保存修改，确定重新载入？")
-              )
+              if (section === "config" && draft !== original) {
+                setPendingConfirm({
+                  message: "配置有未保存修改，确定重新载入？",
+                  action: () => void load(),
+                });
                 return;
-              if (
-                section === "approvals" &&
-                approvalsDraft !== approvalsOriginal &&
-                !window.confirm("执行审批有未保存修改，确定重新载入？")
-              )
+              }
+              if (section === "approvals" && approvalsDraft !== approvalsOriginal) {
+                setPendingConfirm({
+                  message: "执行审批有未保存修改，确定重新载入？",
+                  action: () => void load(),
+                });
                 return;
+              }
               void load();
             }}
             disabled={!connected || busy}
@@ -421,18 +433,26 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
               role="tab"
               aria-selected={section === tab.id}
               onClick={() => {
-                if (
-                  section === "config" &&
-                  draft !== original &&
-                  !window.confirm("配置有未保存修改，确定离开？")
-                )
+                if (section === "config" && draft !== original) {
+                  setPendingConfirm({
+                    message: "配置有未保存修改，确定离开？",
+                    action: () => {
+                      setSection(tab.id);
+                      setNotice("");
+                    },
+                  });
                   return;
-                if (
-                  section === "approvals" &&
-                  approvalsDraft !== approvalsOriginal &&
-                  !window.confirm("执行审批有未保存修改，确定离开？")
-                )
+                }
+                if (section === "approvals" && approvalsDraft !== approvalsOriginal) {
+                  setPendingConfirm({
+                    message: "执行审批有未保存修改，确定离开？",
+                    action: () => {
+                      setSection(tab.id);
+                      setNotice("");
+                    },
+                  });
                   return;
+                }
                 setSection(tab.id);
                 setNotice("");
               }}
@@ -456,6 +476,36 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
           <p className="text-xs" style={{ color: "var(--success)" }}>
             {notice}
           </p>
+        )}
+        {pendingConfirm && (
+          <div
+            className="text-xs px-3 py-2 rounded-lg flex items-center gap-2 flex-wrap"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--danger)",
+            }}
+          >
+            {pendingConfirm.message}
+            <button
+              onClick={() => {
+                const action = pendingConfirm.action;
+                setPendingConfirm(null);
+                action();
+              }}
+              className="px-2 py-0.5 rounded-md"
+              style={{ background: "var(--danger)", color: "var(--on-solid)" }}
+            >
+              确认
+            </button>
+            <button
+              onClick={() => setPendingConfirm(null)}
+              className="px-2 py-0.5 rounded-md"
+              style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}
+            >
+              取消
+            </button>
+          </div>
         )}
         {busy && (
           <p className="text-xs" style={muted}>
@@ -582,34 +632,26 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                 <span className="flex-1 text-xs min-w-0 break-all">
                   {item.displayName || item.deviceId} · {item.role || "设备"}
                 </span>
-                <button
+                <ConfirmButton
                   disabled={busy}
-                  onClick={() =>
-                    void act(
-                      "device.pair.approve",
-                      { requestId: item.requestId },
-                      `确认允许设备 ${item.displayName || item.deviceId} 连接？`,
-                    )
-                  }
+                  onConfirm={() => void act("device.pair.approve", { requestId: item.requestId })}
+                  confirmLabel={`确认允许 ${item.displayName || item.deviceId} 连接？`}
                   className="text-xs disabled:opacity-40"
                   style={{ color: "var(--accent)" }}
+                  title="批准设备配对（二次点击确认）"
                 >
                   批准
-                </button>
-                <button
+                </ConfirmButton>
+                <ConfirmButton
                   disabled={busy}
-                  onClick={() =>
-                    void act(
-                      "device.pair.reject",
-                      { requestId: item.requestId },
-                      `拒绝设备 ${item.displayName || item.deviceId}？`,
-                    )
-                  }
+                  onConfirm={() => void act("device.pair.reject", { requestId: item.requestId })}
+                  confirmLabel={`确认拒绝 ${item.displayName || item.deviceId}？`}
                   className="text-xs disabled:opacity-40"
                   style={{ color: "var(--danger)" }}
+                  title="拒绝设备配对（二次点击确认）"
                 >
                   拒绝
-                </button>
+                </ConfirmButton>
               </div>
             ))}
             <h3 className="text-sm font-medium">已配对 · {devices.length}</h3>
@@ -622,21 +664,22 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                 {item.tokens
                   ?.filter((token) => !token.revokedAtMs)
                   .map((token) => (
-                    <button
+                    <ConfirmButton
                       key={token.role}
                       disabled={busy}
-                      onClick={() =>
-                        void act(
-                          "device.token.revoke",
-                          { deviceId: item.deviceId, role: token.role },
-                          `撤销 ${item.displayName || item.deviceId} 的 ${token.role} 授权？`,
-                        )
+                      onConfirm={() =>
+                        void act("device.token.revoke", {
+                          deviceId: item.deviceId,
+                          role: token.role,
+                        })
                       }
+                      confirmLabel={`确认撤销 ${token.role} 授权？`}
                       className="mt-2 text-xs disabled:opacity-40"
                       style={{ color: "var(--danger)" }}
+                      title="撤销授权（二次点击确认）"
                     >
                       撤销 {token.role} 授权
-                    </button>
+                    </ConfirmButton>
                   ))}
               </div>
             ))}
@@ -673,11 +716,13 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
               aria-label="执行审批目标"
               value={approvalTarget}
               onChange={(event) => {
-                if (
-                  approvalsDraft !== approvalsOriginal &&
-                  !window.confirm("执行审批有未保存修改，确定切换目标？")
-                )
+                if (approvalsDraft !== approvalsOriginal) {
+                  setPendingConfirm({
+                    message: "执行审批有未保存修改，确定切换目标？",
+                    action: () => setApprovalTarget(event.target.value),
+                  });
                   return;
+                }
                 setApprovalTarget(event.target.value);
               }}
               className="text-xs px-3 py-2 rounded-lg"
@@ -706,15 +751,17 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                   className="w-full min-h-[320px] resize-y rounded-lg p-3 font-mono text-xs outline-none"
                   style={input}
                 />
-                <button
-                  onClick={() => void saveApprovals()}
+                <ConfirmButton
+                  onConfirm={() => void saveApprovals()}
+                  confirmLabel="确认保存？命令授权可能立即生效"
                   disabled={busy || approvalsDraft === approvalsOriginal}
                   className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg disabled:opacity-40"
                   style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+                  title="保存执行审批规则（二次点击确认，请核对允许列表与安全等级）"
                 >
                   <Save size={13} />
                   保存审批规则
-                </button>
+                </ConfirmButton>
               </div>
             )}
           </div>
@@ -882,14 +929,16 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                       <span className="shrink-0" style={muted}>
                         {row.modelCount} 模型
                       </span>
-                      <button
-                        onClick={() => void removeProvider(row.id)}
+                      <ConfirmButton
+                        onConfirm={() => void removeProvider(row.id)}
+                        confirmLabel={`确认删除「${row.id}」？网关将重载配置`}
                         disabled={busy}
                         className="shrink-0 px-2 py-0.5 rounded disabled:opacity-40"
                         style={{ color: "var(--danger)" }}
+                        title="删除供应商（二次点击确认）"
                       >
                         删除
-                      </button>
+                      </ConfirmButton>
                     </div>
                   ))}
                 </div>
@@ -938,15 +987,17 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                         <OriginBadge source={topKeyOrigins.get(configKey)} />
                         {draft !== original ? " · 未保存" : ""}
                       </span>
-                      <button
-                        onClick={() => void saveConfig()}
+                      <ConfirmButton
+                        onConfirm={() => void saveConfig()}
+                        confirmLabel={`确认保存「${configKey}」？网关可能重载或重连`}
                         disabled={busy || draft === original}
                         className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md disabled:opacity-40"
                         style={{ background: "var(--accent)", color: "var(--on-solid)" }}
+                        title="保存配置（二次点击确认）"
                       >
                         <Save size={13} />
                         保存
-                      </button>
+                      </ConfirmButton>
                     </div>
                     <textarea
                       aria-label={`${configKey} 配置`}

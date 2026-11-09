@@ -1016,6 +1016,9 @@ export class GatewayClient {
       }
     } catch (err) {
       console.error("[Gateway] fetchHistory failed:", err);
+      // 失败向上抛（App.loadHistory 显式出错误态）：吞成 [] 会让老会话
+      // 在 UI 上伪装成「全新空会话」——对家人型产品是情感伤害级误导
+      throw err;
     }
     return [];
   }
@@ -1056,12 +1059,20 @@ export class GatewayClient {
     message?: string;
     agentId?: string;
   }): Promise<string> {
-    const res = await this._request("sessions.create", params ?? {});
-    const key = res.payload?.key ?? this._activeSessionKey;
-    this._activeSessionKey = key;
-    // refresh session list after creation
-    this.fetchSessionInfo();
-    return key;
+    try {
+      const res = await this._request("sessions.create", params ?? {});
+      const key = res.payload?.key ?? this._activeSessionKey;
+      this._activeSessionKey = key;
+      // refresh session list after creation
+      this.fetchSessionInfo();
+      return key;
+    } catch (err) {
+      // 侧栏分组头的 +号新建等入口只 console：错误必须到 toast 才可见
+      console.error("[Gateway] createSession failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      this._notifyError(`新建会话失败：${message}`);
+      throw err;
+    }
   }
 
   async deleteSession(sessionKey: string) {
