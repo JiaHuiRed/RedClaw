@@ -31,6 +31,8 @@ export interface Message {
   tools?: ToolCallEvent[];
   // 生成失败轮（占位文本见下）：历史里折叠成细条而不是完整气泡
   failed?: boolean;
+  // 本地发送失败标记（仅 GUI 内存态，server 历史不会有）：气泡下显示重试入口
+  sendFailed?: boolean;
 }
 
 // 与 src/agents/stream-message-shared.ts 的 STREAM_ERROR_FALLBACK_TEXT 对齐：

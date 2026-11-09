@@ -1,23 +1,16 @@
 import { Check, Copy } from "lucide-react";
-import { memo, useState } from "react";
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message, MessageImage, ToolCallEvent } from "../gateway/client";
+import { useCopy } from "../lib/useCopy";
 import ErrorBoundary from "./ErrorBoundary";
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   return (
     <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        } catch (err) {
-          console.error("复制失败", err);
-        }
-      }}
+      onClick={() => void copy(text)}
       className="shrink-0 p-1 rounded opacity-0 group-hover/code:opacity-100 transition-opacity"
       style={{ color: "var(--text-secondary)" }}
     >
