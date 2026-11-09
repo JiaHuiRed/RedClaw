@@ -12,7 +12,9 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "typecheck": "tsc --noEmit",
-    "check:tokens": "node scripts/check-design-tokens.mjs"
+    "check:tokens": "node scripts/check-design-tokens.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.0",
@@ -30,6 +32,7 @@
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "4.1.7"
   }
 }
