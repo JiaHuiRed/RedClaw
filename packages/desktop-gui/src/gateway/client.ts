@@ -1,292 +1,33 @@
 import { invoke } from "@tauri-apps/api/core";
+import * as apiAgents from "./api-agents";
+import * as apiCron from "./api-cron";
+import * as apiTodos from "./api-todos";
+import * as apiTools from "./api-tools";
+import * as apiUsage from "./api-usage";
+import { ChatEventPipeline } from "./chat-events";
+import { ListenerSet } from "./emitter";
+import { parseSessionRows, projectHistory } from "./history";
+import { MediaResolver } from "./media";
+import {
+  CONNECT_CHALLENGE_TIMEOUT_MS,
+  DEFAULT_SESSION_KEY,
+  DEFAULT_URL,
+  REQUEST_TIMEOUT_MS,
+  RECONNECT_DELAY,
+  RECONNECT_DELAY_MAX,
+  type ChatSession,
+  type CommandEntry,
+  type DomainRpc,
+  type Message,
+  type ModelEntry,
+  type OutgoingImageAttachment,
+  type SessionInfo,
+  type ThinkingEvent,
+  type ToolCallEvent,
+} from "./protocol";
 
-const DEFAULT_SESSION_KEY = "agent:main:main";
-// heartbeat 隔离会话（agents.defaults.heartbeat.isolatedSession 开启后存在）。
-// 它是后台心跳不是聊天会话：Sidebar 不展示，Activity 面板用它判断上次心跳时间。
-export const HEARTBEAT_SESSION_KEY = "agent:main:main:heartbeat";
-const RECONNECT_DELAY = 2000;
-const RECONNECT_DELAY_MAX = 30_000;
-// challenge 已到但 connect 应答未到：网关接受了 TCP 却卡死，按失败走退避重连
-const CONNECT_CHALLENGE_TIMEOUT_MS = 10_000;
-const DEFAULT_URL = "ws://127.0.0.1:18789";
-// 单请求响应超时。tools.invoke（生图）会等工具跑完才响应，需要留足余量。
-const REQUEST_TIMEOUT_MS = 120_000;
-
-export interface MessageImage {
-  url: string;
-  alt?: string;
-  mimeType?: string;
-  width?: number;
-  height?: number;
-}
-
-export interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: number;
-  reasoning?: string;
-  images?: MessageImage[];
-  // 该轮工具调用轨迹：final 到达时从流式分段快照附带（gateway 历史不含工具事件）
-  tools?: ToolCallEvent[];
-  // 生成失败轮（占位文本见下）：历史里折叠成细条而不是完整气泡
-  failed?: boolean;
-  // 本地发送失败标记（仅 GUI 内存态，server 历史不会有）：气泡下显示重试入口
-  sendFailed?: boolean;
-}
-
-// 与 src/agents/stream-message-shared.ts 的 STREAM_ERROR_FALLBACK_TEXT 对齐：
-// turn 失败时写入 transcript 的唯一占位文本
-const STREAM_ERROR_FALLBACK_TEXT = "[assistant turn failed before producing content]";
-
-/** 会话自动取标题：首条非命令的用户消息截断 24 字；找不到返回 null */
-export function deriveSessionTitle(messages: Message[]): string | null {
-  for (const m of messages) {
-    if (m.role !== "user") continue;
-    const text = m.content.trim();
-    if (!text || text.startsWith("/")) continue;
-    return text.length > 24 ? text.slice(0, 24) + "…" : text;
-  }
-  return null;
-}
-
-export interface ThinkingEvent {
-  text: string;
-  delta?: string;
-  replace?: boolean;
-}
-
-// 随消息发给 agent 的图片附件（chat.send attachments，base64 无 data: 前缀）
-export interface OutgoingImageAttachment {
-  type: "image";
-  mimeType: string;
-  fileName: string;
-  content: string;
-}
-
-export interface ToolCallEvent {
-  phase?: string;
-  name?: string;
-  input?: unknown;
-  result?: unknown;
-  partialResult?: unknown;
-  id?: string;
-  [key: string]: unknown;
-}
-
-export interface SessionInfo {
-  model: string | null;
-  configuredModel: string | null;
-  contextTokens: number | null;
-  totalTokens: number | null;
-  remainingTokens: number | null;
-  percentUsed: number | null;
-}
-
-export interface AgentIdentity {
-  agentId: string;
-  name?: string;
-  emoji?: string;
-  avatar?: string | null;
-  avatarSource?: string | null;
-  avatarStatus?: "none" | "local" | "remote" | "data" | string;
-  avatarReason?: string;
-}
-
-export interface CommandEntry {
-  name: string;
-  textAliases?: string[];
-  description: string;
-  category?: string;
-  acceptsArgs: boolean;
-}
-
-export interface ChatSession {
-  sessionKey: string;
-  sessionId?: string;
-  model?: string;
-  configuredModel?: string;
-  title?: string;
-  updatedAt?: number;
-  messageCount?: number;
-  // server 端 classifySessionKey 的分类（cron/direct/group/...），
-  // cron 等后台会话靠它从侧栏过滤掉
-  kind?: string;
-}
-
-export interface ModelEntry {
-  id: string;
-  name: string;
-  provider: string;
-  alias?: string;
-  contextWindow?: number;
-  reasoning?: boolean;
-}
-
-export type TodoStatus = "open" | "in_progress" | "done" | "cancelled";
-export type TodoPriority = "low" | "medium" | "high";
-
-export interface Todo {
-  id: string;
-  title: string;
-  notes?: string;
-  status: TodoStatus;
-  priority?: TodoPriority;
-  dueAt?: number;
-  tags?: string[];
-  createdAt: number;
-  updatedAt: number;
-  completedAt?: number;
-}
-
-export interface TodoCreateInput {
-  title: string;
-  notes?: string;
-  priority?: TodoPriority;
-  dueAt?: number;
-  tags?: string[];
-}
-
-export interface TodoUpdateInput {
-  title?: string;
-  notes?: string;
-  status?: TodoStatus;
-  priority?: TodoPriority;
-  dueAt?: number | null;
-  tags?: string[];
-}
-
-// 项目区（agent）：每个 agent 绑定独立工作区，对应 agents.list 行
-export interface AgentSummary {
-  id: string;
-  name?: string;
-  identity?: { name?: string; emoji?: string; avatar?: string };
-  workspace?: string;
-  // 通常是字符串；配置成 provider 路由时可能是对象
-  model?: string | { default?: string };
-}
-
-// usage.cost 返回（src/infra/session-cost-usage.types.ts CostUsageSummary 子集）
-export interface UsageCostDaily {
-  date: string;
-  totalTokens: number;
-  totalCost: number;
-  input?: number;
-  output?: number;
-  cacheRead?: number;
-  cacheWrite?: number;
-}
-
-export interface UsageCostSummary {
-  updatedAt: number;
-  days: number;
-  daily: UsageCostDaily[];
-  totals: {
-    totalTokens: number;
-    totalCost: number;
-    input?: number;
-    output?: number;
-    cacheRead?: number;
-    cacheWrite?: number;
-  };
-  cacheStatus?: { status: "fresh" | "partial" | "stale" | "refreshing" };
-}
-
-// memory.overview 返回（src/gateway/server-methods/memory.ts）
-export interface MemoryFileMeta {
-  name: string;
-  size: number;
-  updatedAtMs: number;
-  chars?: number;
-  preview?: string;
-}
-
-export interface MemoryOverview {
-  agentId: string;
-  workspace: string;
-  longTerm: MemoryFileMeta | null;
-  files: MemoryFileMeta[];
-  totals: { files: number; bytes: number; lastUpdatedAtMs: number | null };
-}
-
-// cron.* RPC（src/gateway/protocol/schema/cron.ts CronJobSchema 子集）
-export interface CronJobSummary {
-  id: string;
-  agentId?: string;
-  sessionKey?: string;
-  name: string;
-  enabled: boolean;
-  schedule: {
-    kind: string;
-    expr?: string;
-    everyMs?: number;
-    tz?: string;
-    at?: string;
-    anchorMs?: number;
-    staggerMs?: number;
-  };
-  payload: { kind: string; message?: string; text?: string; lightContext?: boolean };
-  state: { nextRunAtMs?: number; lastRunAtMs?: number; lastRunStatus?: string };
-  delivery?: { mode?: string };
-  failureAlert?: false | Record<string, unknown>;
-  sessionTarget?: string;
-  wakeMode?: "now" | "next-heartbeat";
-  description?: string;
-  deleteAfterRun?: boolean;
-}
-
-export interface CronCreateInput {
-  name: string;
-  schedule: CronScheduleInput;
-  message: string;
-  agentId?: string;
-  lightContext?: boolean;
-}
-
-// cron.add 支持的调度形态（CronScheduleSchema 的 GUI 子集）
-export type CronScheduleInput =
-  | { kind: "cron"; expr: string; tz?: string }
-  | { kind: "at"; at: string }
-  | { kind: "every"; everyMs: number };
-
-// cron.runs 条目（CronRunLogEntrySchema 子集）
-export interface CronRunLogEntry {
-  ts: number;
-  jobId: string;
-  status?: string;
-  error?: string;
-  summary?: string;
-  durationMs?: number;
-  runAtMs?: number;
-  jobName?: string;
-}
-
-export interface AgentCreateInput {
-  name: string;
-  workspace: string;
-  model?: string;
-  emoji?: string;
-}
-
-export interface AgentUpdateInput {
-  name?: string;
-  workspace?: string;
-  model?: string | null;
-  emoji?: string | null;
-  avatar?: string;
-}
-
-type Listener = (msg: Message) => void;
-type DeltaListener = (text: string, reasoning: string, replace?: boolean) => void;
-type StatusListener = (connected: boolean) => void;
-type SessionInfoListener = (info: SessionInfo) => void;
-type SessionListListener = (sessions: ChatSession[]) => void;
-type CommandsListener = (cmds: CommandEntry[]) => void;
-type ModelListListener = (models: ModelEntry[]) => void;
-type ErrorListener = (message: string) => void;
-type ThinkingListener = (thinking: ThinkingEvent) => void;
-type ToolListener = (tool: ToolCallEvent) => void;
-type StreamEndListener = () => void;
+// 类型与常量的公共出口：协议层全部从这里再导出，既有导入点不变
+export * from "./protocol";
 
 // 导出类本身：单测需要可新建实例隔离状态（单例 gateway 供运行时使用）
 export class GatewayClient {
@@ -323,21 +64,35 @@ export class GatewayClient {
   private _seenMessageIds = new Set<string>();
   private _seenMessageIdOrder: string[] = [];
 
-  private messageListeners: Listener[] = [];
-  private deltaListeners: DeltaListener[] = [];
-  private statusListeners: StatusListener[] = [];
-  private sessionInfoListeners: SessionInfoListener[] = [];
-  private sessionListListeners: SessionListListener[] = [];
-  private commandsListeners: CommandsListener[] = [];
-  private modelListListeners: ModelListListener[] = [];
-  private errorListeners: ErrorListener[] = [];
-  private streamEndListeners: StreamEndListener[] = [];
-  private thinkingListeners: ThinkingListener[] = [];
-  private toolListeners: ToolListener[] = [];
+  // 事件出口统一走监听器注册表（详见 emitter.ts），11 组 onXxx 三件套收敛于此
+  private messages = new ListenerSet<[Message]>();
+  private deltas = new ListenerSet<[string, string, boolean?]>();
+  private statuses = new ListenerSet<[boolean]>();
+  private sessionInfos = new ListenerSet<[SessionInfo]>();
+  private sessionLists = new ListenerSet<[ChatSession[]]>();
+  private commandsSets = new ListenerSet<[CommandEntry[]]>();
+  private modelLists = new ListenerSet<[ModelEntry[]]>();
+  private errorSets = new ListenerSet<[string]>();
+  private streamEnds = new ListenerSet<[]>();
+  private thinkings = new ListenerSet<[ThinkingEvent]>();
+  private tools = new ListenerSet<[ToolCallEvent]>();
 
   // sessions.changed 节流：cron/心跳/聊天会话的生命周期广播可能密集到达，
   // 每次都全量 status 会打爆 RPC；窗口内的多次广播合并成一次刷新
   private sessionsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // 媒体解析（assistant-media ticket 换发）：httpBase/token 走 getter，
+  // configure() 改地址后无需重建
+  private media = new MediaResolver(
+    () => this.url.replace(/^ws/, "http"),
+    () => this.token,
+  );
+
+  // 领域 API 模块的调用面适配器：收窄成 DomainRpc 接口传给 api-* 模块
+  private rpc: DomainRpc = {
+    call: (method, params) => this._request(method, params ?? {}),
+    notifyError: (message) => this._notifyError(message),
+  };
 
   get sessionInfo() {
     return this._sessionInfo;
@@ -384,7 +139,7 @@ export class GatewayClient {
       this.ws = null;
     }
     this.connected = false;
-    this._notifyStatus();
+    this.statuses.emit(this.connected);
   }
 
   // 断连/停止时清空挂起请求：否则 chat.send 的 promise 永远 pending，
@@ -422,81 +177,48 @@ export class GatewayClient {
     return response.payload as T;
   }
 
-  onMessage(fn: Listener) {
-    this.messageListeners.push(fn);
-    return () => {
-      this.messageListeners = this.messageListeners.filter((l) => l !== fn);
-    };
+  onMessage(fn: (msg: Message) => void) {
+    return this.messages.add(fn);
   }
 
-  onDelta(fn: DeltaListener) {
-    this.deltaListeners.push(fn);
-    return () => {
-      this.deltaListeners = this.deltaListeners.filter((l) => l !== fn);
-    };
+  onDelta(fn: (text: string, reasoning: string, replace?: boolean) => void) {
+    return this.deltas.add(fn);
   }
 
-  onStatus(fn: StatusListener) {
-    this.statusListeners.push(fn);
-    return () => {
-      this.statusListeners = this.statusListeners.filter((l) => l !== fn);
-    };
+  onStatus(fn: (connected: boolean) => void) {
+    return this.statuses.add(fn);
   }
 
-  onSessionInfo(fn: SessionInfoListener) {
-    this.sessionInfoListeners.push(fn);
-    return () => {
-      this.sessionInfoListeners = this.sessionInfoListeners.filter((l) => l !== fn);
-    };
+  onSessionInfo(fn: (info: SessionInfo) => void) {
+    return this.sessionInfos.add(fn);
   }
 
-  onSessionList(fn: SessionListListener) {
-    this.sessionListListeners.push(fn);
-    return () => {
-      this.sessionListListeners = this.sessionListListeners.filter((l) => l !== fn);
-    };
+  onSessionList(fn: (sessions: ChatSession[]) => void) {
+    return this.sessionLists.add(fn);
   }
 
-  onCommands(fn: CommandsListener) {
-    this.commandsListeners.push(fn);
-    return () => {
-      this.commandsListeners = this.commandsListeners.filter((l) => l !== fn);
-    };
+  onCommands(fn: (cmds: CommandEntry[]) => void) {
+    return this.commandsSets.add(fn);
   }
 
-  onModelList(fn: ModelListListener) {
-    this.modelListListeners.push(fn);
-    return () => {
-      this.modelListListeners = this.modelListListeners.filter((l) => l !== fn);
-    };
+  onModelList(fn: (models: ModelEntry[]) => void) {
+    return this.modelLists.add(fn);
   }
 
-  onError(fn: ErrorListener) {
-    this.errorListeners.push(fn);
-    return () => {
-      this.errorListeners = this.errorListeners.filter((l) => l !== fn);
-    };
+  onError(fn: (message: string) => void) {
+    return this.errorSets.add(fn);
   }
 
-  onStreamEnd(fn: StreamEndListener) {
-    this.streamEndListeners.push(fn);
-    return () => {
-      this.streamEndListeners = this.streamEndListeners.filter((l) => l !== fn);
-    };
+  onStreamEnd(fn: () => void) {
+    return this.streamEnds.add(fn);
   }
 
-  onThinking(fn: ThinkingListener) {
-    this.thinkingListeners.push(fn);
-    return () => {
-      this.thinkingListeners = this.thinkingListeners.filter((l) => l !== fn);
-    };
+  onThinking(fn: (thinking: ThinkingEvent) => void) {
+    return this.thinkings.add(fn);
   }
 
-  onTool(fn: ToolListener) {
-    this.toolListeners.push(fn);
-    return () => {
-      this.toolListeners = this.toolListeners.filter((l) => l !== fn);
-    };
+  onTool(fn: (tool: ToolCallEvent) => void) {
+    return this.tools.add(fn);
   }
 
   async sendMessage(
@@ -592,47 +314,13 @@ export class GatewayClient {
 
   async ttsConvert(text: string, provider?: string) {
     if (!this.connected) throw new Error("Gateway not connected");
-    try {
-      const res = await this._request("tts.convert", {
-        text,
-        provider,
-      });
-      if (!res.payload?.audioPath) {
-        throw new Error("TTS 无音频返回");
-      }
-      return res.payload.audioPath as string;
-    } catch (err) {
-      console.error("[Gateway] ttsConvert failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`语音合成失败：${message}`);
-      throw err;
-    }
+    return apiTools.ttsConvert(this.rpc, text, provider);
   }
 
   async generateImage(prompt: string, size?: string, sessionKey?: string) {
     if (!this.connected) throw new Error("Gateway not connected");
     const key = sessionKey ?? this._activeSessionKey;
-    try {
-      const res = await this._request("tools.invoke", {
-        name: "image_generate",
-        args: {
-          action: "generate",
-          prompt,
-          ...(size ? { size } : {}),
-        },
-        sessionKey: key,
-        idempotencyKey: crypto.randomUUID(),
-      });
-      if (!res.ok) {
-        throw new Error(res.error?.message || "生图启动失败");
-      }
-      return res.payload;
-    } catch (err) {
-      console.error("[Gateway] generateImage failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`生图启动失败：${message}`);
-      throw err;
-    }
+    return apiTools.generateImage(this.rpc, prompt, size, key);
   }
 
   async fetchSessionInfo() {
@@ -648,26 +336,16 @@ export class GatewayClient {
           remainingTokens: s.remainingTokens ?? null,
           percentUsed: s.percentUsed ?? null,
         };
-        this._notifySessionInfo();
+        this.sessionInfos.emit(this._sessionInfo);
         this._agentId = s.agentId ?? this._agentId;
 
         // parse session list
-        this._sessions = res.payload.sessions.recent.map((s: any) => ({
-          // gateway 返回的字段名是 key（不是 sessionKey），见 status.summary.ts buildSessionRows
-          sessionKey: s.key ?? s.sessionKey ?? DEFAULT_SESSION_KEY,
-          sessionId: s.sessionId,
-          model: s.model,
-          configuredModel: s.configuredModel,
-          title: s.title,
-          updatedAt: s.updatedAt,
-          messageCount: s.messageCount,
-          kind: s.kind,
-        }));
-        this._notifySessionList();
+        this._sessions = parseSessionRows(res.payload.sessions.recent);
+        this.sessionLists.emit(this._sessions);
       } else if (res.ok && res.payload?.model) {
         // fallback: top-level model when no session exists yet
         this._sessionInfo = { ...this._sessionInfo, model: res.payload.model };
-        this._notifySessionInfo();
+        this.sessionInfos.emit(this._sessionInfo);
       }
     } catch (err) {
       console.error("[Gateway] fetchSessionInfo failed:", err);
@@ -684,190 +362,68 @@ export class GatewayClient {
   }
 
   async fetchAgentIdentity(agentId?: string) {
-    const id = agentId ?? this._agentId;
     // _agentId 可能尚未从 status 拉取到（竞态）；不传 agentId 时 server 解析默认 agent
-    const params = id ? { agentId: id } : {};
-    try {
-      const res = await this._request("agent.identity.get", params);
-      if (res.ok && res.payload) {
-        const p = res.payload;
-        return {
-          agentId: id,
-          name: p.name,
-          emoji: p.emoji,
-          avatar: p.avatar ?? null,
-          avatarSource: p.avatarSource ?? null,
-          avatarStatus: p.avatarStatus ?? "none",
-          avatarReason: p.avatarReason ?? null,
-        } as AgentIdentity;
-      }
-      return null;
-    } catch (err) {
-      console.error("[Gateway] fetchAgentIdentity failed:", err);
-      return null;
-    }
+    return apiAgents.fetchAgentIdentity(this.rpc, agentId ?? this._agentId ?? undefined);
   }
 
   async updateAgentAvatar(agentId: string, avatar: string) {
-    try {
-      const id = agentId ?? this._agentId;
-      const res = await this._request("agents.update", id ? { agentId: id, avatar } : { avatar });
-      if (!res.ok) throw new Error(res.error?.message ?? "未知错误");
-      return true;
-    } catch (err) {
-      console.error("[Gateway] updateAgentAvatar failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`头像更新失败：${message}`);
-      throw err;
-    }
+    return apiAgents.updateAgentAvatar(this.rpc, agentId, avatar);
   }
 
   // 项目区（agent）管理：列表 / 新建 / 编辑 / 删除
-  async fetchAgents(): Promise<{ defaultId: string; agents: AgentSummary[] }> {
-    const res = await this._request("agents.list", {});
-    const payload = res.payload as {
-      defaultId?: string;
-      agents?: AgentSummary[];
-    };
-    return {
-      defaultId: payload?.defaultId ?? "main",
-      agents: Array.isArray(payload?.agents) ? payload.agents : [],
-    };
+  async fetchAgents(): Promise<{ defaultId: string; agents: import("./protocol").AgentSummary[] }> {
+    return apiAgents.fetchAgents(this.rpc);
   }
 
-  async createAgent(input: AgentCreateInput): Promise<{ agentId: string }> {
-    const res = await this._request("agents.create", input);
-    if (!res.ok) throw new Error(res.error?.message ?? "新建项目区失败");
-    const payload = res.payload as { agentId?: string };
-    if (!payload?.agentId) throw new Error("新建项目区失败：缺少 agentId");
-    return { agentId: payload.agentId };
+  async createAgent(input: import("./protocol").AgentCreateInput): Promise<{ agentId: string }> {
+    return apiAgents.createAgent(this.rpc, input);
   }
 
-  async updateAgent(agentId: string, patch: AgentUpdateInput) {
-    const res = await this._request("agents.update", { agentId, ...patch });
-    if (!res.ok) throw new Error(res.error?.message ?? "更新项目区失败");
+  async updateAgent(agentId: string, patch: import("./protocol").AgentUpdateInput) {
+    return apiAgents.updateAgent(this.rpc, agentId, patch);
   }
 
   async deleteAgent(agentId: string) {
-    const res = await this._request("agents.delete", { agentId });
-    if (!res.ok) throw new Error(res.error?.message ?? "删除项目区失败");
+    return apiAgents.deleteAgent(this.rpc, agentId);
   }
 
   // 用量成本（usage.cost，operator.read）：days=7|30
-  async fetchUsageCost(days: number): Promise<UsageCostSummary | null> {
-    try {
-      const res = await this._request("usage.cost", { days });
-      if (!res.ok) return null;
-      const payload = res.payload as Partial<UsageCostSummary>;
-      if (!payload || !Array.isArray(payload.daily)) return null;
-      return {
-        updatedAt: payload.updatedAt ?? Date.now(),
-        days: payload.days ?? days,
-        daily: payload.daily,
-        totals: {
-          totalTokens: payload.totals?.totalTokens ?? 0,
-          totalCost: payload.totals?.totalCost ?? 0,
-          input: payload.totals?.input ?? 0,
-          output: payload.totals?.output ?? 0,
-          cacheRead: payload.totals?.cacheRead ?? 0,
-          cacheWrite: payload.totals?.cacheWrite ?? 0,
-        },
-        cacheStatus: payload.cacheStatus,
-      };
-    } catch (err) {
-      console.error("[Gateway] fetchUsageCost failed:", err);
-      return null;
-    }
+  async fetchUsageCost(days: number) {
+    return apiUsage.fetchUsageCost(this.rpc, days);
   }
 
   // 记忆概览（memory.overview，operator.read）：MEMORY.md + memory/ 目录
-  async fetchMemoryOverview(agentId?: string): Promise<MemoryOverview | null> {
-    try {
-      const id = agentId ?? this._agentId;
-      const res = await this._request("memory.overview", id ? { agentId: id } : {});
-      if (!res.ok) return null;
-      const payload = res.payload as Partial<MemoryOverview>;
-      if (!payload || !Array.isArray(payload.files)) return null;
-      return {
-        agentId: payload.agentId ?? id ?? "main",
-        workspace: payload.workspace ?? "",
-        longTerm: payload.longTerm ?? null,
-        files: payload.files,
-        totals: {
-          files: payload.totals?.files ?? 0,
-          bytes: payload.totals?.bytes ?? 0,
-          lastUpdatedAtMs: payload.totals?.lastUpdatedAtMs ?? null,
-        },
-      };
-    } catch (err) {
-      console.error("[Gateway] fetchMemoryOverview failed:", err);
-      return null;
-    }
+  async fetchMemoryOverview(agentId?: string) {
+    return apiUsage.fetchMemoryOverview(this.rpc, agentId ?? this._agentId ?? undefined);
   }
 
   // 定时任务管理（cron.*，operator admin 写）
-  async fetchCronJobs(): Promise<CronJobSummary[]> {
-    const res = await this._request("cron.list", { includeDisabled: true });
-    const payload = res.payload as { jobs?: CronJobSummary[] };
-    return Array.isArray(payload?.jobs) ? payload.jobs : [];
+  async fetchCronJobs() {
+    return apiCron.fetchCronJobs(this.rpc);
   }
 
   async cronSetEnabled(id: string, enabled: boolean) {
-    const res = await this._request("cron.update", { id, patch: { enabled } });
-    if (!res.ok) throw new Error(res.error?.message ?? "更新定时任务失败");
+    return apiCron.cronSetEnabled(this.rpc, id, enabled);
   }
 
   async cronRemove(id: string) {
-    const res = await this._request("cron.remove", { id });
-    if (!res.ok) throw new Error(res.error?.message ?? "删除定时任务失败");
+    return apiCron.cronRemove(this.rpc, id);
   }
 
   async cronRunNow(id: string) {
-    const res = await this._request("cron.run", { id, mode: "force" });
-    if (!res.ok) throw new Error(res.error?.message ?? "触发运行失败");
+    return apiCron.cronRunNow(this.rpc, id);
   }
 
-  async cronCreate(input: CronCreateInput): Promise<{ id: string }> {
-    const res = await this._request("cron.add", {
-      name: input.name,
-      schedule: input.schedule,
-      sessionTarget: "isolated",
-      wakeMode: "now",
-      payload: {
-        kind: "agentTurn",
-        message: input.message,
-        ...(input.lightContext ? { lightContext: true } : {}),
-      },
-      delivery: { mode: "none" },
-      ...(input.agentId ? { agentId: input.agentId } : {}),
-    });
-    if (!res.ok) throw new Error(res.error?.message ?? "新建定时任务失败");
-    const payload = res.payload as { id?: string };
-    return { id: payload?.id ?? "" };
+  async cronCreate(input: import("./protocol").CronCreateInput) {
+    return apiCron.cronCreate(this.rpc, input);
   }
 
-  async fetchCronRuns(jobId: string, limit = 10): Promise<CronRunLogEntry[]> {
-    const res = await this._request("cron.runs", {
-      scope: "job",
-      id: jobId,
-      limit,
-      sortDir: "desc",
-    });
-    if (!res.ok) throw new Error(res.error?.message ?? "查询运行历史失败");
-    const payload = res.payload as { entries?: CronRunLogEntry[] };
-    return Array.isArray(payload?.entries) ? payload.entries : [];
+  async fetchCronRuns(jobId: string, limit = 10) {
+    return apiCron.fetchCronRuns(this.rpc, jobId, limit);
   }
 
-  // 跨 job 的最近运行流（scope=all，服务端自动 join jobName）：Activity 面板后台区块用
-  async fetchAllCronRuns(limit = 8): Promise<CronRunLogEntry[]> {
-    const res = await this._request("cron.runs", {
-      scope: "all",
-      limit,
-      sortDir: "desc",
-    });
-    if (!res.ok) throw new Error(res.error?.message ?? "查询运行历史失败");
-    const payload = res.payload as { entries?: CronRunLogEntry[] };
-    return Array.isArray(payload?.entries) ? payload.entries : [];
+  async fetchAllCronRuns(limit = 8) {
+    return apiCron.fetchAllCronRuns(this.rpc, limit);
   }
 
   async fetchCommands() {
@@ -875,7 +431,7 @@ export class GatewayClient {
       const res = await this._request("commands.list", { scope: "text", includeArgs: false });
       if (res.ok && res.payload?.commands) {
         this._commands = res.payload.commands;
-        this._notifyCommands();
+        this.commandsSets.emit(this._commands);
       }
     } catch (err) {
       console.error("[Gateway] fetchCommands failed:", err);
@@ -887,7 +443,7 @@ export class GatewayClient {
       const res = await this._request("models.list", { view: "configured" });
       if (res.ok && res.payload?.models) {
         this._models = res.payload.models;
-        this._notifyModels();
+        this.modelLists.emit(this._models);
       }
     } catch (err) {
       console.error("[Gateway] fetchModels failed:", err);
@@ -899,120 +455,7 @@ export class GatewayClient {
     try {
       const res = await this._request("chat.history", { sessionKey: key, limit });
       if (res.ok && res.payload?.messages) {
-        const out: Message[] = [];
-        for (const m of res.payload.messages as any[]) {
-          // 只渲染用户/助手消息；工具结果（role=toolResult）在实时聊天里也不显示，
-          // 历史里同样跳过，避免 "Background task started..." 之类文本变成气泡。
-          const role = m.role ?? "assistant";
-          if (role !== "user" && role !== "assistant") {
-            continue;
-          }
-          let content =
-            typeof m.content === "string"
-              ? m.content
-              : (m.content?.map((c: any) => c.text).join("") ?? "");
-          // 过滤内部路由消息（inter-session / task completion），不显示给用户；
-          // 真实回复由 message tool 的 sourceReply 直接补发 assistant 消息。
-          if (
-            content.startsWith("[Inter-session message]") ||
-            content.startsWith("[Internal task completion event]") ||
-            content.startsWith("[Internal message]")
-          ) {
-            continue;
-          }
-          // 心跳 ack 文本（HEARTBEAT_OK）不渲染成气泡：server 实时广播已过滤，
-          // 但历史投影对带 thinking 块的消息 isHeartbeatOkResponse 不命中，这里文本兜底。
-          if (/^HEARTBEAT_OK(\s|$)/.test(content.trim())) {
-            continue;
-          }
-          // 生成失败轮占位：打 failed 标记，UI 折叠成细条，保留时间线但去掉空泡噪音
-          if (content.trim() === STREAM_ERROR_FALLBACK_TEXT) {
-            out.push({
-              id: m.id ?? crypto.randomUUID(),
-              role: "assistant",
-              content: "",
-              timestamp: m.timestamp ?? Date.now(),
-              failed: true,
-            });
-            continue;
-          }
-          const mediaCandidates = [
-            ...(Array.isArray(m.mediaUrls) ? m.mediaUrls : []),
-            ...(m.mediaUrl ? [m.mediaUrl] : []),
-            ...(Array.isArray(m.MediaPaths) ? m.MediaPaths : []),
-            ...(m.MediaPath ? [m.MediaPath] : []),
-          ];
-          const mediaTokenRe = /\bMEDIA:\s*`?([^\n]+)`?/gi;
-          let mm: RegExpExecArray | null;
-          while ((mm = mediaTokenRe.exec(content)) !== null) {
-            const p = mm[1].trim();
-            if (p) mediaCandidates.push(p);
-          }
-          // 历史生图消息：图片路径藏在 assistant 消息的 message tool 调用参数里
-          // （chat.history 投影保留 toolCall 块，arguments.attachments[].media 是
-          // 图片绝对路径，arguments.message 是展示文案），顶层字段没有媒体，
-          // 不解析的话历史里就看不到生成的图。
-          if (Array.isArray(m.content)) {
-            for (const block of m.content) {
-              if (block?.type !== "toolCall" || block.name !== "message" || !block.arguments) {
-                continue;
-              }
-              let args: any = block.arguments;
-              if (typeof args === "string") {
-                try {
-                  args = JSON.parse(args);
-                } catch {
-                  args = null;
-                }
-              }
-              if (!args) continue;
-              if (typeof args.message === "string" && !content) {
-                content = args.message;
-              }
-              for (const att of args.attachments ?? []) {
-                if (
-                  att?.media &&
-                  typeof att.media === "string" &&
-                  (att.type === "image" || /\.(png|jpe?g|gif|webp|bmp)$/i.test(att.media))
-                ) {
-                  mediaCandidates.push(att.media);
-                }
-              }
-            }
-          }
-          let images: MessageImage[] = [];
-          // 按源路径先去重：本地路径经 mediaTicket 换发后不是稳定 URL，
-          // 同路径重复字段（mediaUrl + mediaUrls[0]）会解析出两个不同 URL。
-          // 去重后并行解析，图片多的会话切换延迟从 O(N) 往返降为 1。
-          const seenPaths = new Set<string>();
-          const uniqueCandidates = mediaCandidates.filter((cand) => {
-            if (!cand || seenPaths.has(cand)) return false;
-            seenPaths.add(cand);
-            return true;
-          });
-          const resolvedUrls = await Promise.all(
-            uniqueCandidates.map((cand) => this._resolveMediaHttpUrl(cand)),
-          );
-          const seenUrls = new Set<string>();
-          for (const url of resolvedUrls) {
-            if (!url || seenUrls.has(url)) continue;
-            seenUrls.add(url);
-            images.push({ url });
-          }
-          // 空内容且无图（生图后台任务 run 的空 final）不渲染成空白气泡。
-          if (!content && images.length === 0) {
-            continue;
-          }
-          out.push({
-            id: m.id ?? crypto.randomUUID(),
-            role: m.role ?? "assistant",
-            content,
-            timestamp: m.timestamp ?? Date.now(),
-            reasoning: m.reasoning ?? "",
-            ...(images.length > 0 ? { images } : {}),
-          });
-        }
-        return out;
+        return await projectHistory(res.payload.messages, this.media);
       }
     } catch (err) {
       console.error("[Gateway] fetchHistory failed:", err);
@@ -1030,7 +473,7 @@ export class GatewayClient {
         model: modelName,
       });
       this._sessionInfo = { ...this._sessionInfo, model: modelName, configuredModel: modelName };
-      this._notifySessionInfo();
+      this.sessionInfos.emit(this._sessionInfo);
     } catch (err) {
       console.error("[Gateway] switchModel failed:", err);
       const message = err instanceof Error ? err.message : String(err);
@@ -1107,51 +550,24 @@ export class GatewayClient {
     }
   }
 
-  async fetchTodos(filter?: { status?: TodoStatus; tag?: string; dueBefore?: number }) {
-    try {
-      const res = await this._request("todo.list", filter ?? {});
-      return (res.payload?.todos ?? []) as Todo[];
-    } catch (err) {
-      console.error("[Gateway] fetchTodos failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`加载待办失败：${message}`);
-      return [];
-    }
+  async fetchTodos(filter?: {
+    status?: import("./protocol").TodoStatus;
+    tag?: string;
+    dueBefore?: number;
+  }) {
+    return apiTodos.fetchTodos(this.rpc, filter);
   }
 
-  async addTodo(input: TodoCreateInput): Promise<Todo> {
-    try {
-      const res = await this._request("todo.add", input);
-      return res.payload.todo as Todo;
-    } catch (err) {
-      console.error("[Gateway] addTodo failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`新增待办失败：${message}`);
-      throw err;
-    }
+  async addTodo(input: import("./protocol").TodoCreateInput) {
+    return apiTodos.addTodo(this.rpc, input);
   }
 
-  async updateTodo(id: string, patch: TodoUpdateInput): Promise<Todo> {
-    try {
-      const res = await this._request("todo.update", { id, ...patch });
-      return res.payload.todo as Todo;
-    } catch (err) {
-      console.error("[Gateway] updateTodo failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`更新待办失败：${message}`);
-      throw err;
-    }
+  async updateTodo(id: string, patch: import("./protocol").TodoUpdateInput) {
+    return apiTodos.updateTodo(this.rpc, id, patch);
   }
 
-  async removeTodo(id: string): Promise<void> {
-    try {
-      await this._request("todo.remove", { id });
-    } catch (err) {
-      console.error("[Gateway] removeTodo failed:", err);
-      const message = err instanceof Error ? err.message : String(err);
-      this._notifyError(`删除待办失败：${message}`);
-      throw err;
-    }
+  async removeTodo(id: string) {
+    return apiTodos.removeTodo(this.rpc, id);
   }
 
   private _connect() {
@@ -1184,7 +600,7 @@ export class GatewayClient {
 
     this.ws.onerror = () => {
       this.connected = false;
-      this._notifyStatus();
+      this.statuses.emit(this.connected);
     };
 
     this.ws.onclose = () => {
@@ -1192,7 +608,7 @@ export class GatewayClient {
       this._connecting = false;
       this.connected = false;
       this._failPending(new Error("Gateway connection closed"));
-      this._notifyStatus();
+      this.statuses.emit(this.connected);
       if (this.running) {
         this._scheduleReconnect();
       }
@@ -1220,7 +636,7 @@ export class GatewayClient {
       // 首次调用）处理过，重复调度只会让退避多翻一档。
       if (this.running) this._scheduleReconnect();
     }
-    this._notifyStatus();
+    this.statuses.emit(this.connected);
   }
 
   private async _sendConnect() {
@@ -1247,7 +663,7 @@ export class GatewayClient {
         this.reconnectDelay = RECONNECT_DELAY;
         this.connected = true;
         this._connecting = false;
-        this._notifyStatus();
+        this.statuses.emit(this.connected);
         // subscribe to session-scoped events (session.tool / session.message / sessions.changed)
         this._request("sessions.subscribe", {}).catch(() => undefined);
         // fetch session info and commands after connect
@@ -1285,12 +701,12 @@ export class GatewayClient {
         return;
       }
       if (frame.event === "chat") {
-        this._handleChatEvent(frame.payload);
+        this.chatEvents.handleChatEvent(frame.payload);
         return;
       }
       // agent events (thinking/tool/... broadcast) and session.tool events
       if (frame.event === "agent" || frame.event === "session.tool") {
-        this._handleAgentEvent(frame.payload);
+        this.chatEvents.handleAgentEvent(frame.payload);
         return;
       }
       // 会话生命周期广播（创建/更新/删除）：server 在会话变化时主动推送，
@@ -1315,227 +731,20 @@ export class GatewayClient {
     }
   }
 
-  private _handleChatEvent(payload: any) {
-    if (!payload) return;
-    const { state, sessionKey, message, deltaText, errorMessage } = payload;
-    // chat 事件与 thinking/tool 流同口径：只消费 active 会话。known-session
-    // /hasMedia 宽放行会让别的会话（含 heartbeat isolated key）的 delta/final
-    // 串进当前聊天流；跨会话内容由会话切换时的 fetchHistory 兜底。
-    if (sessionKey && sessionKey !== this._activeSessionKey) return;
-
-    switch (state) {
-      case "delta": {
-        // seq 水位线（per-session）：<= 上次已收的帧是迟到/重放，丢弃（server
-        // 端 delta 有 150ms 节流与增量对齐，正常序列 seq 单调；run 终态时清除）
-        const seq = typeof payload.seq === "number" ? payload.seq : null;
-        if (seq !== null) {
-          const seqKey = this._deltaSeqKey(sessionKey);
-          const lastSeq = this._deltaSeqs.get(seqKey);
-          if (lastSeq !== undefined && seq <= lastSeq) break;
-          this._deltaSeqs.set(seqKey, seq);
-        }
-        // replace=true 时 deltaText 是「到目前为止的全文」而非增量（server 端
-        // 投影分叉时的修复帧），必须透传给 UI，按追加处理会重复拼文本
-        this._notifyDelta(deltaText || "", message?.reasoning || "", payload.replace === true);
-        break;
-      }
-      case "final":
-        this._deltaSeqs.delete(this._deltaSeqKey(sessionKey));
-        void this._handleFinalChatMessage(message);
-        // refresh session info after each completed response
-        this.fetchSessionInfo();
-        break;
-      case "aborted": {
-        this._deltaSeqs.delete(this._deltaSeqKey(sessionKey));
-        const partialText =
-          message?.text ||
-          message?.content
-            ?.filter((c: any) => c.type === "text")
-            ?.map((c: any) => c.text)
-            ?.join("") ||
-          "";
-        if (partialText) {
-          this._notifyMessage({
-            id: message?.id || crypto.randomUUID(),
-            role: "assistant",
-            content: partialText,
-            timestamp: Date.now(),
-            reasoning: message?.reasoning || "",
-          });
-        }
-        this._notifyStreamEnd();
-        break;
-      }
-      case "error":
-        console.error("[Gateway] chat error:", errorMessage);
-        this._deltaSeqs.delete(this._deltaSeqKey(sessionKey));
-        this._notifyStreamEnd();
-        this._notifyError(errorMessage || "生成失败");
-        break;
-    }
-  }
-
-  // 生图完成消息：文字 + 图片（content image block / 顶层 mediaUrls / mediaUrl / MEDIA: 文本）
-  // 本地绝对路径经 assistant-media 端点换 ticket 转 HTTP URL
-  private async _handleFinalChatMessage(message: any) {
-    const content =
-      message?.text ||
-      message?.content
-        ?.filter((c: any) => c.type === "text")
-        ?.map((c: any) => c.text)
-        ?.join("") ||
-      "";
-
-    const mediaCandidates = [
-      ...(Array.isArray(message?.mediaUrls) ? message.mediaUrls : []),
-      ...(message?.mediaUrl ? [message.mediaUrl] : []),
-      ...(Array.isArray(message?.MediaPaths) ? message.MediaPaths : []),
-      ...(message?.MediaPath ? [message.MediaPath] : []),
-    ];
-    const mediaTokenRe = /\bMEDIA:\s*`?([^\n]+)`?/gi;
-    let m: RegExpExecArray | null;
-    while ((m = mediaTokenRe.exec(content)) !== null) {
-      const path = m[1].trim();
-      if (path) mediaCandidates.push(path);
-    }
-    await this._resolveAndNotifyImages(mediaCandidates, content, message?.id);
-  }
-
-  private async _resolveAndNotifyImages(
-    mediaCandidates: string[],
-    text: string,
-    messageId?: string,
-  ) {
-    let images: MessageImage[] = [];
-    // server 可能同时填 mediaUrl + mediaUrls[0]（同一路径双字段），且本地路径
-    // 每次解析换新 mediaTicket，按最终 URL 去重会失效——先按原始路径去重，
-    // 再并行解析（串行时 N 张图 = N 个串行往返，最终气泡明显延迟）。
-    const seenPaths = new Set<string>();
-    const uniqueCandidates = mediaCandidates.filter((c) => {
-      if (!c || seenPaths.has(c)) return false;
-      seenPaths.add(c);
-      return true;
-    });
-    try {
-      const urls = await Promise.all(uniqueCandidates.map((c) => this._resolveMediaHttpUrl(c)));
-      const seenUrls = new Set<string>();
-      for (const url of urls) {
-        if (!url || seenUrls.has(url)) continue;
-        seenUrls.add(url);
-        images.push({ url });
-      }
-    } catch (err) {
-      console.error("[Gateway] resolve images failed:", err);
-    }
-
-    // 空内容且无图（如生图后台任务 run 结束的空 final 广播）不渲染，
-    // 否则会变成空白气泡。
-    if (!text && images.length === 0) {
-      return;
-    }
-
-    this._notifyMessage({
-      // 服务端稳定 id 透传：重复 final 广播（如重连重放）被 _notifyMessage 去重拦截。
-      id: messageId || crypto.randomUUID(),
-      role: "assistant",
-      content: text,
-      timestamp: Date.now(),
-      ...(images.length > 0 ? { images } : {}),
-    });
-  }
-
-  // 把媒体引用解析成可直接 <img> 的 HTTP URL：
-  //  - http(s) 原样
-  //  - / 开头的相对路径拼 gateway http base
-  //  - 本地绝对路径（生图落盘）经 assistant-media 端点换 mediaTicket
-  // ticket 5 分钟 TTL，同路径反复换发结果等价：按源路径缓存，历史加载
-  // /重复消息不再每张图都打一次 meta 往返。
-  private mediaTicketCache = new Map<string, { url: string; expiresAt: number }>();
-
-  private async _resolveMediaHttpUrl(source: string | undefined): Promise<string | null> {
-    if (!source) return null;
-    const httpBase = this.url.replace(/^ws/, "http");
-    if (/^https?:\/\//i.test(source)) return source;
-    if (source.startsWith("/")) return `${httpBase}${source}`;
-    // 本地绝对路径：assistant-media meta 换 ticket（allowQueryToken:true）
-    try {
-      const cached = this.mediaTicketCache.get(source);
-      if (cached && cached.expiresAt - 60_000 > Date.now()) {
-        return cached.url;
-      }
-      const enc = encodeURIComponent(source);
-      const metaUrl = `${httpBase}/__openclaw__/assistant-media?source=${enc}&meta=1${
-        this.token ? `&token=${encodeURIComponent(this.token)}` : ""
-      }`;
-      // 5s 超时：网关 HTTP 端口半死（TCP 通但不响应）时避免挂住整个历史加载，
-      // 超时走下方 catch 按解析失败返回 null。
-      const res = await fetch(metaUrl, { signal: AbortSignal.timeout(5_000) });
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data?.available && data?.mediaTicket) {
-        const url = `${httpBase}/__openclaw__/assistant-media?source=${enc}&mediaTicket=${encodeURIComponent(data.mediaTicket)}`;
-        const parsedExp = data.mediaTicketExpiresAt ? Date.parse(data.mediaTicketExpiresAt) : NaN;
-        if (this.mediaTicketCache.size > 200) this.mediaTicketCache.clear();
-        this.mediaTicketCache.set(source, {
-          url,
-          expiresAt: Number.isFinite(parsedExp) ? parsedExp : Date.now() + 4 * 60_000,
-        });
-        return url;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
-  // 无 sessionKey 的帧按 active 会话归属（与放行口径一致），水位线/清除都用它
-  private _deltaSeqKey(sessionKey: string | undefined): string {
-    return sessionKey || this._activeSessionKey;
-  }
-
-  private _handleAgentEvent(payload: any) {
-    if (!payload) return;
-    const { sessionKey, stream, data } = payload;
-    if (sessionKey && sessionKey !== this._activeSessionKey) return;
-
-    if (stream === "thinking") {
-      this._notifyThinking({
-        text: data?.text ?? "",
-        delta: data?.delta,
-        replace: data?.replace === true,
-      });
-      return;
-    }
-    if (stream === "tool") {
-      const toolData = data ?? {};
-      // message tool 是内部路由工具：start 阶段保留卡片（告诉用户任务开始），
-      // result 阶段静默（sourceReply 会补发 assistant 消息，避免重复气泡）。
-      if (!(toolData.name === "message" && toolData.phase === "result")) {
-        this._notifyTool(toolData as ToolCallEvent);
-      }
-      // message tool 的 sourceReply 走 internal-ui sink，不经过 chat final
-      // broadcast；GUI/TUI 这里直接消费，补发一条 assistant 消息（含图片）。
-      if (toolData.name === "message" && !toolData.error) {
-        const sourceReply = (toolData as any)?.result?.details?.sourceReply;
-        if (sourceReply) {
-          const text =
-            sourceReply.text ||
-            sourceReply.message ||
-            ((toolData as any)?.result?.content as any[])
-              ?.filter((c: any) => c?.type === "text")
-              ?.map((c: any) => c.text)
-              ?.join("") ||
-            "";
-          const mediaCandidates = [
-            ...(Array.isArray(sourceReply.mediaUrls) ? sourceReply.mediaUrls : []),
-            ...(sourceReply.mediaUrl ? [sourceReply.mediaUrl] : []),
-          ];
-          this._resolveAndNotifyImages(mediaCandidates, text);
-        }
-      }
-      return;
-    }
-  }
+  // 聊天/agent 事件管线：投递逻辑在 chat-events.ts，这里只装配上下文。
+  // 字段按声明顺序初始化，引用的都是上方已就绪的注册表/水位线/媒体解析器。
+  private chatEvents = new ChatEventPipeline({
+    deltas: this.deltas,
+    notifyMessage: (msg) => this._notifyMessage(msg),
+    streamEnds: this.streamEnds,
+    notifyError: (message) => this._notifyError(message),
+    tools: this.tools,
+    thinkings: this.thinkings,
+    deltaSeqs: this._deltaSeqs,
+    getActiveKey: () => this._activeSessionKey,
+    refreshSessionInfo: () => void this.fetchSessionInfo(),
+    media: this.media,
+  });
 
   private _notifyMessage(msg: Message) {
     // 同 id 只投递一次：重复 final/补发广播（如重连重放）会在聊天里出现双条。
@@ -1550,47 +759,11 @@ export class GatewayClient {
         }
       }
     }
-    this.messageListeners.forEach((fn) => fn(msg));
-  }
-
-  private _notifyDelta(text: string, reasoning: string, replace?: boolean) {
-    this.deltaListeners.forEach((fn) => fn(text, reasoning, replace));
-  }
-
-  private _notifyStatus() {
-    this.statusListeners.forEach((fn) => fn(this.connected));
-  }
-
-  private _notifySessionInfo() {
-    this.sessionInfoListeners.forEach((fn) => fn(this._sessionInfo));
-  }
-
-  private _notifySessionList() {
-    this.sessionListListeners.forEach((fn) => fn(this._sessions));
-  }
-
-  private _notifyCommands() {
-    this.commandsListeners.forEach((fn) => fn(this._commands));
-  }
-
-  private _notifyModels() {
-    this.modelListListeners.forEach((fn) => fn(this._models));
+    this.messages.emit(msg);
   }
 
   private _notifyError(message: string) {
-    this.errorListeners.forEach((fn) => fn(message));
-  }
-
-  private _notifyStreamEnd() {
-    this.streamEndListeners.forEach((fn) => fn());
-  }
-
-  private _notifyThinking(thinking: ThinkingEvent) {
-    this.thinkingListeners.forEach((fn) => fn(thinking));
-  }
-
-  private _notifyTool(tool: ToolCallEvent) {
-    this.toolListeners.forEach((fn) => fn(tool));
+    this.errorSets.emit(message);
   }
 
   private _request(method: string, params: any) {
