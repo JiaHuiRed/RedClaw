@@ -13,6 +13,18 @@ export default defineConfig(async () => ({
   define: {
     __REDCLAW_VERSION__: JSON.stringify(rootPkg.version),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // vendor 拆分：react 生态与 markdown 生态独立成 chunk，
+        // 业务代码改动不再使整包缓存失效
+        manualChunks: {
+          react: ["react", "react-dom"],
+          markdown: ["react-markdown", "remark-gfm"],
+        },
+      },
+    },
+  },
   clearScreen: false,
   server: {
     port: 1420,

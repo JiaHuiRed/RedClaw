@@ -105,14 +105,15 @@ const PANEL_TINTS = {
   },
 } as const;
 
-// 读取图片为 base64 附件（dataUrl 供预览，base64 供 chat.send attachments）
-function readFileAsBase64(file: File): Promise<{ base64: string; dataUrl: string }> {
+// 读取图片为 base64 附件（预览走 objectURL，不再同时存 dataUrl 双份字符串：
+// 12MB 图原先 base64+dataUrl 两份常驻 ≈32MB，现在只剩 base64 一份）
+function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result ?? "");
       const comma = dataUrl.indexOf(",");
-      resolve({ dataUrl, base64: comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl });
+      resolve(comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl);
     };
     reader.onerror = () => reject(reader.error ?? new Error("read image failed"));
     reader.readAsDataURL(file);
@@ -340,6 +341,166 @@ interface ChatPanelProps {
   active?: boolean;
 }
 
+// 每秒自跳的秒数文本：把 1s tick 隔离在叶子组件里（原实现整个 ChatPanel
+// 每秒全量重渲一遍，包括几百条历史消息的元素树）
+function LiveSeconds({ active }: { active: boolean }) {
+  const [s, setS] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setS(0);
+      return;
+    }
+    const t = setInterval(() => setS((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return <>{s}s</>;
+}
+
+// 消息行 memo 化：msg 引用 append-only 稳定 + 回调全走 ref 蹦床，
+// 流式期间每个 delta 只重渲流式气泡，历史消息直接跳过渲染
+const MessageRow = memo(function MessageRow({
+  msg,
+  agentAvatarSrc,
+  userAvatar,
+  avatarBusy,
+  speaking,
+  onSpeak,
+  canRegenerate,
+  onRegenerate,
+  onEdit,
+  onRetry,
+  onPreview,
+  onPickAvatar,
+}: {
+  msg: Message;
+  agentAvatarSrc: string | null;
+  userAvatar: string | null;
+  avatarBusy: "user" | "agent" | null;
+  speaking: boolean;
+  onSpeak: (msg: Message) => void;
+  canRegenerate: boolean;
+  onRegenerate: () => void;
+  onEdit: (msg: Message) => void;
+  onRetry: (msg: Message) => void;
+  onPreview: (img: MessageImage) => void;
+  onPickAvatar: (kind: "user" | "agent", file: File | undefined) => void;
+}) {
+  if (msg.failed) {
+    // 生成失败轮：折叠成细条，替代占位文本空泡
+    return (
+      <div className="flex justify-start px-1">
+        <div
+          className="flex items-center gap-1.5 text-xs"
+          style={{ color: "var(--text-secondary)" }}
+          title={
+            "这一轮生成失败，未产生回复（" + new Date(msg.timestamp).toLocaleTimeString() + "）"
+          }
+        >
+          <AlertCircle size={12} style={{ color: "var(--warning)" }} />
+          本轮生成失败，未产生回复
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2`}
+    >
+      {msg.role === "assistant" && (
+        <EditableAvatar
+          src={agentAvatarSrc}
+          icon={<Bot size={26} />}
+          uploading={avatarBusy === "agent"}
+          title="更换秋秋头像"
+          onPick={(file) => onPickAvatar("agent", file)}
+        />
+      )}
+      <div
+        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words group`}
+        style={{
+          background: msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
+          color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
+          border: `1px solid ${
+            msg.role === "assistant"
+              ? "color-mix(in srgb, var(--border) 55%, transparent)"
+              : "transparent"
+          }`,
+          boxShadow:
+            msg.role === "user"
+              ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
+              : "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+      >
+        {msg.role === "assistant" ? (
+          // 分区注册表渲染（markdown/图片/工具/思考），各自包 ErrorBoundary
+          <AssistantParts msg={msg} onPreview={onPreview} />
+        ) : (
+          <>
+            {msg.content ? (
+              <MarkdownBlock content={msg.content} />
+            ) : (
+              <span className="text-sm" style={{ color: "var(--on-solid)" }}>
+                📷 图片
+              </span>
+            )}
+            {msg.images && msg.images.length > 0 && (
+              <div className="mt-2 flex flex-col gap-2">
+                {msg.images.map((img, i) => (
+                  <img
+                    key={i}
+                    src={img.url}
+                    alt={img.alt ?? "生成图片"}
+                    onClick={() => onPreview(img)}
+                    className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
+                    style={{ borderColor: "var(--border)" }}
+                    loading="lazy"
+                    title={img.alt ?? "生成图片（点击放大）"}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {msg.role === "assistant" && msg.content && (
+          <MessageActions
+            text={msg.content}
+            speaking={speaking}
+            onSpeak={() => onSpeak(msg)}
+            onRegenerate={canRegenerate ? onRegenerate : undefined}
+          />
+        )}
+        {msg.role === "user" && <MessageActions text={msg.content} onEdit={() => onEdit(msg)} />}
+        {msg.role === "user" && msg.sendFailed && (
+          <div
+            className="mt-1.5 flex items-center gap-1.5 text-xs"
+            style={{ color: "var(--danger)" }}
+          >
+            <AlertCircle size={12} />
+            发送失败
+            <button
+              onClick={() => void onRetry(msg)}
+              className="underline underline-offset-2 hover:opacity-80"
+              style={{ color: "var(--danger)" }}
+              title="重新发送这条消息"
+            >
+              重试
+            </button>
+          </div>
+        )}
+      </div>
+      {msg.role === "user" && (
+        <EditableAvatar
+          src={userAvatar}
+          icon={<User size={26} />}
+          uploading={avatarBusy === "user"}
+          title="更换我的头像"
+          onPick={(file) => onPickAvatar("user", file)}
+        />
+      )}
+    </div>
+  );
+});
+
 // streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
 // App 层会让整棵应用树（Sidebar 会话列表等）跟着每个 chunk 重渲染。
 function ChatPanel({
@@ -374,17 +535,35 @@ function ChatPanel({
   const [stalled, setStalled] = useState(false);
   // 生成中发送的消息先入队，流结束后依次自动派出（借鉴 codex ext/queue）
   const [sendQueue, setSendQueue] = useState<QueuedMessage[]>([]);
-  const [elapsed, setElapsed] = useState(0);
   const [streamingReasoning, setStreamingReasoning] = useState("");
   // 流式分段（文本/工具交错）。ref 与 state 同步维护：onMessage 等
   // 订阅闭包里需要读到最新分段（React state 在闭包里是旧值）。
   const [segments, setSegments] = useState<StreamSegment[]>([]);
   const segmentsRef = useRef<StreamSegment[]>([]);
+  // delta 合帧缓冲：同帧多个 delta 只提交一次（服务端 150ms 节流之上的
+  // 客户端二次合并），长回复的 markdown 重解析频率显著下降
+  const pendingDeltaRef = useRef<{ text: string; replace: boolean } | null>(null);
+  const deltaRafRef = useRef<number | null>(null);
   const updateSegments = (fn: (prev: StreamSegment[]) => StreamSegment[]) => {
     segmentsRef.current = fn(segmentsRef.current);
     setSegments(segmentsRef.current);
   };
-  const clearSegments = () => updateSegments(() => []);
+  const flushDelta = () => {
+    deltaRafRef.current = null;
+    const pending = pendingDeltaRef.current;
+    pendingDeltaRef.current = null;
+    if (!pending) return;
+    updateSegments((prev) => applyStreamDelta(prev, pending.text, pending.replace));
+  };
+  const clearSegments = () => {
+    // 丢弃未提交的合并帧：final/abort/断线后残留 flush 会在空分段上长出幽灵文本
+    if (deltaRafRef.current !== null) {
+      cancelAnimationFrame(deltaRafRef.current);
+      deltaRafRef.current = null;
+    }
+    pendingDeltaRef.current = null;
+    updateSegments(() => []);
+  };
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -401,10 +580,17 @@ function ChatPanel({
   const [previewImg, setPreviewImg] = useState<MessageImage | null>(null);
   // 上翻离开底部时显示"回到底部"
   const [showJump, setShowJump] = useState(false);
-  // 随下一条消息发送的图片附件（按钮选择 / 粘贴）
+  // 随下一条消息发送的图片附件（按钮选择 / 粘贴）：预览用 objectURL，
+  // 发送/移除时 revoke，避免解码位图与字符串常驻
   const [pendingImages, setPendingImages] = useState<
-    { id: string; dataUrl: string; base64: string; mimeType: string; fileName: string }[]
+    { id: string; objectUrl: string; base64: string; mimeType: string; fileName: string }[]
   >([]);
+  const dropPendingImages = () => {
+    setPendingImages((prev) => {
+      for (const p of prev) URL.revokeObjectURL(p.objectUrl);
+      return [];
+    });
+  };
   const imageInputRef = useRef<HTMLInputElement>(null);
   // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
   const autoTitledRef = useRef<Set<string>>(new Set());
@@ -414,6 +600,14 @@ function ChatPanel({
   const nearBottomRef = useRef(true);
   const scrollRafRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 运行期消息 append 封顶：同会话挂一整天 final 不断追加，封顶保留尾部，
+  // 防止 DOM/内存随时间无界增长（fetchHistory 切会话上限 200 只管加载侧）
+  const MAX_MESSAGES = 400;
+  const appendMessage = (m: Message) => {
+    setMessages((prev) =>
+      prev.length >= MAX_MESSAGES ? [...prev.slice(-(MAX_MESSAGES - 1)), m] : [...prev, m],
+    );
+  };
   const [agentAvatar, setAgentAvatar] = useState<string | null>(null);
   const [agentAvatarStatus, setAgentAvatarStatus] = useState<string>("none");
   const [avatarBusy, setAvatarBusy] = useState<"user" | "agent" | null>(null);
@@ -574,16 +768,16 @@ function ChatPanel({
 
   useEffect(() => {
     if (!isGenerating) {
-      setElapsed(0);
       setStalled(false);
       return;
     }
     // 无活动兜底：run 若在流式中途死亡（final/aborted 事件丢失），「响应中」
     // 会无限空转（observed 261004：秋秋后台扫描已死，GUI 假等 30 分钟）。
     // 超过 STALL_AFTER_MS 无任何事件就亮出「无响应」提示 + 手动重新同步。
+    // setStalled 同值时 React bail-out：秒数显示由 LiveSeconds 叶子组件自跳，
+    // 这里只在阈值翻转时真正触发重渲染
     lastActivityAtRef.current = Date.now();
     const t = setInterval(() => {
-      setElapsed((e) => e + 1);
       setStalled(Date.now() - lastActivityAtRef.current > STALL_AFTER_MS);
     }, 1000);
     return () => clearInterval(t);
@@ -600,10 +794,9 @@ function ChatPanel({
       const runTools = segmentsRef.current.flatMap((seg) =>
         seg.kind === "tool" ? [seg.tool] : [],
       );
-      setMessages((prev) => [
-        ...prev,
+      appendMessage(
         msg.role === "assistant" && runTools.length > 0 ? { ...msg, tools: runTools } : msg,
-      ]);
+      );
       setStreamingReasoning("");
       clearSegments();
       setIsGenerating(false);
@@ -614,7 +807,15 @@ function ChatPanel({
     const unsubDelta = gateway.onDelta((text, _reasoning, replace) => {
       if (!text) return;
       markActivity();
-      updateSegments((prev) => applyStreamDelta(prev, text, replace === true));
+      // 连续增量直接拼接等价于逐条 apply；replace 修复帧是全文语义，以新帧为准
+      const pending = pendingDeltaRef.current;
+      pendingDeltaRef.current =
+        pending && !pending.replace && !replace
+          ? { text: pending.text + text, replace: false }
+          : { text, replace: replace === true };
+      if (deltaRafRef.current === null) {
+        deltaRafRef.current = requestAnimationFrame(flushDelta);
+      }
     });
 
     const unsubThinking = gateway.onThinking((evt) => {
@@ -712,13 +913,13 @@ function ChatPanel({
         continue;
       }
       try {
-        const { base64, dataUrl } = await readFileAsBase64(file);
+        const base64 = await readFileAsBase64(file);
         setPendingImages((prev) => [
           ...prev,
           {
             id: crypto.randomUUID(),
+            objectUrl: URL.createObjectURL(file),
             base64,
-            dataUrl,
             mimeType: file.type,
             fileName: file.name || "image.png",
           },
@@ -759,7 +960,7 @@ function ChatPanel({
       ]);
       setInput("");
       setShowCmdPalette(false);
-      setPendingImages([]);
+      dropPendingImages();
       return;
     }
 
@@ -798,7 +999,7 @@ function ChatPanel({
           }
         : {}),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    appendMessage(userMsg);
     // 自动取标题：未命名会话用首条非命令消息命名（QQ/微信式），每次挂载每会话只做一次
     if (!autoTitledRef.current.has(currentSessionKey)) {
       const title = deriveSessionTitle([userMsg]);
@@ -812,7 +1013,7 @@ function ChatPanel({
     setInput("");
     setShowCmdPalette(false);
     clearSegments();
-    setPendingImages([]);
+    dropPendingImages();
 
     // 生图模式：把请求发给秋秋 agent，由她调用 image_generate 工具生成
     // （直接传原文给工具会被模型当字面 prompt，中文描述如"自己的立绘"
@@ -896,6 +1097,27 @@ function ChatPanel({
     setInput(msg.content);
     inputRef.current?.focus();
   }
+
+  // 稳定回调蹦床：MessageRow 是 memo 组件，函数每渲染重建会打穿 memo；
+  // ref 指向最新实现，对外引用恒定（同 sendNowRef 模式）
+  const speakRef = useRef(handleSpeak);
+  const resendRef = useRef(resendMessage);
+  const regenerateRef = useRef(regenerate);
+  const editRef = useRef(editResend);
+  const pickAvatarRef = useRef(handlePickAvatar);
+  speakRef.current = handleSpeak;
+  resendRef.current = resendMessage;
+  regenerateRef.current = regenerate;
+  editRef.current = editResend;
+  pickAvatarRef.current = handlePickAvatar;
+  const onSpeakMsg = useCallback((msg: Message) => void speakRef.current(msg), []);
+  const onRetryMsg = useCallback((msg: Message) => void resendRef.current(msg), []);
+  const onRegenerateMsg = useCallback(() => void regenerateRef.current(), []);
+  const onEditMsg = useCallback((msg: Message) => editRef.current(msg), []);
+  const onPickAvatarMsg = useCallback(
+    (kind: "user" | "agent", file: File | undefined) => pickAvatarRef.current(kind, file),
+    [],
+  );
 
   // 队列派发：流结束（isGenerating 翻 false）后依次发出下一条。
   // sendNowRef 每次渲染后指向最新实现，避免把每渲染重建的函数塞进依赖数组；
@@ -1169,134 +1391,23 @@ function ChatPanel({
 
         {(messages.length > 0 || isGenerating) && (
           <div className="max-w-6xl mx-auto w-full px-4 py-4 flex flex-col gap-4">
-            {messages.map((msg) =>
-              msg.failed ? (
-                // 生成失败轮：折叠成细条，替代占位文本空泡
-                <div key={msg.id} className="flex justify-start px-1">
-                  <div
-                    className="flex items-center gap-1.5 text-xs"
-                    style={{ color: "var(--text-secondary)" }}
-                    title={
-                      "这一轮生成失败，未产生回复（" +
-                      new Date(msg.timestamp).toLocaleTimeString() +
-                      "）"
-                    }
-                  >
-                    <AlertCircle size={12} style={{ color: "var(--warning)" }} />
-                    本轮生成失败，未产生回复
-                  </div>
-                </div>
-              ) : (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2`}
-                >
-                  {msg.role === "assistant" && (
-                    <EditableAvatar
-                      src={agentAvatarSrc}
-                      icon={<Bot size={26} />}
-                      uploading={avatarBusy === "agent"}
-                      title="更换秋秋头像"
-                      onPick={(file) => handlePickAvatar("agent", file)}
-                    />
-                  )}
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words group`}
-                    style={{
-                      background:
-                        msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
-                      color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
-                      border: `1px solid ${
-                        msg.role === "assistant"
-                          ? "color-mix(in srgb, var(--border) 55%, transparent)"
-                          : "transparent"
-                      }`,
-                      boxShadow:
-                        msg.role === "user"
-                          ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
-                          : "0 1px 3px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    {msg.role === "assistant" ? (
-                      // 分区注册表渲染（markdown/图片/工具/思考），各自包 ErrorBoundary
-                      <AssistantParts msg={msg} onPreview={setPreviewImg} />
-                    ) : (
-                      <>
-                        {msg.content ? (
-                          <MarkdownBlock content={msg.content} />
-                        ) : (
-                          <span className="text-sm" style={{ color: "var(--on-solid)" }}>
-                            📷 图片
-                          </span>
-                        )}
-                        {msg.images && msg.images.length > 0 && (
-                          <div className="mt-2 flex flex-col gap-2">
-                            {msg.images.map((img, i) => (
-                              <img
-                                key={i}
-                                src={img.url}
-                                alt={img.alt ?? "生成图片"}
-                                onClick={() => setPreviewImg(img)}
-                                className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
-                                style={{ borderColor: "var(--border)" }}
-                                loading="lazy"
-                                title={img.alt ?? "生成图片（点击放大）"}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {msg.role === "assistant" && msg.content && (
-                      <MessageActions
-                        text={msg.content}
-                        speaking={speakingMsgId === msg.id}
-                        onSpeak={() => handleSpeak(msg)}
-                        onRegenerate={
-                          msg.id === lastAssistantId && !isGenerating
-                            ? () => void regenerate()
-                            : undefined
-                        }
-                      />
-                    )}
-                    {msg.role === "user" && (
-                      <MessageActions
-                        text={msg.content}
-                        onEdit={isGenerating ? undefined : () => editResend(msg)}
-                      />
-                    )}
-                    {msg.role === "user" && msg.sendFailed && (
-                      <div
-                        className="mt-1.5 flex items-center gap-1.5 text-xs"
-                        style={{ color: "var(--danger)" }}
-                      >
-                        <AlertCircle size={12} />
-                        发送失败
-                        {!isGenerating && (
-                          <button
-                            onClick={() => void resendMessage(msg)}
-                            className="underline underline-offset-2 hover:opacity-80"
-                            style={{ color: "var(--danger)" }}
-                            title="重新发送这条消息"
-                          >
-                            重试
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {msg.role === "user" && (
-                    <EditableAvatar
-                      src={userAvatar}
-                      icon={<User size={26} />}
-                      uploading={avatarBusy === "user"}
-                      title="更换我的头像"
-                      onPick={(file) => handlePickAvatar("user", file)}
-                    />
-                  )}
-                </div>
-              ),
-            )}
+            {messages.map((msg) => (
+              <MessageRow
+                key={msg.id}
+                msg={msg}
+                agentAvatarSrc={agentAvatarSrc}
+                userAvatar={userAvatar}
+                avatarBusy={avatarBusy}
+                speaking={speakingMsgId === msg.id}
+                onSpeak={onSpeakMsg}
+                canRegenerate={msg.id === lastAssistantId && !isGenerating}
+                onRegenerate={onRegenerateMsg}
+                onEdit={onEditMsg}
+                onRetry={onRetryMsg}
+                onPreview={setPreviewImg}
+                onPickAvatar={onPickAvatarMsg}
+              />
+            ))}
 
             {isGenerating && segments.length > 0 && (
               <div className="flex justify-start">
@@ -1369,7 +1480,9 @@ function ChatPanel({
                     <>
                       <span style={{ color: "var(--danger)" }}>长时间无响应</span>
                       <span className="opacity-60">·</span>
-                      <span className="opacity-60">{elapsed}s</span>
+                      <span className="opacity-60">
+                        <LiveSeconds active={isGenerating} />
+                      </span>
                       <button
                         onClick={() => void resyncSession()}
                         className="ml-1 underline underline-offset-2 hover:opacity-80"
@@ -1380,7 +1493,9 @@ function ChatPanel({
                       </button>
                     </>
                   ) : (
-                    <>响应中... {elapsed}s</>
+                    <>
+                      响应中... <LiveSeconds active={isGenerating} />
+                    </>
                   )}
                 </div>
               </div>
@@ -1392,7 +1507,6 @@ function ChatPanel({
       {/* 运行期胶囊：折叠 pill / 展开实时工具监视，悬浮于消息区右上角 */}
       <ActivityCapsule
         visible={isGenerating}
-        elapsed={elapsed}
         thinkingChars={streamingReasoning.length}
         tools={capsuleTools}
         onOpenActivity={onToggleActivity}
@@ -1508,13 +1622,19 @@ function ChatPanel({
               {pendingImages.map((p) => (
                 <div key={p.id} className="relative">
                   <img
-                    src={p.dataUrl}
+                    src={p.objectUrl}
                     alt={p.fileName}
                     className="w-12 h-12 rounded-lg object-cover border"
                     style={{ borderColor: "var(--border)" }}
                   />
                   <button
-                    onClick={() => setPendingImages((prev) => prev.filter((x) => x.id !== p.id))}
+                    onClick={() =>
+                      setPendingImages((prev) => {
+                        const target = prev.find((x) => x.id === p.id);
+                        if (target) URL.revokeObjectURL(target.objectUrl);
+                        return prev.filter((x) => x.id !== p.id);
+                      })
+                    }
                     className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 shadow-md"
                     style={{
                       background: "var(--bg-secondary)",

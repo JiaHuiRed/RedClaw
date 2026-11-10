@@ -1,20 +1,22 @@
 import { X } from "lucide-react";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Suspense, lazy, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ActivityPanel from "./components/ActivityPanel";
-import AgentFilesWorkspace from "./components/AgentFilesWorkspace";
 import ChatHome from "./components/ChatHome";
 import ChatPanel from "./components/ChatPanel";
 import ConnectionBadge from "./components/ConnectionBadge";
 import CronPanel from "./components/CronPanel";
-import OperationsWorkspace from "./components/OperationsWorkspace";
-import SessionsWorkspace from "./components/SessionsWorkspace";
 import Sidebar from "./components/Sidebar";
 import type { SidebarView } from "./components/Sidebar";
-import SkillsWorkspace from "./components/SkillsWorkspace";
 import TodoPanel from "./components/TodoPanel";
 import { TrafficLights } from "./components/TrafficLights";
 import UsagePanel from "./components/UsagePanel";
 import WorkHome from "./components/WorkHome";
+
+// 管理面 workspace 按需加载：非首屏必需，首次进入视图时拉取
+const AgentFilesWorkspace = lazy(() => import("./components/AgentFilesWorkspace"));
+const OperationsWorkspace = lazy(() => import("./components/OperationsWorkspace"));
+const SessionsWorkspace = lazy(() => import("./components/SessionsWorkspace"));
+const SkillsWorkspace = lazy(() => import("./components/SkillsWorkspace"));
 import {
   gateway,
   deriveSessionTitle,
@@ -418,22 +420,30 @@ export default function App() {
         )}
         {visitedViews.has("sessions") && (
           <div className={view === "sessions" ? "flex flex-1 min-w-0" : "hidden"}>
-            <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />
+            <Suspense fallback={null}>
+              <SessionsWorkspace connected={connected} onOpen={handleSelectSession} />
+            </Suspense>
           </div>
         )}
         {visitedViews.has("skills") && (
           <div className={view === "skills" ? "flex flex-1 min-w-0" : "hidden"}>
-            <SkillsWorkspace connected={connected} />
+            <Suspense fallback={null}>
+              <SkillsWorkspace connected={connected} />
+            </Suspense>
           </div>
         )}
         {visitedViews.has("files") && (
           <div className={view === "files" ? "flex flex-1 min-w-0" : "hidden"}>
-            <AgentFilesWorkspace connected={connected} />
+            <Suspense fallback={null}>
+              <AgentFilesWorkspace connected={connected} />
+            </Suspense>
           </div>
         )}
         {visitedViews.has("operations") && (
           <div className={view === "operations" ? "flex flex-1 min-w-0" : "hidden"}>
-            <OperationsWorkspace connected={connected} />
+            <Suspense fallback={null}>
+              <OperationsWorkspace connected={connected} />
+            </Suspense>
           </div>
         )}
         {view === "chat" && rightPanel === "activity" && (
