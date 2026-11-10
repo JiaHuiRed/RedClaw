@@ -5,7 +5,6 @@ import { StreamToolCard } from "./MessageParts";
 
 interface ActivityCapsuleProps {
   visible: boolean;
-  elapsed: number;
   thinkingChars: number;
   tools: ToolCallEvent[];
   onOpenActivity: () => void;
@@ -16,14 +15,25 @@ interface ActivityCapsuleProps {
 // 侧栏不需要为了"瞟一眼进度"而常开。
 export default function ActivityCapsule({
   visible,
-  elapsed,
   thinkingChars,
   tools,
   onOpenActivity,
 }: ActivityCapsuleProps) {
   const [expanded, setExpanded] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
   const wasVisibleRef = useRef(false);
+
+  // 秒数计时收进胶囊内部：原实现 elapsed 在 ChatPanel 每秒 setState，
+  // 整个聊天面板跟着每秒全量重渲
+  useEffect(() => {
+    if (!visible) {
+      setElapsed(0);
+      return;
+    }
+    const t = setInterval(() => setElapsed((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [visible]);
 
   // 新一轮运行开始时收回展开态，避免上一轮的展开上下文串场
   useEffect(() => {

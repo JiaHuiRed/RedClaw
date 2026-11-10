@@ -128,7 +128,10 @@ export default function ActivityPanel({
   // 打开面板拉一次，之后每分钟刷新（后台活动低频变化，无需事件订阅）
   useEffect(() => {
     void loadRuns();
-    const timer = setInterval(() => void loadRuns(), 60_000);
+    // 窗口不可见时跳过：最小化期间不需要后台 RPC
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "hidden") void loadRuns();
+    }, 60_000);
     return () => clearInterval(timer);
   }, [loadRuns]);
 
