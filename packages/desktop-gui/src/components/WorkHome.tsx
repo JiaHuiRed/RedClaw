@@ -8,6 +8,7 @@ import {
   type CronJobSummary,
   type Todo,
 } from "../gateway/client";
+import { fmtCountdown, fmtRelative, greeting } from "../lib/format";
 import ModeTabs, { type AppMode } from "./ModeTabs";
 
 interface WorkHomeProps {
@@ -16,35 +17,6 @@ interface WorkHomeProps {
   onSend: (text: string, agentId: string) => void;
   onOpenSession: (sessionKey: string) => void;
   onSwitchMode: (mode: AppMode) => void;
-}
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 5) return "夜深了";
-  if (h < 12) return "早上好";
-  if (h < 14) return "中午好";
-  if (h < 18) return "下午好";
-  return "晚上好";
-}
-
-function fmtRel(ts?: number): string {
-  if (!ts) return "";
-  const diff = Date.now() - ts;
-  if (diff < 60000) return "刚刚";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
-  const d = new Date(ts);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function fmtNext(ms?: number): string {
-  if (!ms) return "待排程";
-  const diff = ms - Date.now();
-  if (diff <= 0) return "即将运行";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟后`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时后`;
-  const d = new Date(ms);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // 工作台主页：居中输入 + 项目区选择 + 进行中聚合
@@ -258,7 +230,7 @@ export default function WorkHome({
                         className="shrink-0 text-[10px] group-hover:opacity-0 transition-opacity duration-200"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {fmtRel(s.updatedAt)}
+                        {fmtRelative(s.updatedAt)}
                       </div>
                     </button>
                   ))}
@@ -295,7 +267,7 @@ export default function WorkHome({
                         className="shrink-0 text-[10px] group-hover:opacity-0 transition-opacity duration-200"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {fmtNext(j.state.nextRunAtMs)}
+                        {fmtCountdown(j.state.nextRunAtMs)}
                       </div>
                     </div>
                   ))}
@@ -333,7 +305,7 @@ export default function WorkHome({
                         className="shrink-0 text-[10px] group-hover:opacity-0 transition-opacity duration-200"
                         style={{ color: "var(--text-secondary)" }}
                       >
-                        {fmtRel(t.updatedAt)}
+                        {fmtRelative(t.updatedAt)}
                       </div>
                     </div>
                   ))}

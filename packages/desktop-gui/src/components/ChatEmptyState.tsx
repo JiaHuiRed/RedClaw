@@ -1,6 +1,7 @@
 import { ListTodo, MessageCircle, Slash } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { gateway, type ChatSession } from "../gateway/client";
+import { greeting } from "../lib/format";
 
 interface ChatEmptyStateProps {
   sessions: ChatSession[];
@@ -8,14 +9,6 @@ interface ChatEmptyStateProps {
   onSelectSession: (sessionKey: string) => void;
   onShowCommands: () => void;
   onOpenTodos: () => void;
-}
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 6) return "夜深了";
-  if (h < 12) return "早上好";
-  if (h < 18) return "下午好";
-  return "晚上好";
 }
 
 function endOfToday(): number {

@@ -7,6 +7,7 @@ import {
   type CronRunLogEntry,
   type ToolCallEvent,
 } from "../gateway/client";
+import { fmtClock } from "../lib/format";
 import ResizeHandle from "./ResizeHandle";
 
 function hasText(x: unknown): x is { text: string } {
@@ -87,15 +88,6 @@ const RUN_STATUS_LABEL: Record<string, string> = {
   skipped: "跳过",
   running: "运行中",
 };
-
-function fmtTime(ms?: number): string {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return sameDay ? `今天 ${hm}` : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
-}
 
 /** 秋秋动态面板：后台活动（心跳 + 定时/梦境运行流）+ 实时工具轨迹。
  *  "秋秋在活着"的可视化，工具输出镜像只是其中实时的一半。 */
@@ -215,7 +207,7 @@ export default function ActivityPanel({
                 心跳
               </span>
               <span style={{ color: "var(--text-secondary)" }}>
-                上次 {fmtTime(heartbeat.updatedAt)}
+                上次 {fmtClock(heartbeat.updatedAt)}
               </span>
             </div>
           )}
@@ -240,7 +232,7 @@ export default function ActivityPanel({
                   {RUN_STATUS_LABEL[status] ?? (status || "未知")}
                 </span>
                 <span className="shrink-0" style={{ color: "var(--text-secondary)" }}>
-                  {fmtTime(run.runAtMs ?? run.ts)}
+                  {fmtClock(run.runAtMs ?? run.ts)}
                 </span>
                 <span
                   className="truncate min-w-0 font-medium"
