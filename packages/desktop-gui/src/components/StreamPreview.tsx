@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import ErrorBoundary from "./ErrorBoundary";
 import { MarkdownBlock, StreamToolCard, type StreamSegment } from "./MessageParts";
 import { LiveSeconds } from "./MessageRow";
@@ -16,12 +17,18 @@ export function StreamPreview({
   onResync: () => void;
 }) {
   const hasStreaming = segments.length > 0;
+  // 思考触发器摘要：最后一行非空内容截 56 字（学 ZCode「正在思考 · 最后一行」）
+  const thinkingTail = useMemo(() => {
+    const lines = streamingReasoning.split("\n").filter((l) => l.trim());
+    const last = lines[lines.length - 1] ?? "";
+    return last.length > 56 ? last.slice(0, 56) + "…" : last;
+  }, [streamingReasoning]);
   return (
     <>
       {hasStreaming && (
-        <div className="flex justify-start">
+        <div className="flex justify-start redclaw-fade-in">
           <div
-            className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words"
+            className="max-w-[75%] rounded-2xl px-4 py-2.5 text-ui-base leading-relaxed break-words"
             style={{
               background: "var(--assistant-bubble)",
               color: "var(--text-primary)",
@@ -48,19 +55,26 @@ export function StreamPreview({
       )}
 
       {streamingReasoning && !hasStreaming && (
-        <div className="flex justify-start">
+        <div className="flex justify-start redclaw-fade-in">
           <div
-            className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed break-words"
+            className="max-w-[75%] rounded-2xl px-4 py-2.5 text-ui-sm leading-relaxed break-words"
             style={{
               background: "var(--bg-tertiary)",
               color: "var(--text-secondary)",
               border: "1px solid var(--border)",
             }}
           >
-            {/* 默认折叠 + 字数进度：长思考不撑屏，字数增长即是活性信号 */}
+            {/* 思考四件套（学 ZCode reasoning）：默认收起 + 触发器「思考中 · 最后一行」
+                扫光 + 字数进度 + 展开纯文本不走 Markdown 重解析；details 非受控，
+                用户手动展开后不被流式重渲收回 */}
             <details>
-              <summary className="cursor-pointer select-none font-medium">
-                思考中…（{streamingReasoning.length} 字）
+              <summary className="cursor-pointer select-none font-medium min-w-0">
+                <span className="redclaw-thinking-text">
+                  思考中…（{streamingReasoning.length} 字）
+                </span>
+                {thinkingTail && (
+                  <span className="ml-1.5 font-normal opacity-80 truncate">{thinkingTail}</span>
+                )}
               </summary>
               <p className="mt-1 whitespace-pre-wrap">{streamingReasoning}</p>
             </details>
@@ -69,9 +83,9 @@ export function StreamPreview({
       )}
 
       {!hasStreaming && !streamingReasoning && (
-        <div className="flex justify-start">
+        <div className="flex justify-start redclaw-fade-in">
           <div
-            className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs"
+            className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-ui-sm"
             style={{
               background: "var(--assistant-bubble)",
               color: "var(--text-secondary)",

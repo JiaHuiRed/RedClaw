@@ -79,7 +79,7 @@ export default function ChatEmptyState({
 
   return (
     <div
-      className="relative flex items-center justify-center h-full text-sm overflow-hidden"
+      className="relative flex items-center justify-center h-full text-ui-base overflow-hidden"
       style={{ color: "var(--text-secondary)" }}
     >
       {/* 暖色光晕背景：给空状态一点氛围，不抢内容 */}
@@ -104,14 +104,14 @@ export default function ChatEmptyState({
           >
             {greeting()}
           </p>
-          <p className="text-xs">RedClaw 已连接，随时可以开始</p>
+          <p className="text-ui-sm">RedClaw 已连接，随时可以开始</p>
         </div>
         <div className="space-y-2">
           {cards.map((card, i) => (
             <button
               key={i}
               onClick={card.onClick}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs text-left transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-ui-sm text-left transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90"
               style={{
                 background: "var(--bg-tertiary)",
                 color: "var(--text-primary)",

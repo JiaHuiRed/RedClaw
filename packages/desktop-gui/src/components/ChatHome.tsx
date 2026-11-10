@@ -77,8 +77,8 @@ export default function ChatHome({ connected, onSend, onSwitchMode }: ChatHomePr
               }}
             />
             <div
-              className="relative text-[28px] font-semibold tracking-tight"
-              style={{ color: "var(--text-primary)" }}
+              className="relative font-semibold tracking-tight"
+              style={{ fontSize: "clamp(20px, 4vw, 28px)", color: "var(--text-primary)" }}
             >
               我们从哪里开始？
             </div>
@@ -102,7 +102,7 @@ export default function ChatHome({ connected, onSend, onSwitchMode }: ChatHomePr
               disabled={!connected}
               rows={3}
               autoFocus
-              className="w-full resize-none bg-transparent outline-none text-[15px] leading-relaxed px-5 pt-5 rounded-t-2xl disabled:opacity-50"
+              className="w-full resize-none bg-transparent outline-none text-ui-lg leading-relaxed px-5 pt-5 rounded-t-2xl disabled:opacity-50"
               style={{ color: "var(--text-primary)" }}
             />
             <div className="flex items-center justify-between px-3 pb-3 pt-1">

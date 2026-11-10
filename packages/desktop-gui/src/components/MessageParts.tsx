@@ -34,7 +34,7 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
           if (!match) {
             return (
               <code
-                className="text-sm px-1 py-0.5 rounded"
+                className="text-ui-base px-1 py-0.5 rounded"
                 style={{ background: "var(--bg-tertiary)", color: "var(--accent)" }}
               >
                 {children}
@@ -44,11 +44,11 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
           const code = String(children).replace(/\n$/, "");
           return (
             <div
-              className="group/code my-3 rounded-lg overflow-hidden text-sm"
+              className="group/code my-3 rounded-lg overflow-hidden text-ui-base"
               style={{ background: "#1e1e1e", border: "1px solid #333" }}
             >
               <div
-                className="flex items-center justify-between px-3 py-1.5 text-[11px]"
+                className="flex items-center justify-between px-3 py-1.5 text-ui-caption"
                 style={{ background: "#2d2d2d", color: "#999" }}
               >
                 <span>{match[1]}</span>
@@ -93,18 +93,18 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
           return <li>{children}</li>;
         },
         h1({ children }) {
-          return <h1 className="text-base font-bold my-2">{children}</h1>;
+          return <h1 className="text-ui-lg font-bold my-2">{children}</h1>;
         },
         h2({ children }) {
-          return <h2 className="text-sm font-bold my-2">{children}</h2>;
+          return <h2 className="text-ui-base font-bold my-2">{children}</h2>;
         },
         h3({ children }) {
-          return <h3 className="text-sm font-semibold my-1.5">{children}</h3>;
+          return <h3 className="text-ui-base font-semibold my-1.5">{children}</h3>;
         },
         blockquote({ children }) {
           return (
             <blockquote
-              className="pl-3 my-2 border-l-2 italic text-sm"
+              className="pl-3 my-2 border-l-2 italic text-ui-base"
               style={{ borderColor: "var(--accent)", color: "var(--text-secondary)" }}
             >
               {children}
@@ -115,7 +115,7 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
           return (
             <div className="my-2 overflow-x-auto">
               <table
-                className="text-sm border-collapse w-full"
+                className="text-ui-base border-collapse w-full"
                 style={{ border: "1px solid var(--border)" }}
               >
                 {children}
@@ -126,7 +126,7 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
         th({ children }) {
           return (
             <th
-              className="px-3 py-1.5 text-left font-medium text-xs"
+              className="px-3 py-1.5 text-left font-medium text-ui-sm"
               style={{
                 background: "var(--bg-tertiary)",
                 border: "1px solid var(--border)",
@@ -139,7 +139,7 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
         },
         td({ children }) {
           return (
-            <td className="px-3 py-1.5 text-xs" style={{ border: "1px solid var(--border)" }}>
+            <td className="px-3 py-1.5 text-ui-sm" style={{ border: "1px solid var(--border)" }}>
               {children}
             </td>
           );
@@ -181,7 +181,7 @@ export function StreamToolCard({ tool }: { tool: ToolCallEvent }) {
   const preview = formatToolPreview(tool);
   return (
     <div
-      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs min-w-0"
+      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-ui-sm min-w-0"
       style={{
         background: "var(--bg-tertiary)",
         border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
@@ -302,7 +302,7 @@ export function foldRepeatedTools(tools: ToolCallEvent[]): FoldedToolItem[] {
 function ToolsPart({ tools }: { tools: ToolCallEvent[] }) {
   const folded = foldRepeatedTools(tools);
   return (
-    <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+    <details className="mt-2 text-ui-sm" style={{ color: "var(--text-secondary)" }}>
       <summary className="cursor-pointer select-none">本轮工具 · {tools.length} 次调用</summary>
       <div className="mt-1.5 flex flex-col gap-1.5">
         {folded.map((item, i) =>
@@ -338,7 +338,7 @@ function ToolsPart({ tools }: { tools: ToolCallEvent[] }) {
 
 function ReasoningPart({ text }: { text: string }) {
   return (
-    <details className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+    <details className="mt-2 text-ui-sm" style={{ color: "var(--text-secondary)" }}>
       <summary className="cursor-pointer select-none">思考过程（{text.length} 字）</summary>
       <p className="mt-1 whitespace-pre-wrap">{text}</p>
     </details>

@@ -147,7 +147,7 @@ export default function WorkHome({
               disabled={!connected}
               rows={3}
               autoFocus
-              className="w-full resize-none bg-transparent outline-none text-[15px] leading-relaxed px-5 pt-5 rounded-t-2xl disabled:opacity-50"
+              className="w-full resize-none bg-transparent outline-none text-ui-lg leading-relaxed px-5 pt-5 rounded-t-2xl disabled:opacity-50"
               style={{ color: "var(--text-primary)" }}
             />
             <div className="flex items-center justify-end px-3.5 pb-3 pt-1">
@@ -166,7 +166,7 @@ export default function WorkHome({
           {/* 项目区独立条：输入卡下方，与 Codex「选择项目」同位不同形 */}
           <div className="flex items-center justify-between mt-2.5 px-1">
             <label
-              className="flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 cursor-pointer transition-colors duration-200 hover:opacity-80"
+              className="flex items-center gap-1.5 text-ui-sm rounded-lg px-2 py-1.5 cursor-pointer transition-colors duration-200 hover:opacity-80"
               style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
               title="工作交给哪个项目区"
             >
@@ -174,7 +174,7 @@ export default function WorkHome({
               <select
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
-                className="bg-transparent outline-none text-xs cursor-pointer"
+                className="bg-transparent outline-none text-ui-sm cursor-pointer"
                 style={{ color: "var(--text-primary)" }}
               >
                 {agents.length === 0 && <option value="">默认项目区</option>}
@@ -187,7 +187,7 @@ export default function WorkHome({
             </label>
             {selected?.workspace && (
               <div
-                className="text-[11px] truncate max-w-[50%]"
+                className="text-ui-caption truncate max-w-[50%]"
                 style={{ color: "var(--text-secondary)" }}
                 title={selected.workspace}
               >
@@ -201,7 +201,7 @@ export default function WorkHome({
             <div className="grid grid-cols-3 gap-6 mt-12">
               <div>
                 <div
-                  className="flex items-center gap-1.5 text-[11px] font-medium mb-2 px-2"
+                  className="flex items-center gap-1.5 text-ui-caption font-medium mb-2 px-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   <MessagesSquare size={12} style={{ color: "var(--info)" }} />
@@ -221,13 +221,13 @@ export default function WorkHome({
                         style={{ color: "var(--info)" }}
                       />
                       <div
-                        className="flex-1 min-w-0 text-xs truncate"
+                        className="flex-1 min-w-0 text-ui-sm truncate"
                         style={{ color: "var(--text-primary)" }}
                       >
                         {s.title || s.model || s.sessionKey}
                       </div>
                       <div
-                        className="shrink-0 text-[10px] group-hover:opacity-0 transition-opacity duration-200"
+                        className="shrink-0 text-ui-xs group-hover:opacity-0 transition-opacity duration-200"
                         style={{ color: "var(--text-secondary)" }}
                       >
                         {fmtRelative(s.updatedAt)}
@@ -238,7 +238,7 @@ export default function WorkHome({
               </div>
               <div>
                 <div
-                  className="flex items-center gap-1.5 text-[11px] font-medium mb-2 px-2"
+                  className="flex items-center gap-1.5 text-ui-caption font-medium mb-2 px-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   <CalendarClock size={12} style={{ color: "var(--violet)" }} />
@@ -258,13 +258,13 @@ export default function WorkHome({
                         style={{ color: "var(--violet)" }}
                       />
                       <div
-                        className="flex-1 min-w-0 text-xs truncate"
+                        className="flex-1 min-w-0 text-ui-sm truncate"
                         style={{ color: "var(--text-primary)" }}
                       >
                         {j.name}
                       </div>
                       <div
-                        className="shrink-0 text-[10px] group-hover:opacity-0 transition-opacity duration-200"
+                        className="shrink-0 text-ui-xs group-hover:opacity-0 transition-opacity duration-200"
                         style={{ color: "var(--text-secondary)" }}
                       >
                         {fmtCountdown(j.state.nextRunAtMs)}
@@ -275,7 +275,7 @@ export default function WorkHome({
               </div>
               <div>
                 <div
-                  className="flex items-center gap-1.5 text-[11px] font-medium mb-2 px-2"
+                  className="flex items-center gap-1.5 text-ui-caption font-medium mb-2 px-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   <ListTodo size={12} style={{ color: "var(--success)" }} />
@@ -295,14 +295,14 @@ export default function WorkHome({
                         style={{ color: "var(--success)" }}
                       />
                       <div
-                        className="flex-1 min-w-0 text-xs truncate"
+                        className="flex-1 min-w-0 text-ui-sm truncate"
                         style={{ color: "var(--text-primary)" }}
                       >
                         {t.status === "in_progress" ? "▶ " : ""}
                         {t.title}
                       </div>
                       <div
-                        className="shrink-0 text-[10px] group-hover:opacity-0 transition-opacity duration-200"
+                        className="shrink-0 text-ui-xs group-hover:opacity-0 transition-opacity duration-200"
                         style={{ color: "var(--text-secondary)" }}
                       >
                         {fmtRelative(t.updatedAt)}
@@ -321,7 +321,7 @@ export default function WorkHome({
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="text-[11px] px-2 py-1.5" style={{ color: "var(--text-secondary)" }}>
+    <div className="text-ui-caption px-2 py-1.5" style={{ color: "var(--text-secondary)" }}>
       {text}
     </div>
   );

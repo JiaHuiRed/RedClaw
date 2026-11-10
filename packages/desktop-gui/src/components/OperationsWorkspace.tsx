@@ -75,6 +75,10 @@ export type Section = (typeof SECTIONS)[number]["id"];
 export default function OperationsWorkspace({ connected }: { connected: boolean }) {
   const [section, setSection] = useState<Section>("general");
   const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+  // 界面字号：--ui-font-size 是全部 text-ui-* 字阶的唯一变量（App.css @theme 派生）
+  const [uiFontSize, setUiFontSize] = useState(
+    () => localStorage.getItem("redclaw:uiFontSize:v1") ?? "14",
+  );
   const [gwUrl, setGwUrl] = useState(() => localStorage.getItem(GATEWAY_URL_KEY) ?? "");
   const [gwToken, setGwToken] = useState(() => localStorage.getItem(GATEWAY_TOKEN_KEY) ?? "");
   const [busy, setBusy] = useState(false);
@@ -449,6 +453,43 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                   );
                 })}
               </div>
+            </div>
+            <div className="rounded-xl p-4 space-y-3" style={surface}>
+              <h3 className="text-sm font-medium flex items-center gap-1.5">
+                <Settings size={14} />
+                界面字号
+              </h3>
+              <div className="flex gap-1 max-w-xs">
+                {(
+                  [
+                    ["14", "标准"],
+                    ["15", "大"],
+                    ["16", "特大"],
+                  ] as const
+                ).map(([value, label]) => {
+                  const active = uiFontSize === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => {
+                        setUiFontSize(value);
+                        localStorage.setItem("redclaw:uiFontSize:v1", value);
+                        document.documentElement.style.setProperty("--ui-font-size", `${value}px`);
+                      }}
+                      className="flex-1 text-xs py-1.5 rounded-md font-medium transition-colors hover:opacity-80"
+                      style={{
+                        background: active ? "var(--accent)" : "var(--bg-tertiary)",
+                        color: active ? "var(--on-solid)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs" style={muted}>
+                全局界面文字（含聊天正文）随此缩放
+              </p>
             </div>
             <div className="rounded-xl p-4 space-y-2" style={surface}>
               <h3 className="text-sm font-medium">Gateway 连接</h3>

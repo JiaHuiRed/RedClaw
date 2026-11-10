@@ -34,12 +34,14 @@ export function fmtCountdown(ms?: number): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-/** 时段问候：夜深了 / 早上好 / 中午好 / 下午好 / 晚上好 */
+/** 时段问候六档（5/9/12/14/18/23 边界）：夜深了 / 早上好 / 上午好 / 中午好 / 下午好 / 晚上好 */
 export function greeting(): string {
   const h = new Date().getHours();
   if (h < 5) return "夜深了";
-  if (h < 12) return "早上好";
+  if (h < 9) return "早上好";
+  if (h < 12) return "上午好";
   if (h < 14) return "中午好";
   if (h < 18) return "下午好";
-  return "晚上好";
+  if (h < 23) return "晚上好";
+  return "夜深了";
 }

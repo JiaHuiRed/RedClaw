@@ -118,7 +118,7 @@ export const MessageRow = memo(function MessageRow({
     return (
       <div className="flex justify-start px-1">
         <div
-          className="flex items-center gap-1.5 text-xs"
+          className="flex items-center gap-1.5 text-ui-sm"
           style={{ color: "var(--text-secondary)" }}
           title={
             "这一轮生成失败，未产生回复（" + new Date(msg.timestamp).toLocaleTimeString() + "）"
@@ -144,7 +144,7 @@ export const MessageRow = memo(function MessageRow({
         />
       )}
       <div
-        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words group`}
+        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-ui-base leading-relaxed break-words group`}
         style={{
           background: msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
           color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
@@ -167,7 +167,7 @@ export const MessageRow = memo(function MessageRow({
             {msg.content ? (
               <MarkdownBlock content={msg.content} />
             ) : (
-              <span className="text-sm" style={{ color: "var(--on-solid)" }}>
+              <span className="text-ui-base" style={{ color: "var(--on-solid)" }}>
                 📷 图片
               </span>
             )}
@@ -200,7 +200,7 @@ export const MessageRow = memo(function MessageRow({
         {msg.role === "user" && <MessageActions text={msg.content} onEdit={() => onEdit(msg)} />}
         {msg.role === "user" && msg.sendFailed && (
           <div
-            className="mt-1.5 flex items-center gap-1.5 text-xs"
+            className="mt-1.5 flex items-center gap-1.5 text-ui-sm"
             style={{ color: "var(--danger)" }}
           >
             <AlertCircle size={12} />
