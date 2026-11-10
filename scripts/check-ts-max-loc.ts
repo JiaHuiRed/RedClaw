@@ -8,13 +8,16 @@ function writeStdoutLine(message: string): void {
 
 type ParsedArgs = {
   maxLines: number;
+  /** 只统计该路径前缀下的文件（子包接自己的门禁用） */
+  root?: string;
 };
 
 function parseArgs(argv: string[]): ParsedArgs {
   let maxLines = 500;
+  let root: string | undefined;
 
   for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
+    const arg = argv[index + 0];
     if (arg === "--max") {
       const next = argv[index + 1];
       if (!next || Number.isNaN(Number(next))) {
@@ -24,9 +27,16 @@ function parseArgs(argv: string[]): ParsedArgs {
       index++;
       continue;
     }
+    if (arg === "--root") {
+      const next = argv[index + 1];
+      if (!next) throw new Error("Missing --root value");
+      root = next.replace(/\\/g, "/").replace(/\/$/, "");
+      index++;
+      continue;
+    }
   }
 
-  return { maxLines };
+  return { maxLines, root };
 }
 
 function gitLsFilesAll(): string[] {
@@ -55,14 +65,23 @@ async function main() {
     throw error;
   });
 
-  const { maxLines } = parseArgs(process.argv.slice(2));
+  const { maxLines, root } = parseArgs(process.argv.slice(2));
   const files = gitLsFilesAll()
     .filter((filePath) => existsSync(filePath))
-    .filter((filePath) => filePath.endsWith(".ts") || filePath.endsWith(".tsx"));
+    .filter((filePath) => filePath.endsWith(".ts") || filePath.endsWith(".tsx"))
+    .filter((filePath) => (root ? filePath.replace(/\\/g, "/").startsWith(`${root}/`) : true));
 
-  const results = await Promise.all(
-    files.map(async (filePath) => ({ filePath, lines: await countLines(filePath) })),
-  );
+  // 分批并发：全仓 ~10k 文件一次性 Promise.all 会在 Windows 上撞 EMFILE
+  const BATCH = 256;
+  const results: Array<{ filePath: string; lines: number }> = [];
+  for (let i = 0; i < files.length; i += BATCH) {
+    const batch = files.slice(i, i + BATCH);
+    results.push(
+      ...(await Promise.all(
+        batch.map(async (filePath) => ({ filePath, lines: await countLines(filePath) })),
+      )),
+    );
+  }
 
   const offenders = results
     .filter((result) => result.lines > maxLines)

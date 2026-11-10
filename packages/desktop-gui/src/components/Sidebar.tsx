@@ -32,6 +32,7 @@ import {
   type AgentSummary,
 } from "../gateway/client";
 import type { ConnectionState } from "../lib/connectionStatus";
+import { fmtRelative } from "../lib/format";
 import { SIDEBAR_MIN_WIDTH, clampSidebarWidth, reportSidebarWidth } from "../lib/layout-budget";
 import { GatewayMenu } from "./GatewayMenu";
 import ProjectAreaModal from "./ProjectAreaModal";
@@ -78,17 +79,6 @@ interface SessionGroup {
 
 function sessionTitle(s: ChatSession): string {
   return s.title || s.model || s.sessionKey.split("/").pop() || s.sessionKey;
-}
-
-function sessionTime(ts?: number): string {
-  if (!ts) return "";
-  const d = new Date(ts);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  if (diff < 60000) return "刚刚";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
-  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // sessionKey 形如 agent:<agentId>:<name>；其余前缀归入 "other"
@@ -387,7 +377,7 @@ function Sidebar({
                 {s.updatedAt && (
                   <>
                     <span className="opacity-40">·</span>
-                    <span className="shrink-0">{sessionTime(s.updatedAt)}</span>
+                    <span className="shrink-0">{fmtRelative(s.updatedAt)}</span>
                   </>
                 )}
               </div>

@@ -27,12 +27,10 @@ import {
   type ToolCallEvent,
 } from "./gateway/client";
 import { getConnectionState } from "./lib/connectionStatus";
+import { GATEWAY_TOKEN_KEY, GATEWAY_URL_KEY } from "./lib/gateway-config";
 import { clampRightPanelWidth, reportRightPanelWidth } from "./lib/layout-budget";
 
 const DEFAULT_SESSION_KEY = "agent:main:main";
-// v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
-const GATEWAY_URL_KEY = "redclaw:gatewayUrl:v2";
-const GATEWAY_TOKEN_KEY = "redclaw:gatewayToken";
 
 type ToastKind = "info" | "error" | "success";
 

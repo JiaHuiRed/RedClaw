@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { gateway, type CronJobSummary, type CronRunLogEntry } from "../gateway/client";
+import { fmtClock } from "../lib/format";
 import { friendlyError } from "../lib/friendlyError";
 import { useEscape } from "../lib/useEscape";
 import ResizeHandle from "./ResizeHandle";
@@ -22,15 +23,6 @@ interface CronPanelProps {
   width: number;
   onResize: (width: number) => void;
   onClose: () => void;
-}
-
-function fmtTime(ms?: number): string {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return sameDay ? `今天 ${hm}` : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
 }
 
 function scheduleLabel(job: CronJobSummary): string {
@@ -314,10 +306,10 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
                   <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
                     {scheduleLabel(job)}
                   </span>
-                  {job.state?.nextRunAtMs && <span>· 下次 {fmtTime(job.state.nextRunAtMs)}</span>}
+                  {job.state?.nextRunAtMs && <span>· 下次 {fmtClock(job.state.nextRunAtMs)}</span>}
                   {job.state?.lastRunAtMs && (
                     <span>
-                      · 上次 {fmtTime(job.state.lastRunAtMs)}
+                      · 上次 {fmtClock(job.state.lastRunAtMs)}
                       {lastStatus ? `（${RUN_STATUS_LABEL[lastStatus] ?? lastStatus}）` : ""}
                     </span>
                   )}
@@ -452,7 +444,7 @@ export default function CronPanel({ width, onResize, onClose }: CronPanelProps) 
                           {RUN_STATUS_LABEL[run.status ?? ""] ?? run.status ?? "未知"}
                         </span>
                         <span style={{ color: "var(--text-secondary)" }} className="shrink-0">
-                          {fmtTime(run.runAtMs ?? run.ts)}
+                          {fmtClock(run.runAtMs ?? run.ts)}
                         </span>
                         {run.durationMs != null && (
                           <span className="shrink-0" style={{ color: "var(--text-secondary)" }}>
