@@ -16,8 +16,8 @@ const ALLOWED = {
     reason: "代码块固定暗色板：两种主题下代码块恒为深色，不随语义 token 切换",
     values: ["#1e1e1e", "#2d2d2d", "#333", "#999", "#d4d4d4"],
   },
-  "ChatPanel.tsx": {
-    reason: "canvas fillStyle 背景填充，非 UI 颜色",
+  "ChatAvatars.tsx": {
+    reason: "canvas fillStyle 背景填充（头像压缩画布），非 UI 颜色",
     values: ["#fff"],
   },
   "TrafficLights.tsx": {

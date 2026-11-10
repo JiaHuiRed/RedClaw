@@ -34,6 +34,9 @@ export interface Message {
   failed?: boolean;
   // 本地发送失败标记（仅 GUI 内存态，server 历史不会有）：气泡下显示重试入口
   sendFailed?: boolean;
+  // 本地 per-run 覆盖快照（仅 GUI 内存态）：重试/重新生成时复用原模型与思考档
+  modelOverride?: string;
+  thinkingOverride?: string;
 }
 
 // 与 src/agents/stream-message-shared.ts 的 STREAM_ERROR_FALLBACK_TEXT 对齐：
