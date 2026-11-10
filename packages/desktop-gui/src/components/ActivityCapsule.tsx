@@ -67,7 +67,7 @@ export default function ActivityCapsule({
         >
           <button
             onClick={() => setExpanded(false)}
-            className="w-full flex items-center gap-2 px-3.5 py-2.5 text-xs border-b hover:opacity-90"
+            className="w-full flex items-center gap-2 px-3.5 py-2.5 text-ui-sm border-b hover:opacity-90"
             style={{ borderColor: "var(--border)" }}
             title="收起"
           >
@@ -82,7 +82,7 @@ export default function ActivityCapsule({
           </button>
           <div ref={listRef} className="max-h-64 overflow-y-auto px-2.5 py-2 flex flex-col gap-1.5">
             {tools.length === 0 ? (
-              <div className="text-[11px] px-1 py-1" style={{ color: "var(--text-secondary)" }}>
+              <div className="text-ui-caption px-1 py-1" style={{ color: "var(--text-secondary)" }}>
                 {thinkingChars > 0 ? `思考中… ${thinkingChars} 字` : "等待工具调用…"}
               </div>
             ) : (
@@ -91,7 +91,7 @@ export default function ActivityCapsule({
           </div>
           <button
             onClick={onOpenActivity}
-            className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2 text-[11px] border-t hover:opacity-80"
+            className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2 text-ui-caption border-t hover:opacity-80"
             style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
           >
             <PanelRight size={11} />
@@ -106,7 +106,7 @@ export default function ActivityCapsule({
     <div className="absolute top-14 right-4 z-30">
       <button
         onClick={() => setExpanded(true)}
-        className="flex items-center gap-1.5 rounded-full pl-2.5 pr-3 py-1.5 text-xs shadow-lg border hover:opacity-90"
+        className="flex items-center gap-1.5 rounded-full pl-2.5 pr-3 py-1.5 text-ui-sm shadow-lg border hover:opacity-90"
         style={{ background: "var(--bg-secondary)", borderColor: "var(--border)" }}
         title="展开运行监视"
       >

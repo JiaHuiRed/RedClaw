@@ -390,7 +390,7 @@ export function ChatComposer({
             {sendQueue.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-ui-sm"
                 style={{
                   background: "var(--bg-tertiary)",
                   color: "var(--text-secondary)",
@@ -487,7 +487,7 @@ export function ChatComposer({
               value={imageSize}
               onChange={(e) => setImageSize(e.target.value)}
               disabled={!connected || imagePending}
-              className="shrink-0 rounded-lg px-2 py-1.5 text-xs outline-none disabled:opacity-50"
+              className="shrink-0 rounded-lg px-2 py-1.5 text-ui-sm outline-none disabled:opacity-50"
               style={{
                 background: "var(--bg-secondary)",
                 color: "var(--text-primary)",
@@ -525,7 +525,7 @@ export function ChatComposer({
             }
             disabled={!connected}
             rows={1}
-            className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
+            className="flex-1 bg-transparent text-ui-base outline-none resize-none disabled:opacity-50"
             style={{ color: "var(--text-primary)" }}
           />
           {imagePending ? (

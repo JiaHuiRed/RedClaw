@@ -516,7 +516,7 @@ function ChatPanel({
           !hasStreaming &&
           (loadingHistory ? (
             <div
-              className="flex items-center justify-center h-full text-sm"
+              className="flex items-center justify-center h-full text-ui-base"
               style={{ color: "var(--text-secondary)" }}
             >
               <div className="text-center space-y-2">
@@ -527,13 +527,13 @@ function ChatPanel({
                     borderTopColor: "var(--accent)",
                   }}
                 />
-                <p className="text-xs mt-2">加载历史消息…</p>
+                <p className="text-ui-sm mt-2">加载历史消息…</p>
               </div>
             </div>
           ) : historyError ? (
             // 拉历史失败必须与「全新空会话」可区分：否则像聊天记录丢了
             <div
-              className="flex items-center justify-center h-full text-sm"
+              className="flex items-center justify-center h-full text-ui-base"
               style={{ color: "var(--text-secondary)" }}
             >
               <div className="text-center space-y-2">
@@ -542,11 +542,11 @@ function ChatPanel({
                   className="inline-block"
                   style={{ color: "var(--danger)" }}
                 />
-                <p className="text-xs">历史消息加载失败</p>
+                <p className="text-ui-sm">历史消息加载失败</p>
                 {onRetryHistory && (
                   <button
                     onClick={onRetryHistory}
-                    className="text-xs underline underline-offset-2 hover:opacity-80"
+                    className="text-ui-sm underline underline-offset-2 hover:opacity-80"
                     style={{ color: "var(--accent)" }}
                   >
                     重新加载
@@ -564,12 +564,12 @@ function ChatPanel({
             />
           ) : (
             <div
-              className="flex items-center justify-center h-full text-sm"
+              className="flex items-center justify-center h-full text-ui-base"
               style={{ color: "var(--text-secondary)" }}
             >
               <div className="text-center space-y-2">
                 <p className="text-lg font-medium">RedClaw</p>
-                <p className="text-xs">连接 Gateway 后开始聊天</p>
+                <p className="text-ui-sm">连接 Gateway 后开始聊天</p>
               </div>
             </div>
           ))}
@@ -623,7 +623,7 @@ function ChatPanel({
             const el = listRef.current;
             if (el) el.scrollTop = el.scrollHeight;
           }}
-          className="absolute left-1/2 -translate-x-1/2 bottom-28 z-20 flex items-center gap-1 rounded-full px-3 py-1.5 text-xs shadow-lg border transition-opacity hover:opacity-90"
+          className="absolute left-1/2 -translate-x-1/2 bottom-28 z-20 flex items-center gap-1 rounded-full px-3 py-1.5 text-ui-sm shadow-lg border transition-opacity hover:opacity-90"
           style={{
             background: "var(--bg-secondary)",
             borderColor: "var(--border)",
@@ -638,7 +638,7 @@ function ChatPanel({
       {/* Status bar */}
       {connected && (
         <div
-          className="flex items-center gap-3 px-4 py-1 text-[11px] border-t shrink-0"
+          className="flex items-center gap-3 px-4 py-1 text-ui-caption border-t shrink-0"
           style={{
             borderColor: "var(--border)",
             color: "var(--text-secondary)",

@@ -52,7 +52,9 @@ export default function App() {
   const [sessions, setSessions] = useState<ChatSession[]>(gateway.sessions);
   const [currentSessionKey, setCurrentSessionKey] = useState(DEFAULT_SESSION_KEY);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [toasts, setToasts] = useState<{ id: string; kind: ToastKind; message: string }[]>([]);
+  const [toasts, setToasts] = useState<
+    { id: string; kind: ToastKind; dedupeKey: string; message: string }[]
+  >([]);
   const [toolOutputs, setToolOutputs] = useState<ToolCallEvent[]>([]);
   const [rightPanelWidth, setRightPanelWidth] = useState(() => {
     const saved = Number(localStorage.getItem("redclaw:rightPanelWidth"));
@@ -90,8 +92,14 @@ export default function App() {
   }, []);
 
   const pushToast = useCallback((message: string, kind: ToastKind = "info") => {
+    // 同文案 dedupe upsert（学 ZCode toast dedupeKey）：同一错误/操作连发只留
+    // 最新一条（移回栈尾重新计时），防「同一失败刷 5 条」；不同文案互不影响
+    const dedupeKey = message;
     const id = crypto.randomUUID();
-    setToasts((prev) => [...prev, { id, kind, message }]);
+    setToasts((prev) => [
+      ...prev.filter((t) => t.dedupeKey !== dedupeKey),
+      { id, kind, dedupeKey, message },
+    ]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);

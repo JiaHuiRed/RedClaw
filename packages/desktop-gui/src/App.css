@@ -67,3 +67,62 @@ body,
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
+
+/* ---- text-ui-* 字阶体系（学 ZCode DESIGN.md）----
+   全部 UI 字号由唯一变量 --ui-font-size（默认 14px）calc 派生；
+   设置页的「界面字号」只改这一个变量，永不改根字号。
+   UI 组件一律用 text-ui-*，禁止 text-sm/text-xs/text-[11px] 散落
+   （违者按设计系统缺陷处理，见 components/README.md）。 */
+@theme inline {
+  --text-ui-xl: calc(var(--ui-font-size) + 4px);
+  --text-ui-lg: calc(var(--ui-font-size) + 2px);
+  --text-ui-base: var(--ui-font-size);
+  --text-ui-sm: calc(var(--ui-font-size) - 2px);
+  --text-ui-caption: calc(var(--ui-font-size) - 3px);
+  --text-ui-xs: calc(var(--ui-font-size) - 4px);
+}
+
+/* ---- 流式入场动效 ----
+   权威数据驱动 + CSS 入场（不造假打字机）；窗口隐藏时停机防
+   DocumentTimeline 泄漏；reduced-motion 全覆盖。 */
+@media (prefers-reduced-motion: no-preference) {
+  .redclaw-fade-in {
+    animation: redclaw-fade-in 240ms ease-out both;
+  }
+  @keyframes redclaw-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* 思考中文字扫光（流式生命感，纯 CSS 无计时器） */
+  .redclaw-thinking-text {
+    background: linear-gradient(
+      90deg,
+      var(--text-secondary) 25%,
+      var(--accent) 50%,
+      var(--text-secondary) 75%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: redclaw-thinking-shimmer 2.2s linear infinite;
+  }
+  @keyframes redclaw-thinking-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+html[data-document-hidden] .redclaw-fade-in,
+html[data-document-hidden] .redclaw-thinking-text {
+  animation: none;
+}
