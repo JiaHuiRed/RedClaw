@@ -16,7 +16,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [2/3] Installing globally...
-rem --force: 版本号没变时 npm 会静默跳过复制
+rem --force: npm skips copying silently when the version is unchanged
 call npm install -g . --force
 if %errorlevel% neq 0 (
     echo.
@@ -27,7 +27,8 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [3/3] Building desktop app (Tauri)...
-rem 桌面端前端在 tauri build 时嵌入 exe，只跑 vite build 不会更新已安装的 GUI
+rem GUI frontend is embedded into the exe by tauri build; vite build alone
+rem does not update the installed desktop app
 cd /d "%~dp0packages\desktop-gui"
 call pnpm tauri:build
 set TAURI_EXIT=%errorlevel%
@@ -45,8 +46,7 @@ echo.
 echo Desktop app (run directly):
 echo   packages\desktop-gui\src-tauri\target\release\redclaw-desktop.exe
 echo Installer (for reinstall):
-echo   packagesdesktop-guisrc-tauri	argeteleaseundle
-sis\
+echo   packages\desktop-gui\src-tauri\target\release\bundle
 echo.
 echo To apply gateway changes, restart:
 echo   pnpm openclaw gateway restart
