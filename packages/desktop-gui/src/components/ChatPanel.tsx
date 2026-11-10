@@ -1,66 +1,28 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import {
-  Send,
-  PanelRight,
-  Slash,
-  Copy,
-  Check,
-  Square,
-  ListTodo,
-  Coins,
-  CalendarClock,
-  Volume2,
-  Bot,
-  User,
-  Pencil,
-  Loader2,
-  Palette,
-  ArrowDown,
-  ImagePlus,
-  X,
-  AlertCircle,
-  Clock,
-  ArrowLeft,
-  RefreshCw,
-} from "lucide-react";
-import { useState, useEffect, useRef, useMemo, useCallback, memo, type ChangeEvent } from "react";
+import { AlertCircle, ArrowDown, Slash } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   gateway,
   deriveSessionTitle,
+  type ChatSession,
+  type CommandEntry,
   type Message,
   type MessageImage,
-  type SessionInfo,
-  type CommandEntry,
-  type ModelEntry,
-  type ChatSession,
   type OutgoingImageAttachment,
+  type SessionInfo,
 } from "../gateway/client";
-import { applyStreamDelta } from "../lib/chat-stream";
-import { getVisibleItems, type PaletteItem } from "../lib/commandPalette";
-import { useCopy } from "../lib/useCopy";
+import { useChatStream } from "../hooks/useChatStream";
 import { useEscape } from "../lib/useEscape";
 import ActivityCapsule from "./ActivityCapsule";
+import { compressImageFile } from "./ChatAvatars";
+import { ChatComposer, type ComposerActions, type QueuedMessage } from "./ChatComposer";
 import ChatEmptyState from "./ChatEmptyState";
-import CommandPalette from "./CommandPalette";
-import ErrorBoundary from "./ErrorBoundary";
-import {
-  AssistantParts,
-  MarkdownBlock,
-  StreamToolCard,
-  toolSegmentKey,
-  type StreamSegment,
-} from "./MessageParts";
+import { ChatTopBar } from "./ChatTopBar";
+import { MessageRow } from "./MessageRow";
+import { StreamPreview } from "./StreamPreview";
 
-// v2: 旧 key 里可能存着过期的 URL（如 ws://127.0.0.1:19001），会覆盖代码默认值导致连不上
 // v1: 用户头像存 localStorage（压缩后 <100KB）；带版本后缀防止旧格式覆盖
 const USER_AVATAR_KEY = "redclaw:userAvatar:v1";
-// 本条消息模型覆盖（per-run modelOverride）：null = 跟随会话当前模型
-const CHAT_MODEL_KEY = "redclaw:chatModel:v1";
-const CHAT_THINKING_KEY = "redclaw:chatThinking:v1";
-// per-message 思考档全集（chat.send thinking one-shot；不传 = 跟随模型默认）
-
-import { ModelPicker } from "./ModelPicker";
-const AVATAR_SIZE = 256;
 
 function fmt(n: number | null): string {
   if (n == null) return "—";
@@ -73,51 +35,6 @@ function shortModel(m: string | null): string {
   if (!m) return "—";
   const parts = m.split("/");
   return parts.length > 1 ? parts[1]! : m;
-}
-
-// 顶栏面板按钮分色：同排按钮一眼可辨（色阶 -9 淡染背景 + 同色文字，随主题切换）
-// 忙时入队的待发消息：快照发送时刻的文本/附件/模型/思考档/生图参数
-type QueuedMessage = {
-  id: string;
-  text: string;
-  attachments?: OutgoingImageAttachment[];
-  model?: string;
-  thinking?: string;
-  imageMode?: boolean;
-  imageSize?: string;
-};
-const PANEL_TINTS = {
-  todo: {
-    background: "color-mix(in srgb, var(--blue-9) 12%, var(--bg-secondary))",
-    color: "var(--blue-9)",
-  },
-  usage: {
-    background: "color-mix(in srgb, var(--green-9) 12%, var(--bg-secondary))",
-    color: "var(--green-9)",
-  },
-  cron: {
-    background: "color-mix(in srgb, var(--violet-9) 12%, var(--bg-secondary))",
-    color: "var(--violet-9)",
-  },
-  activity: {
-    background: "color-mix(in srgb, var(--amber-9) 14%, var(--bg-secondary))",
-    color: "var(--amber-9)",
-  },
-} as const;
-
-// 读取图片为 base64 附件（预览走 objectURL，不再同时存 dataUrl 双份字符串：
-// 12MB 图原先 base64+dataUrl 两份常驻 ≈32MB，现在只剩 base64 一份）
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result ?? "");
-      const comma = dataUrl.indexOf(",");
-      resolve(comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl);
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("read image failed"));
-    reader.readAsDataURL(file);
-  });
 }
 
 // 从乐观消息的 data URL 附件还原 base64 附件：重试/重新生成时服务端
@@ -133,183 +50,6 @@ function attachmentsOf(msg: Message): OutgoingImageAttachment[] | undefined {
     ];
   });
 }
-
-// 消息级操作行：hover 显现（朗读中常驻）。复制通用；朗读/重新生成/编辑
-// 按传入回调按需渲染（assistant=复制+朗读+重新生成，user=复制+编辑）
-function MessageActions({
-  text,
-  speaking,
-  onSpeak,
-  onRegenerate,
-  onEdit,
-}: {
-  text: string;
-  speaking?: boolean;
-  onSpeak?: () => void;
-  onRegenerate?: () => void;
-  onEdit?: () => void;
-}) {
-  const { copied, copy } = useCopy();
-  return (
-    <div
-      className={`mt-1 flex items-center gap-0.5 transition-opacity ${
-        speaking ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
-      }`}
-    >
-      <button
-        onClick={() => void copy(text)}
-        className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-        style={{ color: copied ? "var(--success)" : "var(--text-secondary)" }}
-        title={copied ? "已复制" : "复制"}
-      >
-        {copied ? <Check size={12} /> : <Copy size={12} />}
-      </button>
-      {onSpeak && (
-        <button
-          onClick={onSpeak}
-          className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ color: speaking ? "var(--accent)" : "var(--text-secondary)" }}
-          title={speaking ? "播放中…" : "朗读这条回复"}
-        >
-          <Volume2 size={12} />
-        </button>
-      )}
-      {onRegenerate && (
-        <button
-          onClick={onRegenerate}
-          className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ color: "var(--text-secondary)" }}
-          title="重新生成这条回复"
-        >
-          <RefreshCw size={12} />
-        </button>
-      )}
-      {onEdit && (
-        <button
-          onClick={onEdit}
-          className="p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ color: "var(--text-secondary)" }}
-          title="编辑并重新填入输入框"
-        >
-          <Pencil size={12} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** 读取图片文件 → canvas 居中裁剪缩放到 AVATAR_SIZE 方形 → JPEG data URL（几十 KB） */
-function compressImageFile(file: File, maxSize = AVATAR_SIZE, quality = 0.85): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = maxSize;
-        canvas.height = maxSize;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("canvas 不可用"));
-          return;
-        }
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(0, 0, maxSize, maxSize);
-        const scale = maxSize / Math.max(img.width, img.height);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        ctx.drawImage(img, (maxSize - w) / 2, (maxSize - h) / 2, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
-      };
-      img.onerror = () => reject(new Error("图片解码失败"));
-      img.src = reader.result as string;
-    };
-    reader.onerror = () => reject(new Error("文件读取失败"));
-    reader.readAsDataURL(file);
-  });
-}
-
-/** 圆形头像：有 src 显示图片，加载失败或无 src 回落为图标 */
-function Avatar({
-  src,
-  icon,
-  size = 50,
-}: {
-  src: string | null;
-  icon: React.ReactNode;
-  size?: number;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
-    return (
-      <div
-        className="rounded-full flex items-center justify-center shrink-0"
-        style={{
-          width: size,
-          height: size,
-          background: "var(--bg-tertiary)",
-          color: "var(--text-secondary)",
-        }}
-      >
-        {icon}
-      </div>
-    );
-  }
-  return (
-    <img
-      src={src}
-      alt=""
-      className="rounded-full object-cover shrink-0"
-      style={{ width: size, height: size }}
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-/** 头像 + 悬浮铅笔按钮：点击换头像（隐藏 file input → 压缩 → onPick 回调） */
-function EditableAvatar({
-  src,
-  icon,
-  size = 50,
-  uploading,
-  title,
-  onPick,
-}: {
-  src: string | null;
-  icon: React.ReactNode;
-  size?: number;
-  uploading: boolean;
-  title: string;
-  onPick: (file: File | undefined) => void;
-}) {
-  const fileRef = useRef<HTMLInputElement | null>(null);
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onPick(e.target.files?.[0]);
-    e.target.value = "";
-  };
-  return (
-    <div className="relative group shrink-0">
-      <Avatar src={src} icon={icon} size={size} />
-      <button
-        type="button"
-        title={title}
-        onClick={() => fileRef.current?.click()}
-        className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/40 text-white"
-      >
-        {uploading ? <Loader2 size={20} className="animate-spin" /> : <Pencil size={20} />}
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
-        className="hidden"
-        onChange={handleChange}
-      />
-    </div>
-  );
-}
-
-// 流式分段与消息分区模型见 ./MessageParts（文本/工具交错 + memo 局部重渲染）
 
 interface ChatPanelProps {
   connected: boolean;
@@ -341,168 +81,10 @@ interface ChatPanelProps {
   active?: boolean;
 }
 
-// 每秒自跳的秒数文本：把 1s tick 隔离在叶子组件里（原实现整个 ChatPanel
-// 每秒全量重渲一遍，包括几百条历史消息的元素树）
-function LiveSeconds({ active }: { active: boolean }) {
-  const [s, setS] = useState(0);
-  useEffect(() => {
-    if (!active) {
-      setS(0);
-      return;
-    }
-    const t = setInterval(() => setS((v) => v + 1), 1000);
-    return () => clearInterval(t);
-  }, [active]);
-  return <>{s}s</>;
-}
-
-// 消息行 memo 化：msg 引用 append-only 稳定 + 回调全走 ref 蹦床，
-// 流式期间每个 delta 只重渲流式气泡，历史消息直接跳过渲染
-const MessageRow = memo(function MessageRow({
-  msg,
-  agentAvatarSrc,
-  userAvatar,
-  avatarBusy,
-  speaking,
-  onSpeak,
-  canRegenerate,
-  onRegenerate,
-  onEdit,
-  onRetry,
-  onPreview,
-  onPickAvatar,
-}: {
-  msg: Message;
-  agentAvatarSrc: string | null;
-  userAvatar: string | null;
-  avatarBusy: "user" | "agent" | null;
-  speaking: boolean;
-  onSpeak: (msg: Message) => void;
-  canRegenerate: boolean;
-  onRegenerate: () => void;
-  onEdit: (msg: Message) => void;
-  onRetry: (msg: Message) => void;
-  onPreview: (img: MessageImage) => void;
-  onPickAvatar: (kind: "user" | "agent", file: File | undefined) => void;
-}) {
-  if (msg.failed) {
-    // 生成失败轮：折叠成细条，替代占位文本空泡
-    return (
-      <div className="flex justify-start px-1">
-        <div
-          className="flex items-center gap-1.5 text-xs"
-          style={{ color: "var(--text-secondary)" }}
-          title={
-            "这一轮生成失败，未产生回复（" + new Date(msg.timestamp).toLocaleTimeString() + "）"
-          }
-        >
-          <AlertCircle size={12} style={{ color: "var(--warning)" }} />
-          本轮生成失败，未产生回复
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div
-      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2`}
-    >
-      {msg.role === "assistant" && (
-        <EditableAvatar
-          src={agentAvatarSrc}
-          icon={<Bot size={26} />}
-          uploading={avatarBusy === "agent"}
-          title="更换秋秋头像"
-          onPick={(file) => onPickAvatar("agent", file)}
-        />
-      )}
-      <div
-        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words group`}
-        style={{
-          background: msg.role === "user" ? "var(--user-bubble)" : "var(--assistant-bubble)",
-          color: msg.role === "user" ? "var(--on-solid)" : "var(--text-primary)",
-          border: `1px solid ${
-            msg.role === "assistant"
-              ? "color-mix(in srgb, var(--border) 55%, transparent)"
-              : "transparent"
-          }`,
-          boxShadow:
-            msg.role === "user"
-              ? "0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent)"
-              : "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
-        {msg.role === "assistant" ? (
-          // 分区注册表渲染（markdown/图片/工具/思考），各自包 ErrorBoundary
-          <AssistantParts msg={msg} onPreview={onPreview} />
-        ) : (
-          <>
-            {msg.content ? (
-              <MarkdownBlock content={msg.content} />
-            ) : (
-              <span className="text-sm" style={{ color: "var(--on-solid)" }}>
-                📷 图片
-              </span>
-            )}
-            {msg.images && msg.images.length > 0 && (
-              <div className="mt-2 flex flex-col gap-2">
-                {msg.images.map((img, i) => (
-                  <img
-                    key={i}
-                    src={img.url}
-                    alt={img.alt ?? "生成图片"}
-                    onClick={() => onPreview(img)}
-                    className="max-w-full rounded-xl border cursor-zoom-in transition-transform hover:scale-[1.01]"
-                    style={{ borderColor: "var(--border)" }}
-                    loading="lazy"
-                    title={img.alt ?? "生成图片（点击放大）"}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-        {msg.role === "assistant" && msg.content && (
-          <MessageActions
-            text={msg.content}
-            speaking={speaking}
-            onSpeak={() => onSpeak(msg)}
-            onRegenerate={canRegenerate ? onRegenerate : undefined}
-          />
-        )}
-        {msg.role === "user" && <MessageActions text={msg.content} onEdit={() => onEdit(msg)} />}
-        {msg.role === "user" && msg.sendFailed && (
-          <div
-            className="mt-1.5 flex items-center gap-1.5 text-xs"
-            style={{ color: "var(--danger)" }}
-          >
-            <AlertCircle size={12} />
-            发送失败
-            <button
-              onClick={() => void onRetry(msg)}
-              className="underline underline-offset-2 hover:opacity-80"
-              style={{ color: "var(--danger)" }}
-              title="重新发送这条消息"
-            >
-              重试
-            </button>
-          </div>
-        )}
-      </div>
-      {msg.role === "user" && (
-        <EditableAvatar
-          src={userAvatar}
-          icon={<User size={26} />}
-          uploading={avatarBusy === "user"}
-          title="更换我的头像"
-          onPick={(file) => onPickAvatar("user", file)}
-        />
-      )}
-    </div>
-  );
-});
-
 // streamingText 刻意留在 ChatPanel 本地：每个 token delta 都会更新它，放在
 // App 层会让整棵应用树（Sidebar 会话列表等）跟着每个 chunk 重渲染。
+// 职责边界：本组件管会话数据流（消息/流式/发送）与消息区渲染；
+// 输入壳在 ChatComposer，流式订阅在 useChatStream，消息行在 MessageRow。
 function ChatPanel({
   connected,
   setConnected,
@@ -527,51 +109,16 @@ function ChatPanel({
   onBackHome,
   pushToast,
 }: ChatPanelProps) {
-  const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   // 无活动检测：run 事件（delta/thinking/tool/message）最后到达时间
   const STALL_AFTER_MS = 90_000;
   const lastActivityAtRef = useRef(Date.now());
   const [stalled, setStalled] = useState(false);
-  // 生成中发送的消息先入队，流结束后依次自动派出（借鉴 codex ext/queue）
-  const [sendQueue, setSendQueue] = useState<QueuedMessage[]>([]);
   const [streamingReasoning, setStreamingReasoning] = useState("");
-  // 流式分段（文本/工具交错）。ref 与 state 同步维护：onMessage 等
-  // 订阅闭包里需要读到最新分段（React state 在闭包里是旧值）。
-  const [segments, setSegments] = useState<StreamSegment[]>([]);
-  const segmentsRef = useRef<StreamSegment[]>([]);
-  // delta 合帧缓冲：同帧多个 delta 只提交一次（服务端 150ms 节流之上的
-  // 客户端二次合并），长回复的 markdown 重解析频率显著下降
-  const pendingDeltaRef = useRef<{ text: string; replace: boolean } | null>(null);
-  const deltaRafRef = useRef<number | null>(null);
-  const updateSegments = (fn: (prev: StreamSegment[]) => StreamSegment[]) => {
-    segmentsRef.current = fn(segmentsRef.current);
-    setSegments(segmentsRef.current);
-  };
-  const flushDelta = () => {
-    deltaRafRef.current = null;
-    const pending = pendingDeltaRef.current;
-    pendingDeltaRef.current = null;
-    if (!pending) return;
-    updateSegments((prev) => applyStreamDelta(prev, pending.text, pending.replace));
-  };
-  const clearSegments = () => {
-    // 丢弃未提交的合并帧：final/abort/断线后残留 flush 会在空分段上长出幽灵文本
-    if (deltaRafRef.current !== null) {
-      cancelAnimationFrame(deltaRafRef.current);
-      deltaRafRef.current = null;
-    }
-    pendingDeltaRef.current = null;
-    updateSegments(() => []);
-  };
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // 生图模式：🎨 切换，尺寸固定档位（来自 Stepfun API 实测，同 RedStudio）
-  const [imageMode, setImageMode] = useState(false);
-  const [imageSize, setImageSize] = useState("1024x1024");
+  // 生图异步任务进行中（请求已发出，等 final 消息回来）
   const [imagePending, setImagePending] = useState(false);
-  const IMAGE_SIZES = ["1024x1024", "768x1360", "896x1184", "1360x768", "1184x896"];
 
   const [userAvatar, setUserAvatar] = useState<string | null>(() =>
     localStorage.getItem(USER_AVATAR_KEY),
@@ -580,18 +127,6 @@ function ChatPanel({
   const [previewImg, setPreviewImg] = useState<MessageImage | null>(null);
   // 上翻离开底部时显示"回到底部"
   const [showJump, setShowJump] = useState(false);
-  // 随下一条消息发送的图片附件（按钮选择 / 粘贴）：预览用 objectURL，
-  // 发送/移除时 revoke，避免解码位图与字符串常驻
-  const [pendingImages, setPendingImages] = useState<
-    { id: string; objectUrl: string; base64: string; mimeType: string; fileName: string }[]
-  >([]);
-  const dropPendingImages = () => {
-    setPendingImages((prev) => {
-      for (const p of prev) URL.revokeObjectURL(p.objectUrl);
-      return [];
-    });
-  };
-  const imageInputRef = useRef<HTMLInputElement>(null);
   // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
   const autoTitledRef = useRef<Set<string>>(new Set());
   const listRef = useRef<HTMLDivElement>(null);
@@ -599,18 +134,23 @@ function ChatPanel({
   // 用户上翻看历史时不被拉回底部。
   const nearBottomRef = useRef(true);
   const scrollRafRef = useRef<number | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  // 运行期消息 append 封顶：同会话挂一整天 final 不断追加，封顶保留尾部，
-  // 防止 DOM/内存随时间无界增长（fetchHistory 切会话上限 200 只管加载侧）
-  const MAX_MESSAGES = 400;
-  const appendMessage = (m: Message) => {
-    setMessages((prev) =>
-      prev.length >= MAX_MESSAGES ? [...prev.slice(-(MAX_MESSAGES - 1)), m] : [...prev, m],
-    );
-  };
+  // 空态卡片反向触发 composer 动作（查看命令）
+  const composerActionsRef = useRef<ComposerActions | null>(null);
   const [agentAvatar, setAgentAvatar] = useState<string | null>(null);
   const [agentAvatarStatus, setAgentAvatarStatus] = useState<string>("none");
   const [avatarBusy, setAvatarBusy] = useState<"user" | "agent" | null>(null);
+
+  // 运行期消息 append 封顶：同会话挂一整天 final 不断追加，封顶保留尾部，
+  // 防止 DOM/内存随时间无界增长（fetchHistory 切会话上限 200 只管加载侧）
+  const MAX_MESSAGES = 400;
+  const appendMessage = useCallback(
+    (m: Message) => {
+      setMessages((prev) =>
+        prev.length >= MAX_MESSAGES ? [...prev.slice(-(MAX_MESSAGES - 1)), m] : [...prev, m],
+      );
+    },
+    [setMessages],
+  );
 
   async function handleSpeak(msg: Message) {
     if (!msg.content) return;
@@ -625,65 +165,6 @@ function ChatPanel({
     } catch {
       setSpeakingMsgId(null);
     }
-  }
-  const [showCmdPalette, setShowCmdPalette] = useState(false);
-  const [cmdCategory, setCmdCategory] = useState<string | null>(null);
-  const [cmdSelectedIndex, setCmdSelectedIndex] = useState(0);
-  const [availableModels, setAvailableModels] = useState<ModelEntry[]>(gateway.models);
-  // 输入框内 per-message 模型选择：覆盖只随下一次 chat.send 生效，不改会话默认
-  const [chatModel, setChatModel] = useState<string | null>(() =>
-    localStorage.getItem(CHAT_MODEL_KEY),
-  );
-  // per-message 思考档：null = 跟随模型默认；换模型时若新模型不支持推理则自动清档
-  const [chatThinking, setChatThinking] = useState<string | null>(() =>
-    localStorage.getItem(CHAT_THINKING_KEY),
-  );
-
-  const paletteItems = useMemo(
-    () => getVisibleItems(commands, input, cmdCategory),
-    [commands, input, cmdCategory],
-  );
-
-  // Any navigation that changes what's visible (typing, drilling in/out)
-  // should reset the highlighted row rather than leaving it pointing at
-  // whatever happened to be at that index before.
-  useEffect(() => {
-    setCmdSelectedIndex(0);
-  }, [input, cmdCategory]);
-
-  // Closing the palette by any path (Escape at root, sending a command,
-  // clearing the input) should always land back at root next time it opens.
-  useEffect(() => {
-    if (!showCmdPalette) setCmdCategory(null);
-  }, [showCmdPalette]);
-
-  function activatePaletteItem(item: PaletteItem) {
-    if (item.kind === "header") {
-      setCmdCategory(item.category);
-      setInput("/");
-      return;
-    }
-    const cmd = item.command;
-    if (cmd.acceptsArgs) {
-      setInput(cmd.name + " ");
-      setShowCmdPalette(false);
-      inputRef.current?.focus();
-    } else {
-      handleSend(cmd.name);
-    }
-  }
-
-  // 模型/思考档选择与持久化（弹层 UI 在共享 ModelPicker 组件里）
-  function pickChatModel(modelId: string | null) {
-    setChatModel(modelId);
-    if (modelId) localStorage.setItem(CHAT_MODEL_KEY, modelId);
-    else localStorage.removeItem(CHAT_MODEL_KEY);
-  }
-
-  function pickChatThinking(level: string | null) {
-    setChatThinking(level);
-    if (level) localStorage.setItem(CHAT_THINKING_KEY, level);
-    else localStorage.removeItem(CHAT_THINKING_KEY);
   }
 
   // AI 头像：连接后拉 agent identity；avatarStatus=data 时 avatar 是完整 data URL
@@ -741,41 +222,17 @@ function ChatPanel({
       setImagePending(false);
     }
   }, [messages]);
-  // 切会话时清空上一会话的流式残留：App 层只负责 messages，
-  // 流式分段/reasoning 在组件内跟随会话切换统一清理。
-  useEffect(() => {
-    setStreamingReasoning("");
-    clearSegments();
-  }, [currentSessionKey]);
 
-  // Ctrl+K 唤起命令面板；隐藏挂载（其他视图）时不响应
-  useEffect(() => {
-    if (!active) return;
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setShowCmdPalette(true);
-        setInput("/");
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [active]);
-
-  // 灯箱 Esc 关闭（capture 阶段，先于全局 Esc 返回主页）
-  useEscape(() => setPreviewImg(null), previewImg !== null);
-
+  // 无活动兜底：run 若在流式中途死亡（final/aborted 事件丢失），「响应中」
+  // 会无限空转（observed 261004：秋秋后台扫描已死，GUI 假等 30 分钟）。
+  // 超过 STALL_AFTER_MS 无任何事件就亮出「无响应」提示 + 手动重新同步。
+  // setStalled 同值时 React bail-out：秒数显示由 LiveSeconds 叶子组件自跳，
+  // 这里只在阈值翻转时真正触发重渲染
   useEffect(() => {
     if (!isGenerating) {
       setStalled(false);
       return;
     }
-    // 无活动兜底：run 若在流式中途死亡（final/aborted 事件丢失），「响应中」
-    // 会无限空转（observed 261004：秋秋后台扫描已死，GUI 假等 30 分钟）。
-    // 超过 STALL_AFTER_MS 无任何事件就亮出「无响应」提示 + 手动重新同步。
-    // setStalled 同值时 React bail-out：秒数显示由 LiveSeconds 叶子组件自跳，
-    // 这里只在阈值翻转时真正触发重渲染
     lastActivityAtRef.current = Date.now();
     const t = setInterval(() => {
       setStalled(Date.now() - lastActivityAtRef.current > STALL_AFTER_MS);
@@ -783,17 +240,12 @@ function ChatPanel({
     return () => clearInterval(t);
   }, [isGenerating]);
 
-  useEffect(() => {
-    const markActivity = () => {
+  // 流式订阅（delta 合帧/分段状态机在 hook 内）
+  const { segments, clearSegments } = useChatStream({
+    onActivity: () => {
       lastActivityAtRef.current = Date.now();
-    };
-    const unsubMsg = gateway.onMessage((msg) => {
-      markActivity();
-      // 该轮工具卡随 final 消息持久化：流式分段清空前的快照挂到消息上，
-      // 之后翻历史也能看到这一轮的工具轨迹（右栏 ActivityPanel 是另一路镜像）
-      const runTools = segmentsRef.current.flatMap((seg) =>
-        seg.kind === "tool" ? [seg.tool] : [],
-      );
+    },
+    onFinalMessage: (msg, runTools) => {
       appendMessage(
         msg.role === "assistant" && runTools.length > 0 ? { ...msg, tools: runTools } : msg,
       );
@@ -802,51 +254,14 @@ function ChatPanel({
       setIsGenerating(false);
       // 生图异步任务：秋秋回复 final 消息即代表该轮完成（图片随消息送达）
       setImagePending(false);
-    });
-
-    const unsubDelta = gateway.onDelta((text, _reasoning, replace) => {
-      if (!text) return;
-      markActivity();
-      // 连续增量直接拼接等价于逐条 apply；replace 修复帧是全文语义，以新帧为准
-      const pending = pendingDeltaRef.current;
-      pendingDeltaRef.current =
-        pending && !pending.replace && !replace
-          ? { text: pending.text + text, replace: false }
-          : { text, replace: replace === true };
-      if (deltaRafRef.current === null) {
-        deltaRafRef.current = requestAnimationFrame(flushDelta);
-      }
-    });
-
-    const unsubThinking = gateway.onThinking((evt) => {
-      markActivity();
-      // data.text is always the full accumulated reasoning; replace when
-      // the server flags a non-prefix change, otherwise just overwrite.
-      setStreamingReasoning(evt.text);
-    });
-
-    const unsubTool = gateway.onTool((tool) => {
-      markActivity();
-      const key = toolSegmentKey(tool);
-      if (!key) return;
-      updateSegments((prev) => {
-        const idx = prev.findIndex(
-          (seg) => seg.kind === "tool" && toolSegmentKey(seg.tool) === key,
-        );
-        if (idx === -1) return [...prev, { kind: "tool", tool }];
-        const next = [...prev];
-        next[idx] = { kind: "tool", tool };
-        return next;
-      });
-    });
-
-    const unsubStreamEnd = gateway.onStreamEnd(() => {
+    },
+    onThinking: (text) => setStreamingReasoning(text),
+    onStreamEnd: () => {
       setStreamingReasoning("");
       clearSegments();
       setIsGenerating(false);
-    });
-
-    const unsubStatus = gateway.onStatus((status) => {
+    },
+    onStatus: (status) => {
       setConnected(status);
       setConnecting(false);
       if (!status) {
@@ -857,26 +272,19 @@ function ChatPanel({
         setIsGenerating(false);
         setImagePending(false);
       }
-    });
+    },
+  });
 
-    const unsubModels = gateway.onModelList((models) => {
-      setAvailableModels(models);
-    });
+  // 切会话时清空上一会话的流式残留：App 层只负责 messages，
+  // 流式分段/reasoning 在组件内跟随会话切换统一清理。
+  useEffect(() => {
+    setStreamingReasoning("");
+    clearSegments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSessionKey]);
 
-    return () => {
-      unsubMsg();
-      unsubDelta();
-      unsubThinking();
-      unsubTool();
-      unsubStreamEnd();
-      unsubStatus();
-      unsubModels();
-      // NOTE: do not gateway.stop() here. Vite HMR / StrictMode remounts
-      // run this cleanup and would kill the WebSocket, leaving the UI
-      // looking "connected" while every send silently fails. Connection
-      // lifecycle is owned by the connect button / App layer instead.
-    };
-  }, []);
+  // 灯箱 Esc 关闭（capture 阶段，先于全局 Esc 返回主页）
+  useEscape(() => setPreviewImg(null), previewImg !== null);
 
   // 流式跟随滚动：内容增长（新消息/token/reasoning/工具卡）时若贴底则在下一帧
   // 滚到底；rAF 合并同帧多次触发，避免每个 token 强制一次同步 reflow。
@@ -896,90 +304,11 @@ function ChatPanel({
     };
   }, [messages, segments, streamingReasoning]);
 
-  async function addPendingImages(files: File[]) {
-    // 静默丢弃是最伤的「点了没反应」：超量/超限/非图片/读取失败全部显式提示
-    if (files.length > 4) {
-      pushToast(`一次最多带 4 张图，多余的 ${files.length - 4} 张已忽略`);
-    }
-    let skippedNonImage = 0;
-    for (const file of files.slice(0, 4)) {
-      if (!file.type.startsWith("image/")) {
-        skippedNonImage++;
-        continue;
-      }
-      // 服务端 chat.attachments 默认上限 20MB，base64 还有 4/3 膨胀，raw 收到 12MB
-      if (file.size > 12 * 1024 * 1024) {
-        pushToast(`图片 ${file.name} 超过 12MB 上限，已跳过`);
-        continue;
-      }
-      try {
-        const base64 = await readFileAsBase64(file);
-        setPendingImages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            objectUrl: URL.createObjectURL(file),
-            base64,
-            mimeType: file.type,
-            fileName: file.name || "image.png",
-          },
-        ]);
-      } catch (err) {
-        console.error("[ChatPanel] read image failed:", err);
-        pushToast(`图片 ${file.name} 读取失败`);
-      }
-    }
-    if (skippedNonImage > 0) {
-      pushToast(`已忽略 ${skippedNonImage} 个非图片文件`);
-    }
+  function markSendFailed(id: string) {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, sendFailed: true } : m)));
   }
 
-  async function handleSend(text?: string) {
-    const msg = (text ?? input).trim();
-    if ((!msg && pendingImages.length === 0) || !connected) return;
-
-    // 生成中：入队而非丢弃；流结束后由下面的派发 effect 依次发出
-    if (isGenerating) {
-      const attachments: OutgoingImageAttachment[] = pendingImages.map((p) => ({
-        type: "image",
-        mimeType: p.mimeType,
-        fileName: p.fileName,
-        content: p.base64,
-      }));
-      setSendQueue((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          text: msg,
-          attachments: attachments.length ? attachments : undefined,
-          model: chatModel ?? undefined,
-          thinking: chatThinking ?? undefined,
-          imageMode,
-          imageSize,
-        },
-      ]);
-      setInput("");
-      setShowCmdPalette(false);
-      dropPendingImages();
-      return;
-    }
-
-    await sendNow({
-      id: crypto.randomUUID(),
-      text: msg,
-      attachments: pendingImages.map((p) => ({
-        type: "image",
-        mimeType: p.mimeType,
-        fileName: p.fileName,
-        content: p.base64,
-      })),
-      model: chatModel ?? undefined,
-      thinking: chatThinking ?? undefined,
-      imageMode,
-      imageSize,
-    });
-  }
-
+  // 发送管线：乐观消息 → 自动取标题 → 流式启动（输入壳清理归 ChatComposer）
   async function sendNow(item: QueuedMessage) {
     const msg = item.text;
     if (!msg && !item.attachments?.length) return;
@@ -998,6 +327,9 @@ function ChatPanel({
             })),
           }
         : {}),
+      // per-run 覆盖快照：重试/重新生成时复用原模型与思考档
+      ...(item.model ? { modelOverride: item.model } : {}),
+      ...(item.thinking ? { thinkingOverride: item.thinking } : {}),
     };
     appendMessage(userMsg);
     // 自动取标题：未命名会话用首条非命令消息命名（QQ/微信式），每次挂载每会话只做一次
@@ -1010,10 +342,7 @@ function ChatPanel({
     }
     // 自己发消息意味着要跟到底部
     nearBottomRef.current = true;
-    setInput("");
-    setShowCmdPalette(false);
     clearSegments();
-    dropPendingImages();
 
     // 生图模式：把请求发给秋秋 agent，由她调用 image_generate 工具生成
     // （直接传原文给工具会被模型当字面 prompt，中文描述如"自己的立绘"
@@ -1047,11 +376,8 @@ function ChatPanel({
     }
   }
 
-  function markSendFailed(id: string) {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, sendFailed: true } : m)));
-  }
-
-  // 发送失败重试：原消息留在时间线上（清失败标记），附件从 data URL 还原重发
+  // 发送失败重试：原消息留在时间线上（清失败标记），附件从 data URL 还原重发，
+  // 模型/思考档沿用原发送时刻的覆盖快照
   async function resendMessage(msg: Message) {
     if (isGenerating || !connected) return;
     setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, sendFailed: false } : m)));
@@ -1061,8 +387,8 @@ function ChatPanel({
     try {
       await gateway.sendMessage(msg.content, {
         attachments: attachmentsOf(msg),
-        model: chatModel ?? undefined,
-        thinking: chatThinking ?? undefined,
+        model: msg.modelOverride,
+        thinking: msg.thinkingOverride,
       });
     } catch (err) {
       console.error("resend failed:", err);
@@ -1082,8 +408,8 @@ function ChatPanel({
     try {
       await gateway.sendMessage(lastUser.content, {
         attachments: attachmentsOf(lastUser),
-        model: chatModel ?? undefined,
-        thinking: chatThinking ?? undefined,
+        model: lastUser.modelOverride,
+        thinking: lastUser.thinkingOverride,
       });
     } catch (err) {
       console.error("regenerate failed:", err);
@@ -1091,15 +417,15 @@ function ChatPanel({
     }
   }
 
-  // 编辑用户消息：内容回填输入框（不裁历史，改完即新消息）
+  // 编辑用户消息：内容回填输入框（不裁历史，改完即新消息）；
+  // 输入框归 ChatComposer，经 actionsRef.fillDraft 回填
   function editResend(msg: Message) {
     if (isGenerating) return;
-    setInput(msg.content);
-    inputRef.current?.focus();
+    composerActionsRef.current?.fillDraft(msg.content);
   }
 
   // 稳定回调蹦床：MessageRow 是 memo 组件，函数每渲染重建会打穿 memo；
-  // ref 指向最新实现，对外引用恒定（同 sendNowRef 模式）
+  // ref 指向最新实现，对外引用恒定（同 sendItemRef 模式）
   const speakRef = useRef(handleSpeak);
   const resendRef = useRef(resendMessage);
   const regenerateRef = useRef(regenerate);
@@ -1119,119 +445,6 @@ function ChatPanel({
     [],
   );
 
-  // 队列派发：流结束（isGenerating 翻 false）后依次发出下一条。
-  // sendNowRef 每次渲染后指向最新实现，避免把每渲染重建的函数塞进依赖数组；
-  // 未连接时不派发，队列保留到重连后继续（断线不应吞掉排队消息）。
-  const sendNowRef = useRef<((item: QueuedMessage) => Promise<void>) | null>(null);
-  useEffect(() => {
-    sendNowRef.current = sendNow;
-  });
-  useEffect(() => {
-    if (!connected || isGenerating || sendQueue.length === 0) return;
-    const next = sendQueue[0];
-    if (!next) return;
-    setSendQueue((prev) => prev.slice(1));
-    void sendNowRef.current?.(next);
-  }, [connected, isGenerating, sendQueue]);
-
-  async function handleStop() {
-    try {
-      await gateway.abortChat();
-    } catch (err) {
-      console.error("abort failed:", err);
-    }
-  }
-
-  function handleShowCommands() {
-    setInput("/");
-    setShowCmdPalette(true);
-    inputRef.current?.focus();
-  }
-
-  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value;
-    setInput(val);
-    setShowCmdPalette(val.startsWith("/"));
-    // auto-resize
-    const ta = e.target;
-    ta.style.height = "auto";
-    ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (showCmdPalette) {
-      if (e.key === "Escape") {
-        if (cmdCategory) {
-          setCmdCategory(null);
-          setInput("/");
-        } else {
-          setShowCmdPalette(false);
-        }
-        return;
-      }
-      // Only pops the category when there's truly nothing left to delete in
-      // the current scope - must not hijack backspacing through real query text.
-      if (e.key === "Backspace" && cmdCategory && input === "/") {
-        e.preventDefault();
-        setCmdCategory(null);
-        return;
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setCmdSelectedIndex((i) => Math.min(i + 1, Math.max(paletteItems.length - 1, 0)));
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setCmdSelectedIndex((i) => Math.max(i - 1, 0));
-        return;
-      }
-      // 中文 IME 组词中按 Enter 是确认候选词，不能当「发送/选中」处理
-      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-        const item = paletteItems[cmdSelectedIndex];
-        if (item) {
-          e.preventDefault();
-          activatePaletteItem(item);
-          return;
-        }
-      }
-    }
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      handleSend();
-    }
-  }
-
-  const { model, totalTokens, contextTokens, percentUsed } = sessionInfo;
-  const hasStreaming = segments.length > 0;
-  // 胶囊监视面的工具序列 = 当前流式分段里的工具段（保序）
-  const capsuleTools = useMemo(
-    () => segments.flatMap((seg) => (seg.kind === "tool" ? [seg.tool] : [])),
-    [segments],
-  );
-  // 重新生成入口只挂最后一条 assistant 消息（历史中间的「重新生成」语义不明）
-  const lastAssistantId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m && m.role === "assistant") return m.id;
-    }
-    return null;
-  }, [messages]);
-
-  // 工作台主页「交办」：nonce 只消费一次；忙时落回输入框不丢字
-  const workDraftNonceRef = useRef(0);
-  useEffect(() => {
-    if (!workDraft || workDraft.nonce === workDraftNonceRef.current) return;
-    workDraftNonceRef.current = workDraft.nonce;
-    if (isGenerating) {
-      setInput(workDraft.text);
-    } else {
-      void handleSend(workDraft.text);
-    }
-    onWorkDraftConsumed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workDraft]);
-
   // 无响应手动恢复：final/aborted 事件丢失时，transcript 里可能已落库新消息。
   // 历史比当前多出新内容才替换并熄掉「响应中」；历史未变说明 run 还在跑，
   // 保持等待，不误杀正常的长流式。
@@ -1249,73 +462,45 @@ function ChatPanel({
     } catch {
       // 拉取失败保持现状，stalled 提示仍在
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSessionKey, messages]);
+  }, [currentSessionKey, messages, clearSegments, setMessages]);
+
+  const hasStreaming = segments.length > 0;
+  // 胶囊监视面的工具序列 = 当前流式分段里的工具段（保序）
+  const capsuleTools = useMemo(
+    () => segments.flatMap((seg) => (seg.kind === "tool" ? [seg.tool] : [])),
+    [segments],
+  );
+  // 重新生成入口只挂最后一条 assistant 消息（历史中间的「重新生成」语义不明）
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m && m.role === "assistant") return m.id;
+    }
+    return null;
+  }, [messages]);
+
+  async function handleStop() {
+    try {
+      await gateway.abortChat();
+    } catch (err) {
+      console.error("abort failed:", err);
+    }
+  }
+
+  const { model, totalTokens, contextTokens, percentUsed } = sessionInfo;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 relative">
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 h-12 border-b shrink-0 relative"
-        style={{ borderColor: "var(--border)" }}
-        data-tauri-drag-region
-      >
-        {/* Codex 式会话态顶栏：返回主页 + 会话标题，不再有聊天/工作模式切换 */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <button
-            onClick={onBackHome}
-            className="p-1.5 rounded-md hover:opacity-80 shrink-0"
-            style={{ color: "var(--text-secondary)" }}
-            title="返回主页"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <div
-            className="text-sm font-medium truncate"
-            style={{ color: "var(--text-primary)" }}
-            title={sessions.find((s) => s.sessionKey === currentSessionKey)?.title}
-          >
-            {sessions.find((s) => s.sessionKey === currentSessionKey)?.title || "新会话"}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onToggleTodo}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={PANEL_TINTS.todo}
-          >
-            <ListTodo size={14} />
-            待办
-          </button>
-          <button
-            onClick={onToggleUsage}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={PANEL_TINTS.usage}
-            title="用量与成本"
-          >
-            <Coins size={14} />
-            用量
-          </button>
-          <button
-            onClick={onToggleCron}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={PANEL_TINTS.cron}
-            title="定时任务"
-          >
-            <CalendarClock size={14} />
-            定时
-          </button>
-          <button
-            onClick={onToggleActivity}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"
-            style={PANEL_TINTS.activity}
-            title="秋秋动态"
-          >
-            <PanelRight size={14} />
-            动态
-          </button>
-        </div>
-      </div>
+      <ChatTopBar
+        sessions={sessions}
+        currentSessionKey={currentSessionKey}
+        onBackHome={onBackHome}
+        onToggleTodo={onToggleTodo}
+        onToggleUsage={onToggleUsage}
+        onToggleCron={onToggleCron}
+        onToggleActivity={onToggleActivity}
+      />
 
       {/* Messages */}
       <div
@@ -1374,7 +559,7 @@ function ChatPanel({
               sessions={sessions}
               currentSessionKey={currentSessionKey}
               onSelectSession={onSelectSession}
-              onShowCommands={handleShowCommands}
+              onShowCommands={() => composerActionsRef.current?.openCommands()}
               onOpenTodos={onToggleTodo}
             />
           ) : (
@@ -1409,96 +594,13 @@ function ChatPanel({
               />
             ))}
 
-            {isGenerating && segments.length > 0 && (
-              <div className="flex justify-start">
-                <div
-                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words"
-                  style={{
-                    background: "var(--assistant-bubble)",
-                    color: "var(--text-primary)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <ErrorBoundary label="stream">
-                    {segments.map((seg, i) =>
-                      seg.kind === "text" ? (
-                        <MarkdownBlock key={`text-${i}`} content={seg.text} />
-                      ) : (
-                        <div key={`tool-${i}`} className="my-1.5">
-                          <StreamToolCard tool={seg.tool} />
-                        </div>
-                      ),
-                    )}
-                  </ErrorBoundary>
-                  <span
-                    className="inline-block w-1.5 h-4 ml-0.5 animate-pulse align-middle"
-                    style={{ background: "var(--accent)" }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {isGenerating && streamingReasoning && !hasStreaming && (
-              <div className="flex justify-start">
-                <div
-                  className="max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed break-words"
-                  style={{
-                    background: "var(--bg-tertiary)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  {/* 默认折叠 + 字数进度：长思考不撑屏，字数增长即是活性信号 */}
-                  <details>
-                    <summary className="cursor-pointer select-none font-medium">
-                      思考中…（{streamingReasoning.length} 字）
-                    </summary>
-                    <p className="mt-1 whitespace-pre-wrap">{streamingReasoning}</p>
-                  </details>
-                </div>
-              </div>
-            )}
-
-            {isGenerating && !hasStreaming && !streamingReasoning && (
-              <div className="flex justify-start">
-                <div
-                  className="flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs"
-                  style={{
-                    background: "var(--assistant-bubble)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <span
-                    className="inline-block w-3 h-3 border-2 rounded-full animate-spin"
-                    style={{
-                      borderColor: "var(--text-secondary)",
-                      borderTopColor: "var(--accent)",
-                    }}
-                  />
-                  {stalled ? (
-                    <>
-                      <span style={{ color: "var(--danger)" }}>长时间无响应</span>
-                      <span className="opacity-60">·</span>
-                      <span className="opacity-60">
-                        <LiveSeconds active={isGenerating} />
-                      </span>
-                      <button
-                        onClick={() => void resyncSession()}
-                        className="ml-1 underline underline-offset-2 hover:opacity-80"
-                        style={{ color: "var(--accent)" }}
-                        title="重新拉取会话历史；若回复已落库将直接显示"
-                      >
-                        重新同步
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      响应中... <LiveSeconds active={isGenerating} />
-                    </>
-                  )}
-                </div>
-              </div>
+            {isGenerating && (
+              <StreamPreview
+                segments={segments}
+                streamingReasoning={streamingReasoning}
+                stalled={stalled}
+                onResync={() => void resyncSession()}
+              />
             )}
           </div>
         )}
@@ -1566,212 +668,21 @@ function ChatPanel({
         </div>
       )}
 
-      {/* Input */}
-      <div className="p-4 border-t shrink-0 relative" style={{ borderColor: "var(--border)" }}>
-        {/* Command palette */}
-        {showCmdPalette && (
-          <CommandPalette
-            items={paletteItems}
-            selectedIndex={cmdSelectedIndex}
-            category={cmdCategory}
-            onSelectIndex={setCmdSelectedIndex}
-            onActivate={activatePaletteItem}
-            onBack={() => {
-              setCmdCategory(null);
-              setInput("/");
-            }}
-          />
-        )}
-
-        <div
-          className="input-shell flex flex-col rounded-2xl px-3 py-2 border transition-all"
-          style={{
-            background: "var(--bg-secondary)",
-            borderColor: "var(--border)",
-          }}
-        >
-          {sendQueue.length > 0 && (
-            <div className="flex flex-col gap-1 px-1 pt-1">
-              {sendQueue.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs"
-                  style={{
-                    background: "var(--bg-tertiary)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <Clock size={11} className="shrink-0" />
-                  <span className="truncate flex-1">
-                    {item.imageMode ? "生图：" : ""}
-                    {item.text}
-                  </span>
-                  <button
-                    onClick={() => setSendQueue((prev) => prev.filter((x) => x.id !== item.id))}
-                    className="shrink-0 opacity-70 hover:opacity-100"
-                    title="移出队列"
-                  >
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {pendingImages.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-1 pt-1 pb-0.5">
-              {pendingImages.map((p) => (
-                <div key={p.id} className="relative">
-                  <img
-                    src={p.objectUrl}
-                    alt={p.fileName}
-                    className="w-12 h-12 rounded-lg object-cover border"
-                    style={{ borderColor: "var(--border)" }}
-                  />
-                  <button
-                    onClick={() =>
-                      setPendingImages((prev) => {
-                        const target = prev.find((x) => x.id === p.id);
-                        if (target) URL.revokeObjectURL(target.objectUrl);
-                        return prev.filter((x) => x.id !== p.id);
-                      })
-                    }
-                    className="absolute -top-1.5 -right-1.5 rounded-full p-0.5 shadow-md"
-                    style={{
-                      background: "var(--bg-secondary)",
-                      color: "var(--text-secondary)",
-                      border: "1px solid var(--border)",
-                    }}
-                    title="移除"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-end gap-2">
-            <button
-              onClick={() => setImageMode((m) => !m)}
-              disabled={!connected}
-              className="shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-30"
-              style={
-                imageMode
-                  ? { background: "var(--accent)", color: "var(--on-solid)" }
-                  : { color: "var(--text-secondary)", background: "var(--bg-secondary)" }
-              }
-              title="生图模式（Stepfun）"
-            >
-              <Palette size={16} />
-            </button>
-            <button
-              onClick={() => imageInputRef.current?.click()}
-              disabled={!connected}
-              className="shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-30"
-              style={{ color: "var(--text-secondary)", background: "var(--bg-tertiary)" }}
-              title="发送图片（也可直接粘贴截图）"
-            >
-              <ImagePlus size={16} />
-            </button>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                void addPendingImages(Array.from(e.target.files ?? []));
-                e.target.value = "";
-              }}
-            />
-            {/* per-message 模型+思考档（共享 ModelPicker）：覆盖仅对本条消息生效 */}
-            <ModelPicker
-              models={availableModels}
-              model={chatModel}
-              sessionModel={model}
-              thinking={chatThinking}
-              onPickModel={pickChatModel}
-              onPickThinking={pickChatThinking}
-              disabled={!connected}
-            />
-            {imageMode && (
-              <select
-                value={imageSize}
-                onChange={(e) => setImageSize(e.target.value)}
-                disabled={!connected || imagePending}
-                className="shrink-0 rounded-lg px-2 py-1.5 text-xs outline-none disabled:opacity-50"
-                style={{
-                  background: "var(--bg-secondary)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border)",
-                }}
-                title="图片尺寸"
-              >
-                {IMAGE_SIZES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            )}
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              onPaste={(e) => {
-                const files = Array.from(e.clipboardData?.files ?? []).filter((f) =>
-                  f.type.startsWith("image/"),
-                );
-                if (files.length > 0) {
-                  e.preventDefault();
-                  void addPendingImages(files);
-                }
-              }}
-              placeholder={
-                !connected
-                  ? "请先连接 Gateway"
-                  : imageMode
-                    ? "描述你想生成的图片…"
-                    : "输入消息… （/ 查看命令）"
-              }
-              disabled={!connected}
-              rows={1}
-              className="flex-1 bg-transparent text-sm outline-none resize-none disabled:opacity-50"
-              style={{ color: "var(--text-primary)" }}
-            />
-            {imagePending ? (
-              // 生图可能挂几分钟：保留停止入口（abort 同样有效），允许继续打字排队
-              <button
-                onClick={handleStop}
-                className="shrink-0 rounded-full w-8 h-8 flex items-center justify-center transition-opacity hover:opacity-90"
-                style={{ background: "var(--danger)", color: "var(--on-solid)" }}
-                title="停止生图"
-              >
-                <Loader2 size={14} className="animate-spin" />
-              </button>
-            ) : isGenerating ? (
-              <button
-                onClick={handleStop}
-                className="shrink-0 rounded-full w-8 h-8 flex items-center justify-center transition-opacity hover:opacity-90"
-                style={{ background: "var(--danger)", color: "var(--on-solid)" }}
-                title="停止生成"
-              >
-                <Square size={14} fill="currentColor" />
-              </button>
-            ) : (
-              <button
-                onClick={() => handleSend()}
-                disabled={!connected || (!input.trim() && pendingImages.length === 0)}
-                className="shrink-0 rounded-full w-8 h-8 flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-30"
-                style={{ background: "var(--accent)", color: "var(--on-solid)" }}
-                title={imageMode ? "生成图片" : "发送"}
-              >
-                <Send size={15} />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Input：输入壳/命令面板/附件/队列归 ChatComposer */}
+      <ChatComposer
+        connected={connected}
+        isGenerating={isGenerating}
+        imagePending={imagePending}
+        sessionModel={sessionInfo.model}
+        commands={commands}
+        active={active}
+        workDraft={workDraft}
+        onWorkDraftConsumed={onWorkDraftConsumed}
+        onSendItem={(item) => void sendNow(item)}
+        onStop={() => void handleStop()}
+        pushToast={pushToast}
+        actionsRef={composerActionsRef}
+      />
 
       {/* 图片灯箱：点击遮罩关闭 */}
       {previewImg && (
@@ -1793,5 +704,5 @@ function ChatPanel({
 }
 
 // App 层的 streamingText 已下沉，props 在流式期间全部稳定，
-// memo 让工具事件等低频 App 重渲染不再穿透到这个 1400 行组件。
+// memo 让工具事件等低频 App 重渲染不再穿透到这个组件。
 export default memo(ChatPanel);
