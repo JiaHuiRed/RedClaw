@@ -1,52 +1,103 @@
 # 🐲 RedClaw
 
-> A personal AI assistant based on [OpenClaw](https://github.com/openclaw/openclaw) — Qiuqiu running on your own device
+> A personal AI desktop companion based on [OpenClaw](https://github.com/openclaw/openclaw) — your own Jarvis
 
-[![Version](https://img.shields.io/badge/version-v0.0.14-crimson?style=for-the-badge)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.4.0-crimson?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue?style=for-the-badge)](#)
-[![Language](https://img.shields.io/badge/language-TypeScript-3178C6?style=for-the-badge)](#)
+[![Platform](https://img.shields.io/badge/platform-Windows-blue?style=for-the-badge)](#)
+[![GUI](https://img.shields.io/badge/GUI-Tauri%202-24C8D8?style=for-the-badge)](#)
 [![Runtime](https://img.shields.io/badge/runtime-Node%2022%2B-339933?style=for-the-badge)](#)
-[![AI](https://img.shields.io/badge/AI-Xiaomi%20%7C%20DeepSeek%20%7C%20Ollama-ff6b35?style=for-the-badge)](#supported-ai-providers)
 
 ---
 
 ## What is this?
 
-RedClaw is a personal fork of OpenClaw, optimized for single-user local deployment. It's the runtime platform for **Qiuqiu** — a personal AI assistant that grows and learns about you over time.
+RedClaw is an **independent fork** of OpenClaw — no longer tracking upstream, evolving on its own — built for **single-user local deployment**. It gives your AI companion a polished native desktop UI, with cross-session memory, heartbeat and dreaming for that "feels alive" quality: she remembers you, keeps her own daily rhythm, and gets real work done.
 
-**Key differences from upstream OpenClaw:**
+> The primary docs are the [Chinese README](README.md); this file is an English mirror.
 
-| Item             | OpenClaw              | RedClaw                           |
-| ---------------- | --------------------- | --------------------------------- |
-| Target users     | Multi-user enterprise | Single-user personal              |
-| macOS code       | Retained              | Fully removed                     |
-| Channel plugins  | 40+                   | Streamlined to QQBot etc.         |
-| Default language | English               | Simplified Chinese                |
-| AI providers     | Generic               | Native Xiaomi Code Plan support   |
-| Commands         | `openclaw`            | `redclaw` / `openclaw` dual names |
+```
+┌─ Stack ──────────────────────────────────┐
+│ Tauri 2 (Rust)        ← desktop window   │
+│ React 19 + TypeScript ← frontend         │
+│ Tailwind CSS 4        ← dark macOS feel  │
+│ WebSocket RPC         ← gateway link     │
+└───────────────────────────────────────────┘
+```
+
+| Aspect         | OpenClaw         | RedClaw                     |
+| -------------- | ---------------- | --------------------------- |
+| Target users   | Multi-user teams | Single-user personal        |
+| Desktop client | ❌ WebUI only    | ✅ Tauri 2 native GUI       |
+| Platform       | macOS / Linux    | **Windows** first           |
+| Preset models  | Generic          | DeepSeek V4 / Step / Ollama |
+| Language       | English          | Simplified Chinese          |
 
 ---
 
-## Build from source
+## Highlights
 
-**Prerequisites:** Node.js 22.19+, Git, pnpm 11.2+
+**UI**
+
+- Three-column layout (sessions / chat / right panel), resizable with persisted widths
+- Light / dark / system themes (12-step OKLCH scales), 3-step UI font scaling
+- Frameless window with custom traffic lights, four color-coded panel toggles
+
+**Chat**
+
+- Streaming segments: text / tools / thinking interleaved in true stream order; collapsible thinking with shimmer summary
+- Markdown (GFM tables), code block labels + copy, image lightbox
+- Retry / regenerate / edit-resend; `Ctrl+F` in-chat search; `↑/↓` input history recall
+- Model picker + reasoning-effort slider (per-message one-shot override)
+- Busy-time message queueing with auto dispatch; draft-state new sessions (no zombie empty sessions)
+- Image generation, TTS readout, avatars for both sides
+
+**Butler**
+
+- Todos and cron jobs (visual editing + run history)
+- Usage & cost panel; live "companion activity" (heartbeat + background runs)
+- Toast on background job completion; channel connection status card
+
+**Governance**
+
+- `Ctrl+K` command palette, manual `/compact` (never auto-triggered)
+- Exec approvals / device pairing / node management; visual provider management
+- Companion behavior settings: tool profile / browser tools / context-injection presets
+- Failed history loads show an explicit banner (details + copy full error) — never faked as an empty session
+
+---
+
+## Quick start
+
+### Run
 
 ```bash
-# Install pnpm (if not installed)
+# 1. Start the Gateway (backend service)
+redclaw gateway
+
+# 2. Start the desktop client (another terminal)
+cd packages/desktop-gui
+pnpm tauri dev
+```
+
+The client connects to the Gateway WebSocket automatically.
+
+### Build from source
+
+**Prerequisites:** Node.js 22.19+, Git, pnpm 11.2+, Rust (for Tauri)
+
+```bash
 npm install -g pnpm@11.2.2
 
-# Clone + build
 git clone https://github.com/JiaHuiRed/RedClaw.git
 cd RedClaw
 pnpm install
-pnpm build
+pnpm build        # CLI + desktop frontend
 
-# Register global command (use redclaw/openclaw from any directory)
-npm install -g .
+npm install -g .  # register the redclaw command
 ```
 
-> **Note:** Must use `npm install -g .`, not `pnpm install -g .` (will hang in workspace root).
+> Use `npm install -g .`, not `pnpm install -g .` (hangs in the workspace root).
 
 ---
 
@@ -55,89 +106,40 @@ npm install -g .
 ### First run
 
 ```bash
-# Local terminal chat (lightweight mode, no gateway needed)
-redclaw chat
-
-# Or full mode (when connecting to QQ etc.)
-redclaw gateway   # background service
-redclaw tui       # open another terminal to connect
+redclaw onboard   # interactive wizard (Chinese UI)
 ```
 
-### Add AI provider
+### Supported providers
 
-```bash
-redclaw onboard   # interactive wizard, Chinese interface
-```
+| Provider            | Notes                      | Key format |
+| ------------------- | -------------------------- | ---------- |
+| **DeepSeek**        | V4 Flash/Pro, primary pick | `sk-`      |
+| **Step (阶跃星辰)** | Step 3.7 Flash, 256k ctx   | `sk-`      |
+| **Volcengine**      | Doubao series              | `sk-`      |
+| **Ollama**          | Fully local, zero cost     | no key     |
+| **OpenAI**          | GPT series                 | `sk-`      |
+| **Anthropic**       | Claude series              | `sk-ant-`  |
 
-### Supported AI providers
+All providers support runtime model auto-discovery.
 
-| Provider        | Description                         | Key format    |
-| --------------- | ----------------------------------- | ------------- |
-| **Xiaomi MiMo** | Native support, includes Code Plan  | `sk-` / `tp-` |
-| **DeepSeek**    | Recommended primary, cost-effective | `sk-`         |
-| **Ollama**      | Fully local, zero cost              | No key needed |
-| **OpenAI**      | GPT series                          | `sk-`         |
-| **Anthropic**   | Claude series                       | `sk-ant-`     |
-
-> Xiaomi Code Plan subscribers (`tp-` prefix keys): select "Xiaomi Code Plan key" during onboard for automatic endpoint configuration.
-
-### Workspace location
-
-Created automatically on first run at `~/.openclaw/`:
+### Local storage
 
 ```
 ~/.openclaw/
-├── agents/main/agent/AGENTS.md   # Qiuqiu's personality + user profile
-├── agents/main/sessions/         # Conversation history
-├── memory/main/                  # Long-term memory (vector store)
-├── wiki/main/                    # Knowledge base
-└── openclaw.json                 # Main config
+├── agents/main/agent/AGENTS.md   # companion persona + user profile
+├── agents/main/sessions/         # conversation history
+├── memory/main/                  # long-term memory
+└── openclaw.json                 # main config
 ```
-
-> To migrate old data: overwrite `~/.openclaw/` to inherit memory and personality.
-
-### 👁️ Local Vision Understanding (Vision MCP)
-
-Qiuqiu can analyze images using `qwen3-vl` vision model — describe scenes, extract text, compare multiple images. Fully offline, zero API cost.
-
-**Prerequisite: Ollama + vision model**
-
-```bash
-# Install Ollama (if not installed)
-winget install Ollama.Ollama
-
-# Pull vision model
-ollama pull qwen3-vl:8b
-```
-
-**Built-in config**: Vision MCP is pre-configured in `~/.openclaw/openclaw.json` under `mcp.servers.vision`. No extra setup needed.
-
-Restart RedClaw after setup — send Qiuqiu an image and vision analysis kicks in automatically.
 
 ---
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md).
-
-| Version                                      | Date       | Changes                                                                            |
-| -------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
-| [v0.0.12](CHANGELOG.md#0012---2026-06-14)    | 2026-06-14 | TUI cache/cost display, local vision understanding (Vision MCP)                    |
-| [v0.0.11](CHANGELOG.en.md#0011---2026-06-14) | 2026-06-14 | Fix gateway crash caused by Headroom plugin timeout on port 8787                   |
-| [v0.0.10](CHANGELOG.en.md#0010---2026-06-06) | 2026-06-10 | TUI queue system, gateway config validation schema, Xiaomi v2.5 allowlist          |
-| [v0.0.9](CHANGELOG.en.md#009---2026-06-04)   | 2026-06-04 | Skill creation tool, Hermes Agent workspace integration, RedCode branding          |
-| [v0.0.8](CHANGELOG.en.md#008---2026-06-03)   | 2026-06-03 | Tool Schema first design, Permission system overhaul, Learning system maturity     |
-| [v0.0.7](CHANGELOG.en.md#007---2026-06-03)   | 2026-06-03 | OpenCode Zen/DeepSeek/Xiaomi catalog endpoints; streamlined onboarding flow        |
-| [v0.0.6](CHANGELOG.en.md#006---2026-06-03)   | 2026-06-03 | Massive cleanup: removed 39 extensions, 40 skills/17 scripts, streamlined manifest |
-| [v0.0.5](CHANGELOG.en.md#005---2026-05-29)   | 2026-05-29 | ComfyUI workflow support, zh-TW locale, ACS branding, onboard fixes                |
-| [v0.0.4](CHANGELOG.md#004---2026-05-28)      | 2026-05-28 | Clean onboard channel list, keep only QQBot; rewrite README                        |
-| [v0.0.3](CHANGELOG.md#003---2026-05-28)      | 2026-05-28 | Xiaomi Code Plan native support, wizard default Chinese                            |
-| [v0.0.2](CHANGELOG.md#002---2026-05-28)      | 2026-05-28 | Branding, dragon fire loading animation, redclaw command alias                     |
-| [v0.0.1](CHANGELOG.md#001---2026-05-27)      | 2026-05-27 | Fork from OpenClaw, remove macOS code, streamline plugins                          |
+Every version's changes live in [CHANGELOG.md](CHANGELOG.md) (Chinese). The frozen upstream changelog archive is [CHANGELOG.en.md](CHANGELOG.en.md).
 
 ---
 
 ## Credits
 
-- [OpenClaw](https://github.com/openclaw/openclaw) — Upstream open source project by Peter Steinberger
-- Upstream English changelog see [CHANGELOG.en.md](CHANGELOG.en.md)
+- [OpenClaw](https://github.com/openclaw/openclaw) — upstream open source project by Peter Steinberger. RedClaw's gateway, plugin system and protocol all stand on its shoulders.
