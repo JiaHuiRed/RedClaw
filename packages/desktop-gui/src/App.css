@@ -14,6 +14,8 @@
   --bg-tertiary: var(--gray-3);
   --text-primary: var(--gray-12);
   --text-secondary: var(--gray-11);
+  /* 第三级前景（学 ZCode subtlest）：分隔符/时间戳等「看得见但不抢眼」的文本 */
+  --text-subtlest: var(--gray-9);
   --border: var(--gray-6);
   --accent: var(--warm-9);
   --accent-hover: var(--warm-10);
@@ -31,20 +33,29 @@
   --font-mono: "Cascadia Code", Consolas, "Courier New", monospace;
 }
 
-/* 细滚动条：贴合深浅主题 */
+/* 细滚动条（hover 显现，学 ZCode）：常驻灰条在深色 UI 上是一排噪音；
+   thumb 平时透明，悬停容器才浮现——透明边 + background-clip 撑出热区 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-secondary) 30%, transparent);
-  border-radius: 4px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+*:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-secondary) 28%, transparent);
+  background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb:hover,
+*:hover::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--text-secondary) 55%, transparent);
+  background-clip: padding-box;
 }
 
 /* 输入壳：聚焦时桃粉光晕 */
@@ -121,8 +132,32 @@ body,
       background-position: -200% 0;
     }
   }
+  /* 工具卡运行中迷你进度条：1px 细条上滑动的短光块（无计时器，纯 CSS） */
+  .redclaw-tool-progress {
+    overflow: hidden;
+  }
+  .redclaw-tool-progress::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 30%;
+    border-radius: 999px;
+    background: var(--accent);
+    animation: redclaw-progress-slide 1.4s ease-in-out infinite;
+  }
+  @keyframes redclaw-progress-slide {
+    from {
+      transform: translateX(-110%);
+    }
+    to {
+      /* ::before 宽 30%，translateX 以自身宽为基准：340% 恰好划出整个横条 */
+      transform: translateX(340%);
+    }
+  }
 }
 html[data-document-hidden] .redclaw-fade-in,
-html[data-document-hidden] .redclaw-thinking-text {
+html[data-document-hidden] .redclaw-thinking-text,
+html[data-document-hidden] .redclaw-tool-progress::before {
   animation: none;
 }
