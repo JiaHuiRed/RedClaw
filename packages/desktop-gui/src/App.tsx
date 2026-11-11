@@ -17,6 +17,7 @@ const AgentFilesWorkspace = lazy(() => import("./components/AgentFilesWorkspace"
 const OperationsWorkspace = lazy(() => import("./components/OperationsWorkspace"));
 const SessionsWorkspace = lazy(() => import("./components/SessionsWorkspace"));
 const SkillsWorkspace = lazy(() => import("./components/SkillsWorkspace"));
+import type { SessionError } from "./components/ErrorBanner";
 import {
   gateway,
   deriveSessionTitle,
@@ -27,6 +28,7 @@ import {
   type ToolCallEvent,
 } from "./gateway/client";
 import { getConnectionState } from "./lib/connectionStatus";
+import { friendlyError } from "./lib/friendlyError";
 import { GATEWAY_TOKEN_KEY, GATEWAY_URL_KEY } from "./lib/gateway-config";
 import { clampRightPanelWidth, reportRightPanelWidth } from "./lib/layout-budget";
 
@@ -108,7 +110,9 @@ export default function App() {
   // 请求代际防护：切会话时旧会话的慢历史返回会覆盖新会话内容，
   // 过期响应连同它的 finally（提前熄 loading）一起丢弃
   const historyGenRef = useRef(0);
-  const [historyError, setHistoryError] = useState(false);
+  // 会话级错误登记（key → 本地化文案 + 原始报错）：错误横幅取当前会话条目，
+  // 侧栏行首指示器取全表；该会话加载成功即清除
+  const [sessionErrors, setSessionErrors] = useState<Map<string, SessionError>>(new Map());
   const loadHistory = useCallback(async (sessionKey: string) => {
     const gen = ++historyGenRef.current;
     setLoadingHistory(true);
@@ -117,17 +121,44 @@ export default function App() {
       const history = await gateway.fetchHistory(sessionKey);
       if (gen !== historyGenRef.current) return;
       setMessages(history);
-      setHistoryError(false);
+      setSessionErrors((prev) => {
+        if (!prev.has(sessionKey)) return prev;
+        const next = new Map(prev);
+        next.delete(sessionKey);
+        return next;
+      });
     } catch (err) {
       // 拉历史失败必须显式暴露：吞成空数组会让老会话伪装成「全新空会话」，
       // 对伴侣型产品是情感伤害级误导（以为聊天记录丢了）
       if (gen === historyGenRef.current) {
         console.error("[App] loadHistory failed:", err);
-        setHistoryError(true);
+        const raw = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+        setSessionErrors((prev) =>
+          new Map(prev).set(sessionKey, { message: friendlyError(err), raw }),
+        );
       }
     } finally {
       if (gen === historyGenRef.current) setLoadingHistory(false);
     }
+  }, []);
+
+  // 草稿态新建（学 ZCode）：点「新建会话」不再立刻落库建空会话——误点不产生
+  // 僵尸会话；进入无 key 草稿视图，首条消息发送时才真正 createSession
+  //（ChatPanel.sendNow 负责），成功后经 adoptSessionKey 转正
+  const skipHistoryLoadRef = useRef(false);
+  const adoptSessionKey = useCallback((key: string) => {
+    // 草稿转正：乐观消息已上屏，跳过本次 loadHistory（清屏会让消息闪没一次）
+    skipHistoryLoadRef.current = true;
+    setCurrentSessionKey(key);
+    gateway.setActiveSessionKey(key);
+  }, []);
+
+  const handleNewSession = useCallback(() => {
+    setView("chat");
+    setMessages([]);
+    setCurrentSessionKey("");
+    gateway.setActiveSessionKey("");
+    setInSession(true);
   }, []);
 
   useEffect(() => {
@@ -206,6 +237,11 @@ export default function App() {
 
   // Auto-load history when current session changes
   useEffect(() => {
+    // 草稿转正（adoptSessionKey）后的第一次进效果：消息已在屏，跳过重拉
+    if (skipHistoryLoadRef.current) {
+      skipHistoryLoadRef.current = false;
+      return;
+    }
     if (connected && currentSessionKey) {
       loadHistory(currentSessionKey);
     }
@@ -271,23 +307,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [inSession, handleBackHome]);
 
-  const handleNewSession = useCallback(async () => {
-    setView("chat");
-    setMessages([]);
-    try {
-      const key = await gateway.createSession();
-      setCurrentSessionKey(key);
-      setInSession(true);
-    } catch (err) {
-      console.error("createSession failed:", err);
-      pushToast("新建会话失败，已切换到默认会话");
-      // client._activeSessionKey 与 UI 同步回落，否则发送仍打到失败的旧 key
-      setCurrentSessionKey(DEFAULT_SESSION_KEY);
-      gateway.setActiveSessionKey(DEFAULT_SESSION_KEY);
-      setInSession(true);
-    }
-  }, [pushToast]);
-
   const handleDeleteSession = useCallback(
     async (sessionKey: string) => {
       try {
@@ -351,8 +370,24 @@ export default function App() {
   }, [rightPanel, rightPanelWidth]);
 
   const retryHistory = useCallback(() => {
+    // 草稿态无 key（空串会打到 fetchHistory 的默认路由上），不需要重试
+    if (!currentSessionKey) return;
     void loadHistory(currentSessionKey);
   }, [loadHistory, currentSessionKey]);
+
+  // 用户点横幅「×」：本次不看了，清掉该会话的登记（下次失败会重新登记）
+  const dismissHistoryError = useCallback((sessionKey: string) => {
+    setSessionErrors((prev) => {
+      if (!prev.has(sessionKey)) return prev;
+      const next = new Map(prev);
+      next.delete(sessionKey);
+      return next;
+    });
+  }, []);
+  const handleDismissHistoryError = useCallback(
+    () => dismissHistoryError(currentSessionKey),
+    [dismissHistoryError, currentSessionKey],
+  );
 
   return (
     <div className="flex flex-col h-screen w-screen">
@@ -377,6 +412,8 @@ export default function App() {
           connectionState={connectionState}
           sessions={sessions}
           currentSessionKey={currentSessionKey}
+          sessionErrors={sessionErrors}
+          loadingSessionKey={loadingHistory ? currentSessionKey : null}
           onSelectSession={handleSelectSession}
           onNewSession={handleNewSession}
           onDeleteSession={handleDeleteSession}
@@ -402,8 +439,10 @@ export default function App() {
             onToggleUsage={onToggleUsage}
             onToggleCron={onToggleCron}
             loadingHistory={loadingHistory}
-            historyError={historyError}
+            historyError={sessionErrors.get(currentSessionKey) ?? null}
             onRetryHistory={retryHistory}
+            onDismissHistoryError={handleDismissHistoryError}
+            onAdoptSessionKey={adoptSessionKey}
             workDraft={workDraft}
             onWorkDraftConsumed={handleWorkDraftConsumed}
             onBackHome={handleBackHome}
