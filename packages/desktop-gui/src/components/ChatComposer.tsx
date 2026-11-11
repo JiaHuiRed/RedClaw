@@ -14,6 +14,9 @@ import { ModelPicker } from "./ModelPicker";
 // v1：带版本后缀防旧格式覆盖（localStorage key 教训见 ChatHome 同款）
 const CHAT_MODEL_KEY = "redclaw:chatModel:v1";
 const CHAT_THINKING_KEY = "redclaw:chatThinking:v1";
+// 输入历史召回（webui input-history 对齐）：↑ 上一条 / ↓ 下一条，封顶 50 条
+const INPUT_HISTORY_KEY = "redclaw:inputHistory:v1";
+const INPUT_HISTORY_CAP = 50;
 // 生图模式：🎨 切换，尺寸固定档位（来自 Stepfun API 实测，同 RedStudio）
 const IMAGE_SIZES = ["1024x1024", "768x1360", "896x1184", "1360x768", "1184x896"];
 
@@ -110,6 +113,43 @@ export function ChatComposer({
     localStorage.getItem(CHAT_THINKING_KEY),
   );
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 输入历史：lazy 读 localStorage（损坏值当空表）；-1 = 未在召回态
+  const inputHistoryRef = useRef<string[]>(
+    (() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) ?? "[]") as unknown;
+        return Array.isArray(saved) ? saved.filter((x): x is string => typeof x === "string") : [];
+      } catch {
+        return [];
+      }
+    })(),
+  );
+  const historyIdxRef = useRef(-1);
+  const historyDraftRef = useRef("");
+
+  function pushInputHistory(msg: string) {
+    const list = inputHistoryRef.current;
+    if (list[list.length - 1] === msg) return; // 连发同文去重
+    const next = [...list, msg].slice(-INPUT_HISTORY_CAP);
+    inputHistoryRef.current = next;
+    historyIdxRef.current = -1;
+    try {
+      localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(next));
+    } catch {
+      // 存储满/隐私模式：内存里仍可召回本次会话
+    }
+  }
+
+  // 召回写回输入框：与手动输入同一条路径（命令面板判断 + auto-resize）
+  function applyInputValue(val: string) {
+    setInput(val);
+    setShowCmdPalette(val.startsWith("/"));
+    const ta = inputRef.current;
+    if (ta) {
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
+    }
+  }
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // 模型列表随 gateway 推送刷新（ModelPicker 数据源）
@@ -239,6 +279,7 @@ export function ChatComposer({
   async function handleSend(text?: string) {
     const msg = (text ?? input).trim();
     if ((!msg && pendingImages.length === 0) || !connected) return;
+    if (msg) pushInputHistory(msg);
     const item = buildItem(msg);
     // 生成中：入队而非丢弃；流结束后由派发 effect 依次发出
     if (isGenerating) {
@@ -282,6 +323,7 @@ export function ChatComposer({
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
+    historyIdxRef.current = -1; // 手动输入打断召回
     setInput(val);
     setShowCmdPalette(val.startsWith("/"));
     // auto-resize
@@ -326,6 +368,34 @@ export function ChatComposer({
           activatePaletteItem(item);
           return;
         }
+      }
+    }
+    // 输入历史召回：↑ 从当前草稿进入历史、继续 ↑ 更早；↓ 回到新，走完回草稿。
+    // 只在空输入或已在召回态时接管方向键，不干扰正常光标移动
+    if (!e.nativeEvent.isComposing && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const hist = inputHistoryRef.current;
+      const recalling = historyIdxRef.current !== -1;
+      const eligible =
+        e.key === "ArrowUp" ? (input === "" || recalling) && hist.length > 0 : recalling;
+      if (eligible) {
+        e.preventDefault();
+        if (e.key === "ArrowUp") {
+          if (historyIdxRef.current === -1) {
+            historyDraftRef.current = input;
+            historyIdxRef.current = hist.length - 1;
+          } else {
+            historyIdxRef.current = Math.max(0, historyIdxRef.current - 1);
+          }
+        } else {
+          historyIdxRef.current += 1;
+          if (historyIdxRef.current >= hist.length) {
+            historyIdxRef.current = -1;
+            applyInputValue(historyDraftRef.current);
+            return;
+          }
+        }
+        applyInputValue(hist[historyIdxRef.current] ?? "");
+        return;
       }
     }
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
