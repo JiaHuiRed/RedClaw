@@ -13,11 +13,13 @@ import {
   type SessionInfo,
 } from "../gateway/client";
 import { useChatStream } from "../hooks/useChatStream";
+import { downloadTextFile, exportFileName, messagesToMarkdown } from "../lib/exportChat";
 import { useEscape } from "../lib/useEscape";
 import ActivityCapsule from "./ActivityCapsule";
 import { compressImageFile } from "./ChatAvatars";
 import { ChatComposer, type ComposerActions, type QueuedMessage } from "./ChatComposer";
 import ChatEmptyState from "./ChatEmptyState";
+import { ChatSearchBar } from "./ChatSearchBar";
 import { ChatTopBar } from "./ChatTopBar";
 import { HistoryErrorBanner, type SessionError } from "./ErrorBanner";
 import { MessageRow } from "./MessageRow";
@@ -134,6 +136,12 @@ function ChatPanel({
   const [previewImg, setPreviewImg] = useState<MessageImage | null>(null);
   // 上翻离开底部时显示"回到底部"
   const [showJump, setShowJump] = useState(false);
+  // 会话内消息搜索（webui Ctrl+F 对齐）：匹配/跳转/短暂高亮
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchIdx, setSearchIdx] = useState(0);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
   const autoTitledRef = useRef<Set<string>>(new Set());
   // 草稿态转正 key：sendNow 创建会话是异步的，连发队列里第二条规定到达时
@@ -297,6 +305,77 @@ function ChatPanel({
 
   // 灯箱 Esc 关闭（capture 阶段，先于全局 Esc 返回主页）
   useEscape(() => setPreviewImg(null), previewImg !== null);
+
+  // ---- 会话内搜索（Ctrl/Cmd+F）----
+  const searchMatches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return messages.filter((m) => (m.content ?? "").toLowerCase().includes(q)).map((m) => m.id);
+  }, [messages, searchQuery]);
+
+  const jumpToMatch = useCallback(
+    (idx: number) => {
+      const id = searchMatches[idx];
+      if (!id) return;
+      const el = listRef.current?.querySelector(`[data-mid="${CSS.escape(id)}"]`);
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      setFlashId(id);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashId(null), 1400);
+    },
+    [searchMatches],
+  );
+
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    setSearchIdx(0);
+  }, []);
+  // Ctrl/Cmd+F 唤起搜索（仅会话视图活跃时）
+  useEffect(() => {
+    if (!active) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        openSearch();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [active, openSearch]);
+  useEscape(() => setSearchOpen(false), searchOpen);
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    },
+    [],
+  );
+
+  const searchPrev = useCallback(() => {
+    if (searchMatches.length === 0) return;
+    const next = (searchIdx - 1 + searchMatches.length) % searchMatches.length;
+    setSearchIdx(next);
+    jumpToMatch(next);
+  }, [searchIdx, searchMatches, jumpToMatch]);
+  const searchNext = useCallback(() => {
+    if (searchMatches.length === 0) return;
+    const next = (searchIdx + 1) % searchMatches.length;
+    setSearchIdx(next);
+    jumpToMatch(next);
+  }, [searchIdx, searchMatches, jumpToMatch]);
+
+  // 导出会话 Markdown（webui「导出聊天」对齐）；下载失败回落剪贴板
+  const handleExportChat = useCallback(() => {
+    const title = sessions.find((s) => s.sessionKey === currentSessionKey)?.title || "会话";
+    const md = messagesToMarkdown(messages, title);
+    if (downloadTextFile(exportFileName(title), md)) {
+      pushToast("会话已导出为 Markdown");
+    } else {
+      void navigator.clipboard?.writeText(md).then(
+        () => pushToast("下载失败，已复制全文到剪贴板"),
+        () => pushToast("导出失败"),
+      );
+    }
+  }, [messages, sessions, currentSessionKey, pushToast]);
 
   // 流式跟随滚动：内容增长（新消息/token/reasoning/工具卡）时若贴底则在下一帧
   // 滚到底；rAF 合并同帧多次触发，避免每个 token 强制一次同步 reflow。
@@ -534,6 +613,7 @@ function ChatPanel({
         onToggleUsage={onToggleUsage}
         onToggleCron={onToggleCron}
         onToggleActivity={onToggleActivity}
+        onExportChat={handleExportChat}
       />
 
       {/* Messages */}
@@ -544,8 +624,22 @@ function ChatPanel({
           nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           setShowJump(!nearBottomRef.current);
         }}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto relative"
       >
+        {searchOpen && (
+          <ChatSearchBar
+            query={searchQuery}
+            count={searchMatches.length}
+            index={searchIdx}
+            onQueryChange={(q) => {
+              setSearchQuery(q);
+              setSearchIdx(0);
+            }}
+            onPrev={searchPrev}
+            onNext={searchNext}
+            onClose={() => setSearchOpen(false)}
+          />
+        )}
         {messages.length === 0 &&
           !hasStreaming &&
           (loadingHistory ? (
@@ -615,6 +709,7 @@ function ChatPanel({
                 onRetry={onRetryMsg}
                 onPreview={setPreviewImg}
                 onPickAvatar={onPickAvatarMsg}
+                flash={flashId === msg.id}
               />
             ))}
 

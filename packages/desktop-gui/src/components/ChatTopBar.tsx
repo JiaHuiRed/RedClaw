@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarClock, Coins, ListTodo, PanelRight } from "lucide-react";
+import { ArrowLeft, CalendarClock, Coins, Download, ListTodo, PanelRight } from "lucide-react";
 import type { ChatSession } from "../gateway/client";
 
 // 顶栏面板按钮分色：同排按钮一眼可辨（语义类型色 -9 淡染背景 + 同色文字，
@@ -31,6 +31,7 @@ export function ChatTopBar({
   onToggleUsage,
   onToggleCron,
   onToggleActivity,
+  onExportChat,
 }: {
   sessions: ChatSession[];
   currentSessionKey: string;
@@ -39,6 +40,7 @@ export function ChatTopBar({
   onToggleUsage: () => void;
   onToggleCron: () => void;
   onToggleActivity: () => void;
+  onExportChat?: () => void;
 }) {
   return (
     <div
@@ -64,6 +66,16 @@ export function ChatTopBar({
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {onExportChat && (
+          <button
+            onClick={onExportChat}
+            className="p-1.5 rounded-md hover:opacity-80"
+            style={{ color: "var(--text-secondary)" }}
+            title="导出会话为 Markdown"
+          >
+            <Download size={14} />
+          </button>
+        )}
         <button
           onClick={onToggleTodo}
           className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md hover:opacity-80"

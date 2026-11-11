@@ -99,6 +99,7 @@ export const MessageRow = memo(function MessageRow({
   onRetry,
   onPreview,
   onPickAvatar,
+  flash,
 }: {
   msg: Message;
   agentAvatarSrc: string | null;
@@ -112,6 +113,8 @@ export const MessageRow = memo(function MessageRow({
   onRetry: (msg: Message) => void;
   onPreview: (img: MessageImage) => void;
   onPickAvatar: (kind: "user" | "agent", file: File | undefined) => void;
+  // 会话内搜索跳转命中时的短暂高亮（ChatPanel 定时熄灭）
+  flash?: boolean;
 }) {
   if (msg.failed) {
     // 生成失败轮：折叠成细条，替代占位文本空泡
@@ -132,7 +135,13 @@ export const MessageRow = memo(function MessageRow({
   }
   return (
     <div
-      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2`}
+      data-mid={msg.id}
+      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-start gap-2 rounded-xl transition-[outline-color]`}
+      style={
+        flash
+          ? { outline: "2px solid var(--accent)", outlineOffset: 3 }
+          : { outline: "2px solid transparent", outlineOffset: 3 }
+      }
     >
       {msg.role === "assistant" && (
         <EditableAvatar
