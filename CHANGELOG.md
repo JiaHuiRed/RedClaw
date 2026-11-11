@@ -1,5 +1,40 @@
 # 更新日志
 
+## [0.4.0] - 2026-11-12
+
+> 划版大更新：测试安全网打底，ZCode harness 吸收（字阶/思考卡/动效/错误横幅/草稿态），webui 功能全对齐——webui 有的 GUI 都有；同时独立 fork 口径落文档。
+
+### 新增
+
+- **测试安全网**：desktop-gui 接入 vitest（node 环境纯逻辑单测 26 例）——seq 水位线、消息 FIFO 去重、指数退避、握手幂等、replace 对齐、命令面板过滤；`pnpm check` = typecheck + tokens + loc(≤800) + test 四板斧。
+- **会话错误横幅**：历史加载失败不再伪装成「全新空会话」——顶部横幅给本地化文案 + 重新加载 + 详情弹窗（完整报错含 stack，一键复制），App 层按 sessionKey 登记错误、侧栏行首红点共享同一数据源。
+- **草稿态新建**：点「新建会话」不再立刻落库——进入无 key 草稿视图，首条消息发送时才真正创建会话，误点不再产生僵尸空会话；连发队列竞态由 draftKeyRef 防住，创建失败回落默认会话。
+- **会话行首指示器**：侧栏会话行 error（红点 + 悬浮文案）> loading（转圈）> 普通图标；unread 无协议数据源不做假数据。
+- **会话内搜索**：`Ctrl/Cmd+F` 悬浮搜索条，实时计数 + Enter/Shift+Enter 上下跳转 + 命中行描边高亮（1.4s 熄灭），Esc 关闭。
+- **输入历史召回**：`↑/↓` 逐条回看已发送消息（50 条持久化、连发同文去重、IME 组词不接管方向键）。
+- **导出会话 Markdown**：顶栏下载按钮，消息流含图片导出 `redclaw-<标题>-<时间>.md`；下载失败回落剪贴板复制全文。
+- **手动 /compact**：命令面板「会话」类目新增，走 `sessions.compact` RPC，成功 toast 带 tokens 前→后对比、跳过时透出原因——纯手动，无任何自动/阈值/定时触发（压缩会断 DeepSeek 前缀缓存）。
+- **秋秋行为卡**：通用设置直调 `tools.profile` 四档（最小/编码/沟通/全量）、`browser.enabled`、上下文注入预设四档（webui Quick Settings 同款），`config.patch` 深合并热重载、下一轮对话生效。
+- **频道状态卡**：运行概况一眼看微信等消息通道连接态（三态染色 + lastError 悬浮）；默认缓存快照，「探测」按钮主动联网核实。
+- **后台任务完成唤醒**：定时任务跑完/失败即时 toast（可见时 60s 轮询 `cron.runs`）；首拉只建基线，超 10 分钟不补报、休眠唤醒不倒豆子。
+- **字阶体系**：全部 UI 字号由唯一 `--ui-font-size` calc 派生，设置页「界面字号」三档（标准/大/特大，挂载前落根节点防跳变）。
+- **思考块四件套**：流式默认收起 + 「思考中 · N 字 · 末行摘要」扫光 + 展开纯文本不走 Markdown 重解析。
+- **工具卡**：左导线状态色（红=失败 桃=运行中 绿=完成）+ 运行中底部迷你进度条；markdown 中文排版 `text-pretty`/`text-balance`。
+- **Todo 三规则**：活跃项标题上浮（头部常驻「进行中 N 项 · 首条标题」）/ 全完成收纳成一行 / 空态引导。
+- **消息交互**：发送失败标记 + 重试、重新生成、编辑重发、user 气泡复制；生图可停止可打字。
+
+### 变更
+
+- **独立 fork 口径**：upstream remote 已拆（不再自动 fetch，省代理流量），根 AGENTS.md / README 改 RedClaw 独立 fork；版本史从 README 撤出，统一记本文件。
+- **结构拆分**：client.ts 1625→798（protocol/emitter/media/history/chat-events/api-\* 模块化）、ChatPanel 1797→708（MessageRow/ChatAvatars/ChatTopBar/StreamPreview/ChatComposer/useChatStream）、OperationsWorkspace 拆出 ProvidersPanel；check:loc ≤800 门禁通电。
+- **性能**：MessageRow memo + ref 蹦床、LiveSeconds 秒跳隔离、delta rAF 合帧、消息封顶 400、objectURL 预览、React.lazy 工作区 + manualChunks（主包 564KB→365KB）。
+- **反馈体系**：toast 分级 + 同文案去重 + 手动关闭、window.confirm 全退役（二段确认条）、弹层 Esc 统一 capture 管理、滚动条 hover 显现、流式入场动效（窗口隐藏停机 + reduced-motion）。
+- **视觉**：`--text-subtlest` 第三级前景、面板按钮语义色别名、时段问候六档、ChatHome 标题窄窗自适应。
+
+### 修复
+
+- IME `isComposing` 守卫×5（中文输入 Enter 误发）、侧栏/右栏拖宽互感知（聊天保底 380px）、历史加载代际防护（慢响应不串会话）、final 消息稳定 id 去重、退避幂等（防双调度）、媒体 URL 5s 超时、网关句柄查活（死进程可重拉）、剪贴板失败不误报复制成功、乐观消息带图、发送即显示。
+
 ## [0.3.40] - 2026-10-04
 
 > 输入框学敏敏：模型+推理强度滑杆二合一；发出去的图不再蒸发。

@@ -60,6 +60,21 @@ ChatPanel
 - 交互组件（模型 pill、SchedulePicker）的选中态用
   `color-mix(in srgb, var(--accent) 14%, var(--bg-secondary))` 式混合，不引入新颜色。
 
+## 字阶规则（text-ui-\*）
+
+- UI 组件字号一律用 `text-ui-xl/lg/base/sm/caption/xs`（App.css `@theme inline`
+  由唯一变量 `--ui-font-size` calc 派生），**禁止 `text-sm/text-xs/text-[11px]`
+  散落**——「界面字号」三档设置只改那一个变量，硬编码字号会漏调。
+- 第三级「看得见但不抢眼」的文本（分隔符/时间戳）用 `var(--text-subtlest)`，
+  不要 `opacity-40/60` 叠灰字（浅色主题下对比度不可控）。
+
+## 动效规则
+
+- 入场动效用 `.redclaw-fade-in`，运行中指示用现成类（`.redclaw-thinking-text`
+  扫光、`.redclaw-tool-progress` 进度条）；新 CSS 动画必须挂在
+  `@media (prefers-reduced-motion: no-preference)` 内，并把选择器加进
+  `html[data-document-hidden]` 停机清单（防窗口隐藏时 DocumentTimeline 泄漏）。
+
 ## 本地持久化 key 约定
 
 - key 带版本后缀（`redclaw:chatModel:v1`）；改变默认值语义时升后缀作废旧值，
@@ -68,9 +83,8 @@ ChatPanel
 ## 验证
 
 ```
-pnpm typecheck      # tsc --noEmit
-pnpm check:tokens   # 裸色值门禁
-pnpm build          # tsc + vite build
+pnpm check   # typecheck + check:tokens + check:loc(≤800) + test(26 例)
+pnpm build   # tsc + vite build
 ```
 
 改 gateway（`src/`）行为后需在根目录 `pnpm build` 重编 dist 并重启 gateway 才能联调。
