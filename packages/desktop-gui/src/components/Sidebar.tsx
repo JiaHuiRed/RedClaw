@@ -34,6 +34,7 @@ import {
 import type { ConnectionState } from "../lib/connectionStatus";
 import { fmtRelative } from "../lib/format";
 import { SIDEBAR_MIN_WIDTH, clampSidebarWidth, reportSidebarWidth } from "../lib/layout-budget";
+import type { SessionError } from "./ErrorBanner";
 import { GatewayMenu } from "./GatewayMenu";
 import ProjectAreaModal from "./ProjectAreaModal";
 
@@ -59,6 +60,10 @@ interface SidebarProps {
   connectionState: ConnectionState;
   sessions: ChatSession[];
   currentSessionKey: string;
+  // 会话级错误登记（key → 错误）：行首红点指示器数据源
+  sessionErrors: Map<string, SessionError>;
+  // 正在拉取历史的会话 key：行首转圈指示器
+  loadingSessionKey: string | null;
   onSelectSession: (sessionKey: string) => void;
   onNewSession: () => void;
   onDeleteSession: (sessionKey: string) => void;
@@ -97,6 +102,8 @@ function Sidebar({
   connectionState,
   sessions,
   currentSessionKey,
+  sessionErrors,
+  loadingSessionKey,
   onSelectSession,
   onNewSession,
   onDeleteSession,
@@ -307,6 +314,11 @@ function Sidebar({
   const renderSessionRow = (s: ChatSession) => {
     const active = s.sessionKey === currentSessionKey;
     const isEditing = editingKey === s.sessionKey;
+    // 行首指示器（学 ZCode 优先级 error > loading；unread 无协议数据源，
+    // status RPC 暴露 per-session 未读前不做假数据）：错误红点带悬浮文案，
+    // 加载中转圈只标当前拉历史的会话，都不在才落回普通消息图标
+    const rowError = sessionErrors.get(s.sessionKey);
+    const rowLoading = loadingSessionKey === s.sessionKey;
     return (
       <div
         key={s.sessionKey}
@@ -320,11 +332,26 @@ function Sidebar({
           if (!isEditing) onSelectSession(s.sessionKey);
         }}
       >
-        <MessageCircle
-          size={14}
-          className="mt-0.5 shrink-0"
-          style={{ color: "var(--text-secondary)" }}
-        />
+        {rowError ? (
+          <span
+            aria-label="加载出错"
+            className="mt-[5px] shrink-0 w-2 h-2 rounded-full"
+            style={{ background: "var(--danger)" }}
+            title={rowError.message}
+          />
+        ) : rowLoading ? (
+          <span
+            aria-label="加载中"
+            className="mt-0.5 shrink-0 inline-block w-3.5 h-3.5 border-2 rounded-full animate-spin"
+            style={{ borderColor: "var(--text-secondary)", borderTopColor: "var(--accent)" }}
+          />
+        ) : (
+          <MessageCircle
+            size={14}
+            className="mt-0.5 shrink-0"
+            style={{ color: "var(--text-secondary)" }}
+          />
+        )}
         <div className="flex-1 min-w-0 group-hover:pr-14 transition-[padding] duration-150">
           {isEditing ? (
             <div className="flex items-center gap-1">
@@ -376,7 +403,7 @@ function Sidebar({
                 <span className="truncate">{s.configuredModel || s.model || "—"}</span>
                 {s.updatedAt && (
                   <>
-                    <span className="opacity-40">·</span>
+                    <span style={{ color: "var(--text-subtlest)" }}>·</span>
                     <span className="shrink-0">{fmtRelative(s.updatedAt)}</span>
                   </>
                 )}

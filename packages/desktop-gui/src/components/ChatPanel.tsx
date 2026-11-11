@@ -1,7 +1,8 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { AlertCircle, ArrowDown, Slash } from "lucide-react";
+import { ArrowDown, Slash } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DEFAULT_SESSION_KEY,
   gateway,
   deriveSessionTitle,
   type ChatSession,
@@ -18,6 +19,7 @@ import { compressImageFile } from "./ChatAvatars";
 import { ChatComposer, type ComposerActions, type QueuedMessage } from "./ChatComposer";
 import ChatEmptyState from "./ChatEmptyState";
 import { ChatTopBar } from "./ChatTopBar";
+import { HistoryErrorBanner, type SessionError } from "./ErrorBanner";
 import { MessageRow } from "./MessageRow";
 import { StreamPreview } from "./StreamPreview";
 
@@ -74,9 +76,12 @@ interface ChatPanelProps {
   onBackHome: () => void;
   // 本地即时反馈通道（图片超限/读取失败等纯前端校验；RPC 错误走 gateway.onError）
   pushToast: (message: string) => void;
-  // 历史加载失败显式错误态（区别于「还没有历史」），带重试入口
-  historyError?: boolean;
+  // 历史加载失败显式错误态（区别于「还没有历史」）：横幅 + 详情弹窗 + 重试
+  historyError?: SessionError | null;
   onRetryHistory?: () => void;
+  onDismissHistoryError?: () => void;
+  // 草稿态转正：sendNow 创建会话后回调 App 采纳真 key（跳过一次历史重拉）
+  onAdoptSessionKey?: (sessionKey: string) => void;
   // 仅会话视图可见时才响应全局快捷键（组件在其他视图保持挂载但隐藏）
   active?: boolean;
 }
@@ -103,6 +108,8 @@ function ChatPanel({
   loadingHistory,
   historyError,
   onRetryHistory,
+  onDismissHistoryError,
+  onAdoptSessionKey,
   active,
   workDraft,
   onWorkDraftConsumed,
@@ -129,6 +136,9 @@ function ChatPanel({
   const [showJump, setShowJump] = useState(false);
   // 本轮挂载已自动命名过的会话（防连发多消息时重复覆盖标题）
   const autoTitledRef = useRef<Set<string>>(new Set());
+  // 草稿态转正 key：sendNow 创建会话是异步的，连发队列里第二条规定到达时
+  // props 里的 currentSessionKey 还没更新，用它防重复 createSession
+  const draftKeyRef = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // 用户是否贴在消息底部：流式期间只在贴底时自动跟随滚动，
   // 用户上翻看历史时不被拉回底部。
@@ -280,6 +290,8 @@ function ChatPanel({
   useEffect(() => {
     setStreamingReasoning("");
     clearSegments();
+    // 重进草稿：丢弃上一份已转正 key，下一条消息重新创建新会话
+    if (!currentSessionKey) draftKeyRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSessionKey]);
 
@@ -332,12 +344,34 @@ function ChatPanel({
       ...(item.thinking ? { thinkingOverride: item.thinking } : {}),
     };
     appendMessage(userMsg);
+
+    // 草稿态（currentSessionKey 为空串）：首条消息发送时才真正创建会话，
+    // 误点「新建会话」不再产生落库的空会话。draftKeyRef 防连发竞态——队列里
+    // 第二条规定到达时 props 还没更新，复用第一条规定已创建的 key
+    let sessionKey = currentSessionKey;
+    if (!sessionKey) {
+      if (draftKeyRef.current) {
+        sessionKey = draftKeyRef.current;
+      } else {
+        try {
+          sessionKey = await gateway.createSession();
+        } catch (err) {
+          console.error("createSession failed:", err);
+          pushToast("创建会话失败，已回落默认会话");
+          sessionKey = DEFAULT_SESSION_KEY;
+        }
+        draftKeyRef.current = sessionKey;
+        // App 层采纳真 key 并跳过一次历史重拉（乐观消息已上屏）
+        onAdoptSessionKey?.(sessionKey);
+      }
+    }
+
     // 自动取标题：未命名会话用首条非命令消息命名（QQ/微信式），每次挂载每会话只做一次
-    if (!autoTitledRef.current.has(currentSessionKey)) {
+    if (!autoTitledRef.current.has(sessionKey)) {
       const title = deriveSessionTitle([userMsg]);
-      if (title && !sessions.find((s) => s.sessionKey === currentSessionKey)?.title) {
-        autoTitledRef.current.add(currentSessionKey);
-        void gateway.renameSession(currentSessionKey, title).catch(() => undefined);
+      if (title && !sessions.find((s) => s.sessionKey === sessionKey)?.title) {
+        autoTitledRef.current.add(sessionKey);
+        void gateway.renameSession(sessionKey, title).catch(() => undefined);
       }
     }
     // 自己发消息意味着要跟到底部
@@ -530,48 +564,38 @@ function ChatPanel({
                 <p className="text-ui-sm mt-2">加载历史消息…</p>
               </div>
             </div>
-          ) : historyError ? (
-            // 拉历史失败必须与「全新空会话」可区分：否则像聊天记录丢了
-            <div
-              className="flex items-center justify-center h-full text-ui-base"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <div className="text-center space-y-2">
-                <AlertCircle
-                  size={22}
-                  className="inline-block"
-                  style={{ color: "var(--danger)" }}
-                />
-                <p className="text-ui-sm">历史消息加载失败</p>
-                {onRetryHistory && (
-                  <button
-                    onClick={onRetryHistory}
-                    className="text-ui-sm underline underline-offset-2 hover:opacity-80"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    重新加载
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : connected ? (
-            <ChatEmptyState
-              sessions={sessions}
-              currentSessionKey={currentSessionKey}
-              onSelectSession={onSelectSession}
-              onShowCommands={() => composerActionsRef.current?.openCommands()}
-              onOpenTodos={onToggleTodo}
-            />
           ) : (
-            <div
-              className="flex items-center justify-center h-full text-ui-base"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <div className="text-center space-y-2">
-                <p className="text-lg font-medium">RedClaw</p>
-                <p className="text-ui-sm">连接 Gateway 后开始聊天</p>
-              </div>
-            </div>
+            <>
+              {/* 拉历史失败：横幅挂消息区顶部（本地化文案 + 重试 + 详情弹窗），
+                  下方宁可留白也不渲染「全新会话」空态——那会伪装成记录丢失 */}
+              {historyError && onRetryHistory && onDismissHistoryError && (
+                <HistoryErrorBanner
+                  error={historyError}
+                  onRetry={onRetryHistory}
+                  onDismiss={onDismissHistoryError}
+                />
+              )}
+              {!historyError &&
+                (connected ? (
+                  <ChatEmptyState
+                    sessions={sessions}
+                    currentSessionKey={currentSessionKey}
+                    onSelectSession={onSelectSession}
+                    onShowCommands={() => composerActionsRef.current?.openCommands()}
+                    onOpenTodos={onToggleTodo}
+                  />
+                ) : (
+                  <div
+                    className="flex items-center justify-center h-full text-ui-base"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    <div className="text-center space-y-2">
+                      <p className="text-lg font-medium">RedClaw</p>
+                      <p className="text-ui-sm">连接 Gateway 后开始聊天</p>
+                    </div>
+                  </div>
+                ))}
+            </>
           ))}
 
         {(messages.length > 0 || isGenerating) && (
@@ -648,7 +672,7 @@ function ChatPanel({
           <span className="font-medium" style={{ color: "var(--text-primary)" }}>
             {model ? shortModel(model) : "等待模型"}
           </span>
-          <span className="opacity-60">|</span>
+          <span style={{ color: "var(--text-subtlest)" }}>|</span>
           <span>
             {totalTokens != null ? fmt(totalTokens) : "0"} / {fmt(contextTokens)}
             {percentUsed != null && (
