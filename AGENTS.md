@@ -5,7 +5,7 @@ Skills own workflows; root owns hard policy and routing.
 
 ## Start
 
-- Repo: `https://github.com/openclaw/openclaw`
+- Repo: RedClaw — independent fork of OpenClaw. Upstream is `https://github.com/openclaw/openclaw` for reference only; no `upstream` remote (never auto-fetch upstream; diverged intentionally). Product naming keeps OpenClaw for shipped code parity; RedClaw-specific surfaces live under `packages/desktop-gui/` and `.redcode/`.
 - Replies: repo-root refs only: `extensions/telegram/src/index.ts:80`. No absolute paths, no `~/`.
 - Docs/user-visible work: `pnpm docs:list`, then read relevant docs only.
 - Fix/triage answers need source, tests, current/shipped behavior, and dependency contract proof.
