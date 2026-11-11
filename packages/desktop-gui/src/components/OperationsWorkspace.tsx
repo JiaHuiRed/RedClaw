@@ -104,6 +104,21 @@ interface BehaviorState {
   presetId: string | null;
 }
 
+// channels.status 快照子集（webui ChannelsStatusSnapshot 对齐字段，GUI 只展示）
+interface ChannelAccountInfo {
+  accountId: string;
+  name?: string | null;
+  configured?: boolean | null;
+  running?: boolean | null;
+  connected?: boolean | null;
+  lastError?: string | null;
+}
+interface ChannelsSnapshot {
+  channelOrder?: string[];
+  channelLabels?: Record<string, string>;
+  channelAccounts?: Record<string, ChannelAccountInfo[]>;
+}
+
 function pathGet(obj: unknown, path: string): unknown {
   let cur: unknown = obj;
   for (const part of path.split(".")) {
@@ -162,6 +177,8 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
   const [draft, setDraft] = useState("");
   // 秋秋行为卡（通用设置区）：从 openclaw.json 读当前档位
   const [behavior, setBehavior] = useState<BehaviorState | null>(null);
+  // 频道状态卡（运行概况区）：秋秋的消息通道连接态（微信/QQ 等）
+  const [channelsSnap, setChannelsSnap] = useState<ChannelsSnapshot | null>(null);
   const load = useCallback(async () => {
     if (!connected) return;
     setBusy(true);
@@ -171,14 +188,17 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
         const snapshot = await gateway.call<ConfigSnapshot>("config.get");
         setBehavior(readBehavior(snapshot.sourceConfig ?? snapshot.config ?? {}));
       } else if (section === "overview") {
-        const [nextHealth, nextStatus, nextPresence] = await Promise.all([
+        const [nextHealth, nextStatus, nextPresence, nextChannels] = await Promise.all([
           gateway.call<Record<string, unknown>>("health"),
           gateway.call<Record<string, unknown>>("status"),
           gateway.call<unknown>("system-presence"),
+          // probe:false 走缓存态（不逐通道探测网络），快速刷新；主动探测走 probeChannels
+          gateway.call<ChannelsSnapshot>("channels.status", { probe: false }),
         ]);
         setHealth(nextHealth);
         setStatus(nextStatus);
         setPresence(Array.isArray(nextPresence) ? (nextPresence as Record<string, unknown>[]) : []);
+        setChannelsSnap(nextChannels);
       } else if (section === "devices") {
         const result = await gateway.call<{ pending?: Pending[]; paired?: Device[] }>(
           "device.pair.list",
@@ -268,6 +288,44 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
     } finally {
       setBusy(false);
     }
+  }
+
+  // 频道主动探测：probe:true 逐通道连网络探测（慢，~8s），刷新状态卡
+  async function probeChannels() {
+    setBusy(true);
+    try {
+      setChannelsSnap(
+        await gateway.call<ChannelsSnapshot>("channels.status", { probe: true, timeoutMs: 8000 }),
+      );
+      setNotice("频道状态已探测");
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 频道卡行数据：channelOrder 顺序展开，label 回退 channel id
+  const channelRows = useMemo(() => {
+    const snap = channelsSnap;
+    if (!snap) return [];
+    const accounts = snap.channelAccounts ?? {};
+    return (snap.channelOrder ?? []).map((id) => ({
+      id,
+      label: snap.channelLabels?.[id] || id,
+      accountList: accounts[id] ?? [],
+    }));
+  }, [channelsSnap]);
+
+  function channelStatusOf(acc: ChannelAccountInfo | undefined): {
+    text: string;
+    color: string;
+  } {
+    if (!acc) return { text: "无账号", color: "var(--text-subtlest)" };
+    if (acc.connected) return { text: "已连接", color: "var(--success)" };
+    if (acc.running) return { text: "运行中未连上", color: "var(--warning)" };
+    if (acc.configured) return { text: "已配置未运行", color: "var(--text-secondary)" };
+    return { text: "未配置", color: "var(--text-subtlest)" };
   }
 
   // Origins from config.get: paths in sourceConfig are user-authored, runtime
@@ -726,6 +784,55 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
                 默认项目区：{String(health.defaultAgentId ?? "—")} · 会话：
                 {String((health.sessions as { count?: number } | undefined)?.count ?? "—")} · 心跳：
                 {String(health.heartbeatSeconds ?? "—")} 秒
+              </p>
+            </div>
+            {/* 频道状态卡（webui Channels 对齐）：秋秋的消息通道连接态一眼可见 */}
+            <div className="rounded-xl p-4" style={surface}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">频道 · 秋秋的消息通道</h3>
+                <button
+                  onClick={() => void probeChannels()}
+                  disabled={busy || !connected}
+                  className="text-xs px-2 py-1 rounded-md hover:opacity-80 disabled:opacity-40"
+                  style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+                  title="逐通道联网探测真实连接态（约 8 秒）"
+                >
+                  探测
+                </button>
+              </div>
+              {channelRows.length === 0 ? (
+                <p className="text-xs mt-2" style={muted}>
+                  未配置任何频道
+                </p>
+              ) : (
+                <div className="mt-2.5 space-y-1.5">
+                  {channelRows.map(({ id, label, accountList }) => {
+                    const st = channelStatusOf(accountList[0]);
+                    const err = accountList[0]?.lastError;
+                    return (
+                      <div key={id} className="flex items-center gap-2 text-xs">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: st.color }}
+                        />
+                        <span style={{ color: "var(--text-primary)" }}>{label}</span>
+                        <span style={muted}>{st.text}</span>
+                        {err && (
+                          <span
+                            className="truncate min-w-0 flex-1"
+                            style={{ color: "var(--danger)" }}
+                            title={err}
+                          >
+                            {err}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs mt-2" style={muted}>
+                列表为缓存态，点「探测」获取实时连接（多账号通道取第一个）
               </p>
             </div>
             <div className="rounded-xl p-4" style={surface}>
