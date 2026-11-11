@@ -282,6 +282,53 @@ export default function App() {
     setInSession(true);
   }, []);
 
+  // 后台任务完成唤醒（学 ZCode task-notification）：秋秋的定时任务跑完时面板
+  // 没开也要知道——客户端轮询 cron.runs（scope=all，可见时 60s 一次），检出比
+  // 基线新的终态 run 就弹 toast。首拉只建基线不弹（防启动刷屏）；完成时间超出
+  // 10 分钟窗口的不补报（休眠唤醒回来不倒豆子，只抬基线——同 ZCode misfire
+  // 记 skipped 不补跑的收刀语义）
+  const lastCronRunTsRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+    const FRESH_WINDOW_MS = 10 * 60_000;
+    const poll = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const runs = await gateway.fetchAllCronRuns(6);
+        if (cancelled) return;
+        const newest = runs[0]?.ts;
+        if (newest == null) return;
+        if (lastCronRunTsRef.current == null) {
+          lastCronRunTsRef.current = newest;
+          return;
+        }
+        if (newest > lastCronRunTsRef.current) {
+          for (const run of runs) {
+            if (!run.ts || run.ts <= lastCronRunTsRef.current) break; // desc 序，见旧即止
+            if (run.status === "running" || !run.status) continue;
+            if (Date.now() - run.ts > FRESH_WINDOW_MS) continue;
+            const name = run.jobName || run.jobId;
+            if (run.status === "error") {
+              pushToast(`定时任务「${name}」运行失败${run.error ? `：${run.error}` : ""}`, "error");
+            } else {
+              pushToast(`定时任务「${name}」完成`, "success");
+            }
+          }
+          lastCronRunTsRef.current = newest;
+        }
+      } catch {
+        // 轮询失败静默：面板开着时 ActivityPanel 有自己的展示与报错面
+      }
+    };
+    const timer = setInterval(() => void poll(), 60_000);
+    void poll();
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [connected, pushToast]);
+
   const handleSelectView = useCallback((next: SidebarView) => {
     setVisitedViews((previous) => new Set(previous).add(next));
     // 右栏面板只挂在会话态顶栏的开关上，离开会话态时一并收起
