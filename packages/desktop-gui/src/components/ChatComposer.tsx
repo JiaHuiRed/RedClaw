@@ -17,6 +17,14 @@ const CHAT_THINKING_KEY = "redclaw:chatThinking:v1";
 // 输入历史召回（webui input-history 对齐）：↑ 上一条 / ↓ 下一条，封顶 50 条
 const INPUT_HISTORY_KEY = "redclaw:inputHistory:v1";
 const INPUT_HISTORY_CAP = 50;
+// 本地斜杠命令：手动压缩会话上下文（sessions.compact RPC 在 ChatPanel 侧执行）。
+// 刻意只有手动入口——不自动、不定时、不阈值触发（会断 DeepSeek 前缀缓存）
+const COMPACT_COMMAND: CommandEntry = {
+  name: "/compact",
+  description: "压缩会话上下文（手动触发，不自动执行）",
+  category: "会话",
+  acceptsArgs: false,
+};
 // 生图模式：🎨 切换，尺寸固定档位（来自 Stepfun API 实测，同 RedStudio）
 const IMAGE_SIZES = ["1024x1024", "768x1360", "896x1184", "1360x768", "1184x896"];
 
@@ -73,6 +81,7 @@ export function ChatComposer({
   sessionModel,
   commands,
   active,
+  onCompactSession,
   workDraft,
   onWorkDraftConsumed,
   onSendItem,
@@ -86,6 +95,8 @@ export function ChatComposer({
   sessionModel: string | null;
   commands: CommandEntry[];
   active?: boolean;
+  // 手动压缩会话（本地斜杠命令 /compact；纯手动，绝不自动/定时触发）
+  onCompactSession?: () => void;
   workDraft: { text: string; nonce: number } | null;
   onWorkDraftConsumed: () => void;
   onSendItem: (item: QueuedMessage) => void;
@@ -211,9 +222,15 @@ export function ChatComposer({
     }
   }
 
+  // 面板命令 = 网关注册命令 + 本地命令（/compact 仅在面板侧接线时出现）
+  const paletteCommands = useMemo(
+    () => (onCompactSession ? [COMPACT_COMMAND, ...commands] : commands),
+    [commands, onCompactSession],
+  );
+
   const paletteItems = useMemo(
-    () => getVisibleItems(commands, input, cmdCategory),
-    [commands, input, cmdCategory],
+    () => getVisibleItems(paletteCommands, input, cmdCategory),
+    [paletteCommands, input, cmdCategory],
   );
 
   // Any navigation that changes what's visible (typing, drilling in/out)
@@ -296,6 +313,12 @@ export function ChatComposer({
     if (item.kind === "header") {
       setCmdCategory(item.category);
       setInput("/");
+      return;
+    }
+    // 本地命令不走消息发送：/compact 直接触发 RPC（保持输入框原样）
+    if (item.command.name === "/compact") {
+      setShowCmdPalette(false);
+      onCompactSession?.();
       return;
     }
     const cmd = item.command;

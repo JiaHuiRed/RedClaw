@@ -14,6 +14,7 @@ import {
 } from "../gateway/client";
 import { useChatStream } from "../hooks/useChatStream";
 import { downloadTextFile, exportFileName, messagesToMarkdown } from "../lib/exportChat";
+import { friendlyError } from "../lib/friendlyError";
 import { useEscape } from "../lib/useEscape";
 import ActivityCapsule from "./ActivityCapsule";
 import { compressImageFile } from "./ChatAvatars";
@@ -376,6 +377,36 @@ function ChatPanel({
       );
     }
   }, [messages, sessions, currentSessionKey, pushToast]);
+
+  // 手动压缩会话（/compact，webui 同款 sessions.compact RPC）。纯手动：没有
+  // 任何自动/阈值触发路径——压缩会断 DeepSeek 前缀缓存，什么时候压由用户定
+  const handleCompactSession = useCallback(() => {
+    if (!currentSessionKey) {
+      pushToast("草稿会话还没有历史，无可压缩");
+      return;
+    }
+    pushToast("正在压缩上下文…");
+    void gateway
+      .call<{
+        compacted?: boolean;
+        reason?: string;
+        result?: { tokensBefore?: number; tokensAfter?: number };
+      }>("sessions.compact", { key: currentSessionKey })
+      .then((res) => {
+        const before = res?.result?.tokensBefore;
+        const after = res?.result?.tokensAfter;
+        if (res?.compacted) {
+          pushToast(
+            typeof before === "number" && typeof after === "number"
+              ? `已压缩：${before} → ${after} tokens`
+              : "已压缩会话上下文",
+          );
+        } else {
+          pushToast(`已跳过压缩${res?.reason ? `：${res.reason}` : ""}`);
+        }
+      })
+      .catch((err) => pushToast(`压缩失败：${friendlyError(err)}`));
+  }, [currentSessionKey, pushToast]);
 
   // 流式跟随滚动：内容增长（新消息/token/reasoning/工具卡）时若贴底则在下一帧
   // 滚到底；rAF 合并同帧多次触发，避免每个 token 强制一次同步 reflow。
@@ -799,6 +830,7 @@ function ChatPanel({
         onWorkDraftConsumed={onWorkDraftConsumed}
         onSendItem={(item) => void sendNow(item)}
         onStop={() => void handleStop()}
+        onCompactSession={handleCompactSession}
         pushToast={pushToast}
         actionsRef={composerActionsRef}
       />
