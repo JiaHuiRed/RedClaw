@@ -27,7 +27,8 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
       remarkPlugins={[remarkGfm]}
       components={{
         p({ children }) {
-          return <p className="my-1.5 last:mb-0">{children}</p>;
+          // text-pretty：避免段落末行孤字（中文排版尤其明显）
+          return <p className="my-1.5 last:mb-0 text-pretty">{children}</p>;
         },
         code({ className, children }) {
           const match = /language-(\w+)/.exec(className || "");
@@ -93,13 +94,13 @@ export const MarkdownBlock = memo(function MarkdownBlock({ content }: { content:
           return <li>{children}</li>;
         },
         h1({ children }) {
-          return <h1 className="text-ui-lg font-bold my-2">{children}</h1>;
+          return <h1 className="text-ui-lg font-bold my-2 text-balance">{children}</h1>;
         },
         h2({ children }) {
-          return <h2 className="text-ui-base font-bold my-2">{children}</h2>;
+          return <h2 className="text-ui-base font-bold my-2 text-balance">{children}</h2>;
         },
         h3({ children }) {
-          return <h3 className="text-ui-base font-semibold my-1.5">{children}</h3>;
+          return <h3 className="text-ui-base font-semibold my-1.5 text-balance">{children}</h3>;
         },
         blockquote({ children }) {
           return (
@@ -175,19 +176,27 @@ export function toolSegmentKey(tool: ToolCallEvent): string {
 
 // 单行紧凑工具卡：状态（spin/Check/失败）+ 工具名 + 等宽输入预览截断。
 // 流式分段与历史消息的工具明细共用，保证两处形态一致。
+// 左导线状态色 + 运行中迷你进度条（学 ZCode 工具卡）：多卡连排时一眼扫出
+// 这轮工具在哪一步、哪步失败。
 export function StreamToolCard({ tool }: { tool: ToolCallEvent }) {
   const running = tool.phase === "start" && tool.result === undefined && tool.error === undefined;
   const failed = tool.error !== undefined;
   const preview = formatToolPreview(tool);
+  const railColor = failed ? "var(--danger)" : running ? "var(--accent)" : "var(--success)";
   return (
     <div
-      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-ui-sm min-w-0"
+      className="relative flex items-center gap-2 rounded-lg pl-3 pr-2.5 py-1.5 text-ui-sm min-w-0 overflow-hidden"
       style={{
         background: "var(--bg-tertiary)",
         border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
         color: "var(--text-secondary)",
       }}
     >
+      <span
+        aria-hidden
+        className="absolute left-1 top-1 bottom-1 w-[2px] rounded-full"
+        style={{ background: railColor, opacity: failed || running ? 1 : 0.45 }}
+      />
       {failed ? (
         <span className="shrink-0" style={{ color: "var(--danger)" }}>
           失败
@@ -213,6 +222,9 @@ export function StreamToolCard({ tool }: { tool: ToolCallEvent }) {
         >
           {preview}
         </span>
+      )}
+      {running && (
+        <span aria-hidden className="redclaw-tool-progress absolute left-3 right-3 bottom-0 h-px" />
       )}
     </div>
   );
@@ -311,12 +323,18 @@ function ToolsPart({ tools }: { tools: ToolCallEvent[] }) {
           ) : (
             <details
               key={i}
-              className="rounded-lg px-2.5 py-1.5"
+              className="relative rounded-lg pl-3 pr-2.5 py-1.5 overflow-hidden"
               style={{
                 background: "var(--bg-tertiary)",
                 border: "1px solid color-mix(in srgb, var(--border) 55%, transparent)",
               }}
             >
+              {/* 折叠组的左导线用中性色：组内各卡状态不一，不代言 */}
+              <span
+                aria-hidden
+                className="absolute left-1 top-1 bottom-1 w-[2px] rounded-full"
+                style={{ background: "var(--text-secondary)", opacity: 0.4 }}
+              />
               <summary className="cursor-pointer select-none flex items-center gap-2">
                 <span className="font-medium" style={{ color: "var(--text-primary)" }}>
                   {item.name}

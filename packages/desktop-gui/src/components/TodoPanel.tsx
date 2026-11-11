@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { gateway, type Todo } from "../gateway/client";
 import ResizeHandle from "./ResizeHandle";
@@ -110,6 +110,24 @@ export default function TodoPanel({ width, onResize, onClose }: TodoPanelProps) 
         </button>
       </div>
 
+      {/* 活跃项标题上浮（Todo 三规则之一）：列表滚到深处也能看到当前在推进什么 */}
+      {openTodos.length > 0 && (
+        <div
+          className="flex items-center gap-2 px-4 py-2 border-b text-ui-caption shrink-0"
+          style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
+        >
+          <span className="shrink-0">进行中 {openTodos.length} 项</span>
+          <span style={{ color: "var(--text-subtlest)" }}>·</span>
+          <span
+            className="truncate min-w-0"
+            style={{ color: "var(--text-primary)" }}
+            title={openTodos[0]?.title}
+          >
+            {openTodos[0]?.title}
+          </span>
+        </div>
+      )}
+
       <div className="p-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
         <div
           className="flex items-center gap-2 rounded-lg px-3 py-2"
@@ -143,8 +161,23 @@ export default function TodoPanel({ width, onResize, onClose }: TodoPanelProps) 
           </div>
         )}
         {!loading && openTodos.length === 0 && doneTodos.length === 0 && (
-          <div className="text-xs text-center py-8" style={{ color: "var(--text-secondary)" }}>
+          <div
+            className="text-xs text-center py-8 leading-relaxed"
+            style={{ color: "var(--text-secondary)" }}
+          >
             暂无待办
+            <br />
+            跟秋秋说一句，让她帮你记下
+          </div>
+        )}
+        {/* 全完成收纳（Todo 三规则之二）：没有活跃项时列表降级为一行收尾状态 */}
+        {!loading && openTodos.length === 0 && doneTodos.length > 0 && (
+          <div
+            className="flex items-center gap-2 px-2 py-2.5 text-ui-sm"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            <CheckCircle2 size={14} style={{ color: "var(--success)" }} />
+            全部完成 · {doneTodos.length} 项已收尾
           </div>
         )}
         {openTodos.map((todo) => {

@@ -1,23 +1,24 @@
 import { ArrowLeft, CalendarClock, Coins, ListTodo, PanelRight } from "lucide-react";
 import type { ChatSession } from "../gateway/client";
 
-// 顶栏面板按钮分色：同排按钮一眼可辨（色阶 -9 淡染背景 + 同色文字，随主题切换）
+// 顶栏面板按钮分色：同排按钮一眼可辨（语义类型色 -9 淡染背景 + 同色文字，
+// 随主题切换；走 --info/--success/--violet/--warning 别名而非裸色阶变量）
 const PANEL_TINTS = {
   todo: {
-    background: "color-mix(in srgb, var(--blue-9) 12%, var(--bg-secondary))",
-    color: "var(--blue-9)",
+    background: "color-mix(in srgb, var(--info) 12%, var(--bg-secondary))",
+    color: "var(--info)",
   },
   usage: {
-    background: "color-mix(in srgb, var(--green-9) 12%, var(--bg-secondary))",
-    color: "var(--green-9)",
+    background: "color-mix(in srgb, var(--success) 12%, var(--bg-secondary))",
+    color: "var(--success)",
   },
   cron: {
-    background: "color-mix(in srgb, var(--violet-9) 12%, var(--bg-secondary))",
-    color: "var(--violet-9)",
+    background: "color-mix(in srgb, var(--violet) 12%, var(--bg-secondary))",
+    color: "var(--violet)",
   },
   activity: {
-    background: "color-mix(in srgb, var(--amber-9) 14%, var(--bg-secondary))",
-    color: "var(--amber-9)",
+    background: "color-mix(in srgb, var(--warning) 14%, var(--bg-secondary))",
+    color: "var(--warning)",
   },
 } as const;
 
