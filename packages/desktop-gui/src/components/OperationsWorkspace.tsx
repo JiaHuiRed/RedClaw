@@ -70,6 +70,65 @@ const SECTIONS = [
 
 export type Section = (typeof SECTIONS)[number]["id"];
 
+// ---- 秋秋行为（webui Quick Settings 对齐，写 openclaw.json 即热重载）----
+const TOOL_PROFILES = [
+  ["minimal", "最小"],
+  ["coding", "编码"],
+  ["messaging", "沟通"],
+  ["full", "全量"],
+] as const;
+
+// 上下文注入预设（同 webui config-presets 的四个档位）
+const CONTEXT_PRESETS = [
+  { id: "personal", label: "个人助理（记忆优先）", max: 20000, total: 150000, injection: "always" },
+  { id: "code", label: "编码代理（上下文更满）", max: 50000, total: 300000, injection: "always" },
+  {
+    id: "team",
+    label: "团队机器人（省 token）",
+    max: 10000,
+    total: 80000,
+    injection: "continuation-skip",
+  },
+  {
+    id: "minimal",
+    label: "最小（最快最省）",
+    max: 5000,
+    total: 30000,
+    injection: "continuation-skip",
+  },
+] as const;
+
+interface BehaviorState {
+  profile: string;
+  browser: boolean;
+  presetId: string | null;
+}
+
+function pathGet(obj: unknown, path: string): unknown {
+  let cur: unknown = obj;
+  for (const part of path.split(".")) {
+    if (!cur || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[part];
+  }
+  return cur;
+}
+
+function readBehavior(cfg: unknown): BehaviorState {
+  const profile = pathGet(cfg, "tools.profile");
+  const browser = pathGet(cfg, "browser.enabled");
+  const max = pathGet(cfg, "agents.defaults.bootstrapMaxChars");
+  const total = pathGet(cfg, "agents.defaults.bootstrapTotalMaxChars");
+  const injection = pathGet(cfg, "agents.defaults.contextInjection");
+  const preset = CONTEXT_PRESETS.find(
+    (p) => p.max === max && p.total === total && p.injection === injection,
+  );
+  return {
+    profile: typeof profile === "string" ? profile : "coding",
+    browser: typeof browser === "boolean" ? browser : true,
+    presetId: preset?.id ?? null,
+  };
+}
+
 // 旧侧栏底部齿轮（SettingsModal）已并入这里：主题 + 连接是仅有的全局设置
 
 export default function OperationsWorkspace({ connected }: { connected: boolean }) {
@@ -101,12 +160,17 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
   const [configKey, setConfigKey] = useState("");
   const [original, setOriginal] = useState("");
   const [draft, setDraft] = useState("");
+  // 秋秋行为卡（通用设置区）：从 openclaw.json 读当前档位
+  const [behavior, setBehavior] = useState<BehaviorState | null>(null);
   const load = useCallback(async () => {
     if (!connected) return;
     setBusy(true);
     setError("");
     try {
-      if (section === "overview") {
+      if (section === "general") {
+        const snapshot = await gateway.call<ConfigSnapshot>("config.get");
+        setBehavior(readBehavior(snapshot.sourceConfig ?? snapshot.config ?? {}));
+      } else if (section === "overview") {
         const [nextHealth, nextStatus, nextPresence] = await Promise.all([
           gateway.call<Record<string, unknown>>("health"),
           gateway.call<Record<string, unknown>>("status"),
@@ -178,6 +242,27 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
       await gateway.call(method, params);
       setNotice("操作完成");
       await load();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 秋秋行为：局部 patch（服务端 applyMergePatch 深合并，只动给定键），
+  // 网关热重载，下一轮对话生效
+  async function patchBehavior(patch: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const snapshot = await gateway.call<ConfigSnapshot>("config.get");
+      await gateway.call("config.patch", {
+        baseHash: snapshot.hash,
+        raw: JSON.stringify(patch),
+        note: "Desktop GUI: behavior settings",
+      });
+      setNotice("已写入配置，下一轮对话生效");
+      const fresh = await gateway.call<ConfigSnapshot>("config.get");
+      setBehavior(readBehavior(fresh.sourceConfig ?? fresh.config ?? {}));
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -490,6 +575,104 @@ export default function OperationsWorkspace({ connected }: { connected: boolean 
               <p className="text-xs" style={muted}>
                 全局界面文字（含聊天正文）随此缩放
               </p>
+            </div>
+            {/* 秋秋行为（webui Quick Settings 对齐）：工具档案/浏览器工具/上下文注入 */}
+            <div className="rounded-xl p-4 space-y-3" style={surface}>
+              <h3 className="text-sm font-medium flex items-center gap-1.5">
+                <Settings size={14} />
+                秋秋行为
+              </h3>
+              {!behavior ? (
+                <p className="text-xs" style={muted}>
+                  {connected ? "加载中…" : "连接 Gateway 后可调"}
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <div className="text-xs mb-1.5" style={muted}>
+                      工具档案（tools.profile）
+                    </div>
+                    <div className="flex gap-1">
+                      {TOOL_PROFILES.map(([value, label]) => {
+                        const active = behavior.profile === value;
+                        return (
+                          <button
+                            key={value}
+                            disabled={busy}
+                            onClick={() => void patchBehavior({ tools: { profile: value } })}
+                            className="flex-1 text-xs py-1.5 rounded-md font-medium transition-colors hover:opacity-80 disabled:opacity-40"
+                            style={{
+                              background: active ? "var(--accent)" : "var(--bg-tertiary)",
+                              color: active ? "var(--on-solid)" : "var(--text-secondary)",
+                            }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs" style={muted}>
+                      浏览器工具（browser.enabled）
+                    </div>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void patchBehavior({ browser: { enabled: !behavior.browser } })
+                      }
+                      className="text-xs px-2.5 py-1 rounded-md font-medium hover:opacity-80 disabled:opacity-40"
+                      style={{
+                        background: behavior.browser
+                          ? "color-mix(in srgb, var(--success) 15%, var(--bg-tertiary))"
+                          : "var(--bg-tertiary)",
+                        color: behavior.browser ? "var(--success)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {behavior.browser ? "已开启" : "已关闭"}
+                    </button>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-1.5" style={muted}>
+                      上下文注入预设（agents.defaults）
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {CONTEXT_PRESETS.map((p) => {
+                        const active = behavior.presetId === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            disabled={busy}
+                            onClick={() =>
+                              void patchBehavior({
+                                agents: {
+                                  defaults: {
+                                    bootstrapMaxChars: p.max,
+                                    bootstrapTotalMaxChars: p.total,
+                                    contextInjection: p.injection,
+                                  },
+                                },
+                              })
+                            }
+                            className="text-xs py-1.5 px-2 rounded-md font-medium transition-colors hover:opacity-80 disabled:opacity-40 truncate"
+                            title={p.label}
+                            style={{
+                              background: active ? "var(--accent)" : "var(--bg-tertiary)",
+                              color: active ? "var(--on-solid)" : "var(--text-secondary)",
+                            }}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <p className="text-xs" style={muted}>
+                    写入 openclaw.json
+                    即热重载；进行中的对话下一轮生效。自定义组合（不在四档内）时预设高亮清空
+                  </p>
+                </>
+              )}
             </div>
             <div className="rounded-xl p-4 space-y-2" style={surface}>
               <h3 className="text-sm font-medium">Gateway 连接</h3>
